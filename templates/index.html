@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SIMO/MISO System Visualization</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        .antenna {
+            fill: steelblue;
+            stroke: black;
+            stroke-width: 2;
+        }
+        .line {
+            stroke: gray;
+            stroke-width: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <h1>SIMO/MISO System Visualization</h1>
+    <form id="system-form">
+        <label for="system-type">System Type:</label>
+        <select id="system-type" name="system_type">
+            <option value="SIMO">SIMO</option>
+            <option value="MISO">MISO</option>
+        </select>
+        <label for="num-antennas">Number of Antennas:</label>
+        <input type="number" id="num-antennas" name="num_antennas" min="1" required>
+        <button type="submit">Generate</button>
+    </form>
+
+    <div id="diagram-container">
+        <svg id="diagram" width="800" height="400"></svg>
+    </div>
+
+    <script>
+        const form = document.getElementById('system-form');
+        const svg = d3.select('#diagram');
+
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const systemType = document.getElementById('system-type').value;
+            const numAntennas = document.getElementById('num-antennas').value;
+
+            const response = await fetch('/generate_diagram', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    system_type: systemType,
+                    num_rx: systemType === 'SIMO' ? numAntennas : null,
+                    num_tx: systemType === 'MISO' ? numAntennas : null
+                })
+            });
+
+            const data = await response.json();
+            if (data.error) {
+                alert(data.error);
+                return;
+            }
+
+            renderDiagram(data);
+        });
+
+        function renderDiagram(data) {
+            svg.selectAll('*').remove(); // Clear existing diagram
+
+            const width = +svg.attr('width');
+            const height = +svg.attr('height');
+
+            const txX = 100;
+            const rxX = width - 100;
+
+            if (data.system_type === 'SIMO') {
+                const numRx = data.num_rx;
+
+                // Draw transmitter
+                svg.append('circle')
+                    .attr('cx', txX)
+                    .attr('cy', height / 2)
+                    .attr('r', 20)
+                    .attr('class', 'antenna');
+
+                // Draw receivers and connections
+                for (let i = 0; i < numRx; i++) {
+                    const y = (i + 1) * (height / (numRx + 1));
+
+                    svg.append('circle')
+                        .attr('cx', rxX)
+                        .attr('cy', y)
+                        .attr('r', 20)
+                        .attr('class', 'antenna');
+
+                    svg.append('line')
+                        .attr('x1', txX + 20)
+                        .attr('y1', height / 2)
+                        .attr('x2', rxX - 20)
+                        .attr('y2', y)
+                        .attr('class', 'line');
+                }
+            } else if (data.system_type === 'MISO') {
+                const numTx = data.num_tx;
+
+                // Draw receivers
+                svg.append('circle')
+                    .attr('cx', rxX)
+                    .attr('cy', height / 2)
+                    .attr('r', 20)
+                    .attr('class', 'antenna');
+
+                // Draw transmitters and connections
+                for (let i = 0; i < numTx; i++) {
+                    const y = (i + 1) * (height / (numTx + 1));
+
+                    svg.append('circle')
+                        .attr('cx', txX)
+                        .attr('cy', y)
+                        .attr('r', 20)
+                        .attr('class', 'antenna');
+
+                    svg.append('line')
+                        .attr('x1', txX + 20)
+                        .attr('y1', y)
+                        .attr('x2', rxX - 20)
+                        .attr('y2', height / 2)
+                        .attr('class', 'line');
+                }
+            }
+        }
+    </script>
+</body>
+</html>
