@@ -63,70 +63,87 @@
         });
 
         function renderDiagram(data) {
-            svg.selectAll('*').remove(); // Clear existing diagram
+    svg.selectAll('*').remove(); // Clear existing diagram
 
-            const width = +svg.attr('width');
-            const height = +svg.attr('height');
+    const width = +svg.attr('width');
+    const height = +svg.attr('height');
 
-            const txX = 100;
-            const rxX = width - 100;
+    const txX = 100;
+    const rxX = width - 100;
 
-            if (data.system_type === 'SIMO') {
-                const numRx = data.num_rx;
+    if (data.system_type === 'SIMO') {
+        const numRx = data.num_rx;
 
-                // Draw transmitter
-                svg.append('circle')
-                    .attr('cx', txX)
-                    .attr('cy', height / 2)
-                    .attr('r', 20)
-                    .attr('class', 'antenna');
+        // Draw transmitter as '_Y'
+        svg.append('text')
+            .attr('x', txX)
+            .attr('y', height / 2)
+            .attr('text-anchor', 'middle')
+            .attr('dominant-baseline', 'middle')
+            .attr('font-size', '24px')
+            .attr('fill', 'steelblue')
+            .text('_Y');
 
-                // Draw receivers and connections
-                for (let i = 0; i < numRx; i++) {
-                    const y = (i + 1) * (height / (numRx + 1));
+        // Draw receivers and connections
+        for (let i = 0; i < numRx; i++) {
+            const y = (i + 1) * (height / (numRx + 1));
 
-                    svg.append('circle')
-                        .attr('cx', rxX)
-                        .attr('cy', y)
-                        .attr('r', 20)
-                        .attr('class', 'antenna');
+            // Draw receiver as 'Y_'
+            svg.append('text')
+                .attr('x', rxX)
+                .attr('y', y)
+                .attr('text-anchor', 'middle')
+                .attr('dominant-baseline', 'middle')
+                .attr('font-size', '24px')
+                .attr('fill', 'steelblue')
+                .text('Y_');
 
-                    svg.append('line')
-                        .attr('x1', txX + 20)
-                        .attr('y1', height / 2)
-                        .attr('x2', rxX - 20)
-                        .attr('y2', y)
-                        .attr('class', 'line');
-                }
-            } else if (data.system_type === 'MISO') {
-                const numTx = data.num_tx;
-
-                // Draw receivers
-                svg.append('circle')
-                    .attr('cx', rxX)
-                    .attr('cy', height / 2)
-                    .attr('r', 20)
-                    .attr('class', 'antenna');
-
-                // Draw transmitters and connections
-                for (let i = 0; i < numTx; i++) {
-                    const y = (i + 1) * (height / (numTx + 1));
-
-                    svg.append('circle')
-                        .attr('cx', txX)
-                        .attr('cy', y)
-                        .attr('r', 20)
-                        .attr('class', 'antenna');
-
-                    svg.append('line')
-                        .attr('x1', txX + 20)
-                        .attr('y1', y)
-                        .attr('x2', rxX - 20)
-                        .attr('y2', height / 2)
-                        .attr('class', 'line');
-                }
-            }
+            // Draw line connection
+            svg.append('line')
+                .attr('x1', txX + 20)
+                .attr('y1', height / 2)
+                .attr('x2', rxX - 20)
+                .attr('y2', y)
+                .attr('class', 'line');
         }
+    } else if (data.system_type === 'MISO') {
+        const numTx = data.num_tx;
+
+        // Draw receiver as 'Y_'
+        svg.append('text')
+            .attr('x', rxX)
+            .attr('y', height / 2)
+            .attr('text-anchor', 'middle')
+            .attr('dominant-baseline', 'middle')
+            .attr('font-size', '24px')
+            .attr('fill', 'steelblue')
+            .text('Y_');
+
+        // Draw transmitters and connections
+        for (let i = 0; i < numTx; i++) {
+            const y = (i + 1) * (height / (numTx + 1));
+
+            // Draw transmitter as '_Y'
+            svg.append('text')
+                .attr('x', txX)
+                .attr('y', y)
+                .attr('text-anchor', 'middle')
+                .attr('dominant-baseline', 'middle')
+                .attr('font-size', '24px')
+                .attr('fill', 'steelblue')
+                .text('_Y');
+
+            // Draw line connection
+            svg.append('line')
+                .attr('x1', txX + 20)
+                .attr('y1', y)
+                .attr('x2', rxX - 20)
+                .attr('y2', height / 2)
+                .attr('class', 'line');
+        }
+    }
+}
+
     </script>
 </body>
 </html>
