@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Path Loss Experiment</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 20px;
+        }
+        #experiment-area {
+            position: relative;
+            width: 800px;
+            height: 200px;
+            border: 1px solid #ccc;
+            margin: 20px auto;
+        }
+        .antenna {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 24px;
+        }
+        #transmitter {
+            cursor: pointer;
+            color: blue;
+        }
+        #receiver {
+            left: 750px;
+            color: green;
+        }
+        .slider-container {
+            margin: 20px auto;
+            width: 80%;
+        }
+    </style>
+</head>
+<body>
+    <h1>Path Loss Experiment</h1>
+    <div id="experiment-area">
+        <div id="transmitter" class="antenna" style="left: 750px;">_Y</div>
+        <div id="receiver" class="antenna">Y_</div>
+    </div>
+    <div class="slider-container">
+        <label for="distance-slider">Adjust Transmitter Position:</label><br>
+        <input type="range" id="distance-slider" min="0" max="750" value="750" step="1" style="width: 100%;">
+    </div>
+    <div>
+        <p><strong>Distance:</strong> <span id="distance">0</span> meters</p>
+        <p><strong>Path Loss:</strong> <span id="path-loss">0</span> dB</p>
+    </div>
+    <script>
+        const slider = document.getElementById('distance-slider');
+        const transmitter = document.getElementById('transmitter');
+        const distanceDisplay = document.getElementById('distance');
+        const pathLossDisplay = document.getElementById('path-loss');
+
+        const receiverPosition = 750; // Fixed position of the receiver
+        const frequency = 900; // Frequency in MHz
+
+        function calculatePathLoss(distance, frequency) {
+            return (20 * Math.log10(distance) + 20 * Math.log10(frequency) - 147.55).toFixed(2);
+        }
+
+        slider.addEventListener('input', () => {
+            const transmitterPosition = parseInt(slider.value);
+            const distance = Math.abs(receiverPosition - transmitterPosition); // Distance between antennas
+            transmitter.style.left = `${transmitterPosition}px`;
+            distanceDisplay.textContent = distance;
+            pathLossDisplay.textContent = calculatePathLoss(distance || 1, frequency); // Avoid log(0)
+        });
+    </script>
+</body>
+</html>
