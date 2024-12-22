@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Path Loss Experiment</title>
+    <title>Path Loss Experiment with Antenna Heights</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -13,7 +13,7 @@
         #experiment-area {
             position: relative;
             width: 800px;
-            height: 200px;
+            height: 300px;
             border: 1px solid #ccc;
             margin: 20px auto;
         }
@@ -21,31 +21,44 @@
             position: absolute;
             top: 50%;
             transform: translateY(-50%);
-            font-size: 24px;
+            text-align: center;
         }
         #transmitter {
-            cursor: pointer;
-            color: blue;
+            left: 0;
         }
         #receiver {
-            left: 750px;
-            color: green;
+            cursor: pointer;
         }
-        .slider-container {
+        .slider-container,
+        .input-container {
             margin: 20px auto;
             width: 80%;
+        }
+        img {
+            display: block;
+            margin: 0 auto;
         }
     </style>
 </head>
 <body>
-    <h1>Path Loss Experiment</h1>
+    <h1>Path Loss Experiment with Antenna Heights</h1>
+    <div class="input-container">
+        <label for="tx-height">Transmitter Height (meters):</label>
+        <input type="number" id="tx-height" min="1" value="10" step="1">
+        <label for="rx-height">Receiver Height (meters):</label>
+        <input type="number" id="rx-height" min="1" value="10" step="1">
+    </div>
     <div id="experiment-area">
-        <div id="transmitter" class="antenna" style="left: 750px;">_Y</div>
-        <div id="receiver" class="antenna">Y_</div>
+        <div id="transmitter" class="antenna">
+            <img src="{{ url_for('static', filename='images/antenna-svgrepo-com.svg') }}" id="tx-image" style="height: 100px;">
+        </div>
+        <div id="receiver" class="antenna" style="left: 0;">
+            <img src="{{ url_for('static', filename='images/antenna-svgrepo-com.svg') }}" id="rx-image" style="height: 100px;">
+        </div>
     </div>
     <div class="slider-container">
-        <label for="distance-slider">Adjust Transmitter Position:</label><br>
-        <input type="range" id="distance-slider" min="0" max="750" value="750" step="1" style="width: 100%;">
+        <label for="distance-slider">Adjust Receiver Position:</label><br>
+        <input type="range" id="distance-slider" min="0" max="750" value="0" step="1" style="width: 100%;">
     </div>
     <div>
         <p><strong>Distance:</strong> <span id="distance">0</span> meters</p>
@@ -54,23 +67,49 @@
     <script>
         const slider = document.getElementById('distance-slider');
         const transmitter = document.getElementById('transmitter');
+        const receiver = document.getElementById('receiver');
+        const txHeightInput = document.getElementById('tx-height');
+        const rxHeightInput = document.getElementById('rx-height');
         const distanceDisplay = document.getElementById('distance');
         const pathLossDisplay = document.getElementById('path-loss');
+        const txImage = document.getElementById('tx-image');
+        const rxImage = document.getElementById('rx-image');
 
-        const receiverPosition = 750; // Fixed position of the receiver
+        const transmitterPosition = 0; // Fixed position of the transmitter
         const frequency = 900; // Frequency in MHz
 
-        function calculatePathLoss(distance, frequency) {
-            return (20 * Math.log10(distance) + 20 * Math.log10(frequency) - 147.55).toFixed(2);
+        function calculatePathLoss(distance, frequency, txHeight, rxHeight) {
+            return (
+                20 * Math.log10(distance || 1) +
+                20 * Math.log10(frequency) -
+                20 * Math.log10(txHeight) -
+                20 * Math.log10(rxHeight) -
+                147.55
+            ).toFixed(2);
+        }
+
+        function updateAntennaHeights() {
+            const txHeight = parseInt(txHeightInput.value);
+            const rxHeight = parseInt(rxHeightInput.value);
+            txImage.style.height = `${txHeight * 10}px`; // Scale height visually
+            rxImage.style.height = `${rxHeight * 10}px`; // Scale height visually
         }
 
         slider.addEventListener('input', () => {
-            const transmitterPosition = parseInt(slider.value);
+            const receiverPosition = parseInt(slider.value);
             const distance = Math.abs(receiverPosition - transmitterPosition); // Distance between antennas
-            transmitter.style.left = `${transmitterPosition}px`;
+            receiver.style.left = `${receiverPosition}px`;
+            const txHeight = parseInt(txHeightInput.value);
+            const rxHeight = parseInt(rxHeightInput.value);
             distanceDisplay.textContent = distance;
-            pathLossDisplay.textContent = calculatePathLoss(distance || 1, frequency); // Avoid log(0)
+            pathLossDisplay.textContent = calculatePathLoss(distance, frequency, txHeight, rxHeight);
         });
+
+        txHeightInput.addEventListener('input', updateAntennaHeights);
+        rxHeightInput.addEventListener('input', updateAntennaHeights);
+
+        // Initialize antenna heights
+        updateAntennaHeights();
     </script>
 </body>
 </html>

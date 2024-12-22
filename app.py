@@ -1,10 +1,15 @@
 from flask import Flask, render_template, request, jsonify
+import math
 
 app = Flask(__name__)
 
 @app.route('/')
 def index():
     return render_template('index.html')
+
+@app.route('/pathloss')
+def pathloss():
+    return render_template('pathloss.html')
 
 @app.route('/generate_diagram', methods=['POST'])
 def generate_diagram():
@@ -27,6 +32,20 @@ def generate_diagram():
             'num_rx': 1
         })
     else:
+        return jsonify({'error': 'Invalid input'}), 400
+
+@app.route('/calculate_path_loss', methods=['GET'])
+def calculate_path_loss():
+    try:
+        distance = float(request.args.get('distance', 1))
+        frequency = float(request.args.get('frequency', 900))  # Default to 900 MHz
+        if distance <= 0 or frequency <= 0:
+            return jsonify({'error': 'Distance and frequency must be positive'}), 400
+
+        # Free Space Path Loss formula
+        path_loss = 20 * math.log10(distance) + 20 * math.log10(frequency) - 147.55
+        return jsonify({'path_loss': round(path_loss, 2)})
+    except ValueError:
         return jsonify({'error': 'Invalid input'}), 400
 
 if __name__ == '__main__':
