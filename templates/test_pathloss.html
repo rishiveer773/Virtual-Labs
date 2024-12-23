@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Path Loss Experiment</title>
     <style>
-        /* Previous styles remain the same except for h1 */
         :root {
             --primary-color: #2563eb;
             --background-color: #f8fafc;
@@ -19,9 +18,10 @@
             background-color: var(--background-color);
             color: var(--text-color);
             margin: 0;
-            padding: 1rem;
+            padding: 0.5rem; /* Reduced from 1rem */
             line-height: 1.6;
-            min-height: 100vh;
+            height: 100vh;
+            box-sizing: border-box;
         }
 
         .container {
@@ -29,17 +29,19 @@
             margin: 0 auto;
             display: grid;
             grid-template-columns: 300px 1fr;
-            gap: 1rem;
-            height: calc(100vh - 2rem);
+            gap: 0.5rem; /* Reduced from 1rem */
+            height: 100%;
         }
 
         h1 {
             grid-column: 1 / -1;
             text-align: center;
             color: var(--text-color);
-            font-size: 1.25rem;
-            margin: 0 0 0.5rem 0; /* Reduced margin */
-            padding: 0.25rem 0; /* Reduced padding */
+            font-size: 1.1rem; /* Reduced from 1.25rem */
+            margin: 0;
+            padding: 0.25rem 0;
+            height: 1.5rem; /* Fixed height */
+            line-height: 1.5rem;
         }
 
         /* Rest of the styles remain the same */
@@ -47,20 +49,24 @@
             background: var(--card-background);
             border-radius: 12px;
             box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-            padding: 1rem;
+            padding: 0.5rem; /* Reduced from 1rem */
             display: flex;
             flex-direction: column;
-            gap: 1rem;
+            gap: 0.75rem; /* Reduced from 1rem */
+            height: calc(100vh - 10rem); /* Adjusted to account for header height */
         }
 
         .main-content {
-            background: var(--card-background);
-            border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-            padding: 1rem;
-            display: flex;
-            flex-direction: column;
+        background: var(--card-background);
+        border-radius: 12px;
+        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        padding: 0.5rem; /* Further reduced padding */
+        display: flex;
+        flex-direction: column;
+        height: calc(100vh - 10rem); /* Reduced height to fit within the viewport */
+        overflow: hidden; /* Prevents unnecessary scrolling */
         }
+
 
         #experiment-area {
             position: relative;
@@ -70,9 +76,10 @@
             overflow: hidden;
             box-sizing: border-box;
             padding: 0 var(--experiment-padding);
-            margin-bottom: 1rem;
+            margin-bottom: 0.75rem; /* Reduced from 1rem */
         }
 
+        /* Rest of the styles and script remain exactly the same */
         .antenna {
             position: absolute;
             bottom: 40%;
@@ -140,12 +147,12 @@
         .metrics {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 1rem;
+            gap: 0.75rem; /* Reduced from 1rem */
         }
 
         .metric-card {
             background: var(--background-color);
-            padding: 1rem;
+            padding: 0.75rem; /* Reduced from 1rem */
             border-radius: 8px;
             text-align: center;
         }
@@ -164,6 +171,7 @@
     </style>
 </head>
 <body>
+    <!-- Rest of the HTML remains exactly the same -->
     <div class="container">
         <h1>Path Loss Experiment</h1>
         
