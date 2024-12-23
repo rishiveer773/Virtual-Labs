@@ -18,7 +18,7 @@
             background-color: var(--background-color);
             color: var(--text-color);
             margin: 0;
-            padding: 0.5rem; /* Reduced from 1rem */
+            padding: 0.5rem;
             line-height: 1.6;
             height: 100vh;
             box-sizing: border-box;
@@ -29,7 +29,7 @@
             margin: 0 auto;
             display: grid;
             grid-template-columns: 300px 1fr;
-            gap: 0.5rem; /* Reduced from 1rem */
+            gap: 0.5rem;
             height: 100%;
         }
 
@@ -37,36 +37,34 @@
             grid-column: 1 / -1;
             text-align: center;
             color: var(--text-color);
-            font-size: 1.5rem;
-            margin: 0 0.5 0.5rem 0;
+            font-size: 1.1rem;
+            margin: 0;
             padding: 0.25rem 0;
-            height: 1.5rem; /* Fixed height */
+            height: 1.5rem;
             line-height: 1.5rem;
         }
 
-        /* Rest of the styles remain the same */
         .sidebar {
             background: var(--card-background);
             border-radius: 12px;
             box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-            padding: 0.5rem; /* Reduced from 1rem */
+            padding: 0.75rem;
             display: flex;
             flex-direction: column;
-            gap: 0.75rem; /* Reduced from 1rem */
-            height: calc(100vh - 10rem); /* Adjusted to account for header height */
+            gap: 0.75rem;
+            height: calc(100vh - 4rem);
         }
 
         .main-content {
-        background: var(--card-background);
-        border-radius: 12px;
-        box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-        padding: 0.5rem; /* Further reduced padding */
-        display: flex;
-        flex-direction: column;
-        height: calc(100vh - 10rem); /* Reduced height to fit within the viewport */
-        overflow: hidden; /* Prevents unnecessary scrolling */
+            background: var(--card-background);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            padding: 0.5rem;
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 4rem);
+            overflow: hidden;
         }
-
 
         #experiment-area {
             position: relative;
@@ -76,10 +74,9 @@
             overflow: hidden;
             box-sizing: border-box;
             padding: 0 var(--experiment-padding);
-            margin-bottom: 0.75rem; /* Reduced from 1rem */
+            margin-bottom: 0.75rem;
         }
 
-        /* Rest of the styles and script remain exactly the same */
         .antenna {
             position: absolute;
             bottom: 40%;
@@ -147,12 +144,12 @@
         .metrics {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 0.75rem; /* Reduced from 1rem */
+            gap: 0.75rem;
         }
 
         .metric-card {
             background: var(--background-color);
-            padding: 0.75rem; /* Reduced from 1rem */
+            padding: 0.75rem;
             border-radius: 8px;
             text-align: center;
         }
@@ -171,18 +168,17 @@
     </style>
 </head>
 <body>
-    <!-- Rest of the HTML remains exactly the same -->
     <div class="container">
         <h1>Path Loss Experiment</h1>
         
         <div class="sidebar">
             <div class="input-group">
                 <label for="tx-height">Transmitter Height (meters)</label>
-                <input type="number" id="tx-height" min="1" value="10" step="1">
+                <input type="number" id="tx-height" max="150" min="1" value="1" step="1">
             </div>
             <div class="input-group">
                 <label for="rx-height">Receiver Height (meters)</label>
-                <input type="number" id="rx-height" min="1" value="10" step="1">
+                <input type="number" id="rx-height" max="150" min="1" value="1" step="1">
             </div>
             <div class="metrics">
                 <div class="metric-card">
@@ -199,10 +195,10 @@
         <div class="main-content">
             <div id="experiment-area">
                 <div id="transmitter" class="antenna">
-                    <img src="static\images\antenna-svgrepo-com.svg" alt="Transmitter antenna">
+                    <img src="static/images/antenna-small.svg" alt="Transmitter antenna">
                 </div>
                 <div id="receiver" class="antenna">
-                    <img src="static\images\antenna-svgrepo-com.svg" alt="Receiver antenna">
+                    <img src="static/images/antenna-small.svg" alt="Receiver antenna">
                 </div>
             </div>
             <div class="input-group">
@@ -213,7 +209,6 @@
     </div>
 
     <script>
-        // JavaScript remains exactly the same
         const slider = document.getElementById('distance-slider');
         const transmitter = document.getElementById('transmitter');
         const receiver = document.getElementById('receiver');
@@ -224,7 +219,7 @@
         const experimentArea = document.getElementById('experiment-area');
 
         const frequency = 900;
-        
+
         const maxWidth = experimentArea.offsetWidth - (2 * parseInt(getComputedStyle(document.documentElement).getPropertyValue('--experiment-padding')));
         slider.max = maxWidth;
 
@@ -239,38 +234,53 @@
         }
 
         function updateAntennaHeights() {
-            const txHeight = parseInt(txHeightInput.value);
-            const rxHeight = parseInt(rxHeightInput.value);
-            
-            transmitter.style.bottom = `${(txHeight * 3) + 40}px`;
-            receiver.style.bottom = `${(rxHeight * 3) + 40}px`;
-            
-            updatePathLoss();
+        let txHeight = parseInt(txHeightInput.value);
+        let rxHeight = parseInt(rxHeightInput.value);
+
+        // Cap the heights to a maximum of 150
+        txHeight = Math.min(txHeight, 150);
+        rxHeight = Math.min(rxHeight, 150);
+
+        txHeightInput.value = txHeight; // Update input value if it exceeds 150
+        rxHeightInput.value = rxHeight;
+
+        transmitter.style.bottom = `${(txHeight * 3) + 40}px`;
+        receiver.style.bottom = `${(rxHeight * 3) + 40}px`;
+
+        updateAntennaImage(txHeight, transmitter.querySelector('img'));
+        updateAntennaImage(rxHeight, receiver.querySelector('img'));
+
+        updatePathLoss();
+         }
+
+
+        function updateAntennaImage(height, imgElement) {
+            if (height <= 50) {
+                imgElement.src = "static/images/antenna-small.svg";
+            } else if (height > 50 && height <= 100) {
+                imgElement.src = "static/images/antenna-medium.svg";
+            } else {
+                imgElement.src = "static/images/antenna-large.svg";
+            }
         }
 
         function updatePathLoss() {
             const distance = parseInt(slider.value);
             const txHeight = parseInt(txHeightInput.value);
             const rxHeight = parseInt(rxHeightInput.value);
-            
+
             const receiverPosition = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--experiment-padding')) + distance;
             receiver.style.left = `${receiverPosition}px`;
-            
+
             distanceDisplay.textContent = distance;
             pathLossDisplay.textContent = calculatePathLoss(distance, frequency, txHeight, rxHeight);
         }
-
-        window.addEventListener('resize', () => {
-            const newMaxWidth = experimentArea.offsetWidth - (2 * parseInt(getComputedStyle(document.documentElement).getPropertyValue('--experiment-padding')));
-            slider.max = newMaxWidth;
-            updatePathLoss();
-        });
 
         slider.addEventListener('input', updatePathLoss);
         txHeightInput.addEventListener('input', updateAntennaHeights);
         rxHeightInput.addEventListener('input', updateAntennaHeights);
 
-        updateAntennaHeights();
+        updatePathLoss();
     </script>
 </body>
 </html>
