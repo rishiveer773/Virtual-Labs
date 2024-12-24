@@ -163,6 +163,70 @@
             color: #64748b;
             margin-top: 0.25rem;
         }
+
+        /* Button Styling */
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .btn-primary:hover {
+            background-color: #174cbc;
+        }
+
+        /* Table Styling */
+        .table-container {
+            overflow-x: auto;
+            margin-top: 1rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            background: var(--card-background);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: center;
+            font-size: 0.9rem;
+            color: var(--text-color);
+        }
+
+        table th, table td {
+            padding: 0.75rem;
+            border: 1px solid #e2e8f0;
+        }
+
+        table thead th {
+            background-color: var(--primary-color);
+            color: white;
+            font-weight: 600;
+        }
+
+        table tbody tr:nth-child(even) {
+            background-color: #f1f5f9;
+        }
+
+        /* Plot Section */
+        .plot-section {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: var(--card-background);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+        }
+
+        .plot-section canvas {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
     </style>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -189,6 +253,10 @@
                     <div class="metric-value"><span id="path-loss">0</span> dB</div>
                     <div class="metric-label">Path Loss</div>
                 </div>
+                <div class="input-group">
+                    <button id="register-btn">Register</button>
+                    <button id="plot-btn" disabled>Plot Graph</button>
+                </div>
             </div>
         </div>
 
@@ -205,11 +273,6 @@
                 <label for="distance-slider">Adjust Receiver Position</label>
                 <input type="range" id="distance-slider" min="0" max="100" value="0" step="1">
             </div>
-        </div>
-
-        <div class="input-group">
-            <button id="register-btn">Register</button>
-            <button id="plot-btn" disabled>Plot Graph</button>
         </div>
 
         <!-- Table Section -->
