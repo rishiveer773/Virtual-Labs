@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shadowing in Wireless Communication</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            height: 100vh;
+            background-color: #f4f4f4;
+        }
+        #input-section, #experiment-section, #output-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        #input-section {
+            background-color: #e8f5e9;
+        }
+        #experiment-section {
+            background-color: #ffffff;
+            border-left: 1px solid #ccc;
+            border-right: 1px solid #ccc;
+        }
+        #output-section {
+            background-color: #ffebee;
+        }
+        canvas {
+            border: 1px solid #ccc;
+        }
+        #controls {
+            margin-top: 10px;
+        }
+        #output-section pre {
+            background: #fff;
+            padding: 10px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 300px;
+            overflow-x: auto;
+        }
+        .obstacle-type {
+            margin: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div id="input-section">
+        <h2>Inputs</h2>
+        <label for="frequency">Signal Frequency (MHz): </label>
+        <input type="number" id="frequency" value="2400" min="100" max="5000"><br><br>
+        <label for="power">Transmitter Power (dBm): </label>
+        <input type="number" id="power" value="20" min="0" max="100"><br><br>
+        <div>
+            <span>Select Obstacle Type:</span><br>
+            <input type="radio" name="obstacleType" value="tree" checked> Tree<br>
+            <input type="radio" name="obstacleType" value="wall"> Wall<br>
+            <input type="radio" name="obstacleType" value="building"> Building<br>
+        </div><br>
+        <button onclick="startSimulation()">Start Simulation</button>
+        <button onclick="resetSimulation()">Reset</button>
+    </div>
+    <div id="experiment-section">
+        <h2>Experiment</h2>
+        <canvas id="simulation" width="500" height="400"></canvas>
+        <p id="info">Click on the canvas to add obstacles.</p>
+    </div>
+    <div id="output-section">
+        <h2>Output</h2>
+        <pre id="output">Signal strength, path loss, and shadowing loss will be displayed here after running the simulation.</pre>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simulation');
+        const ctx = canvas.getContext('2d');
+        const obstacles = [];
+        const transmitter = { x: 50, y: 200 };
+        const receiver = { x: 450, y: 200 };
+
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            const obstacleType = document.querySelector('input[name="obstacleType"]:checked').value;
+            let shadowingEffect;
+            let color;
+
+            if (obstacleType === 'tree') {
+                shadowingEffect = 5; // Trees cause minimal shadowing
+                color = 'green';
+            } else if (obstacleType === 'wall') {
+                shadowingEffect = 15; // Walls cause moderate shadowing
+                color = 'orange';
+            } else if (obstacleType === 'building') {
+                shadowingEffect = 30; // Buildings cause significant shadowing
+                color = 'gray';
+            }
+
+            obstacles.push({ x, y, radius: 30, shadowingEffect, color });
+            draw();
+        });
+
+        function calculatePathLoss(distance, frequency) {
+            const pathLossExponent = 2.7; // Typical value for urban areas
+            const speedOfLight = 3e8; // m/s
+            const wavelength = speedOfLight / (frequency * 1e6);
+            const freeSpacePathLoss = 20 * Math.log10(distance / wavelength);
+            const fading = randomGaussian(0, 2); // Log-normal shadow fading with mean 0 and std-dev 2 dB
+            return freeSpacePathLoss + pathLossExponent * 10 * Math.log10(distance) + fading;
+        }
+
+        function randomGaussian(mean, stdDev) {
+            let u1 = Math.random();
+            let u2 = Math.random();
+            let randStdNormal = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+            return mean + stdDev * randStdNormal;
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw transmitter and receiver
+            ctx.fillStyle = 'blue';
+            ctx.beginPath();
+            ctx.arc(transmitter.x, transmitter.y, 10, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = 'green';
+            ctx.beginPath();
+            ctx.arc(receiver.x, receiver.y, 10, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Draw line of communication
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(transmitter.x, transmitter.y);
+            ctx.lineTo(receiver.x, receiver.y);
+            ctx.stroke();
+
+            // Draw obstacles
+            obstacles.forEach(obstacle => {
+                ctx.fillStyle = obstacle.color;
+                ctx.beginPath();
+                ctx.arc(obstacle.x, obstacle.y, obstacle.radius, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
+        function startSimulation() {
+            const frequency = parseFloat(document.getElementById('frequency').value);
+            const power = parseFloat(document.getElementById('power').value);
+            let shadowingLoss = 0;
+
+            obstacles.forEach(obstacle => {
+                const dx = receiver.x - transmitter.x;
+                const dy = receiver.y - transmitter.y;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                const distanceToObstacle = Math.abs((dy * obstacle.x - dx * obstacle.y + receiver.x * transmitter.y - receiver.y * transmitter.x) / distance);
+
+                if (distanceToObstacle < obstacle.radius) {
+                    const randomShadowing = randomGaussian(obstacle.shadowingEffect, obstacle.shadowingEffect * 0.2);
+                    shadowingLoss += randomShadowing; // Add shadowing loss with random variation
+                }
+            });
+
+            const distance = Math.sqrt(Math.pow(receiver.x - transmitter.x, 2) + Math.pow(receiver.y - transmitter.y, 2));
+            const pathLoss = calculatePathLoss(distance, frequency);
+            const totalLoss = pathLoss + shadowingLoss;
+
+            const receivedPower = power - totalLoss;
+
+            document.getElementById('output').textContent = 
+                `Signal strength at the receiver: ${receivedPower.toFixed(2)} dBm\n` +
+                `Path Loss: ${pathLoss.toFixed(2)} dB\n` +
+                `Shadowing Loss: ${shadowingLoss.toFixed(2)} dB`;
+        }
+
+        function resetSimulation() {
+            obstacles.length = 0;
+            document.getElementById('output').textContent = "Signal strength, path loss, and shadowing loss will be displayed here after running the simulation.";
+            draw();
+        }
+
+        draw();
+    </script>
+</body>
+</html>
