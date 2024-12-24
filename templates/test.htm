@@ -3,32 +3,139 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SIMO/MISO System Visualization</title>
-    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <title>Enhanced SIMO/MISO System Visualization</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
     <style>
-        .antenna {
-            fill: steelblue;
-            stroke: black;
-            stroke-width: 2;
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
         }
+
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        #system-form {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        label {
+            font-weight: 600;
+            color: #34495e;
+            margin-right: 8px;
+        }
+
+        select, input {
+            padding: 8px 12px;
+            border: 2px solid #bdc3c7;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+        }
+
+        select:focus, input:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 8px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+
+        #diagram-container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: visible; /* Changed from default to ensure text is visible */
+        }
+
+        .antenna {
+            fill: #3498db;
+            stroke: #2980b9;
+            stroke-width: 2;
+            transition: fill 0.3s ease;
+        }
+
+        .antenna:hover {
+            fill: #2980b9;
+        }
+
         .line {
-            stroke: gray;
-            stroke-width: 1.5;
-            opacity: 0.8; /* Increased opacity of the lines */
+            stroke: #7f8c8d;
+            stroke-width: 2;
+            stroke-dasharray: 5;
+            animation: dash 20s linear infinite;
+        }
+
+        @keyframes dash {
+            from {
+                stroke-dashoffset: 1000;
+            }
+            to {
+                stroke-dashoffset: 0;
+            }
+        }
+
+        .antenna-label {
+            font-size: 12px;
+            fill: #2c3e50;
+            text-anchor: middle;
+            font-weight: 600;
+        }
+
+        .system-info {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            pointer-events: none;
+            display: none;
+        }
+
+        .system-title {
+            font-size: 16px;
+            fill: #2c3e50;
+            font-weight: 600;
         }
     </style>
 </head>
 <body>
-    <h1>SIMO/MISO System Visualization</h1>
+    <h1>Enhanced SIMO/MISO System Visualization</h1>
     <form id="system-form">
         <label for="system-type">System Type:</label>
         <select id="system-type" name="system_type">
-            <option value="SIMO">SIMO</option>
-            <option value="MISO">MISO</option>
+            <option value="SIMO">SIMO (Single Input Multiple Output)</option>
+            <option value="MISO">MISO (Multiple Input Single Output)</option>
         </select>
         <label for="num-antennas">Number of Antennas:</label>
-        <input type="number" id="num-antennas" name="num_antennas" min="1" required>
-        <button type="submit">Generate</button>
+        <input type="number" id="num-antennas" name="num_antennas" min="1" max="8" value="4" required>
+        <button type="submit">Generate Visualization</button>
     </form>
 
     <div id="diagram-container">
@@ -38,34 +145,40 @@
     <script>
         const form = document.getElementById('system-form');
         const svg = d3.select('#diagram');
+        
+        // Add tooltip div
+        const tooltip = d3.select('body')
+            .append('div')
+            .attr('class', 'system-info')
+            .style('position', 'absolute')
+            .style('visibility', 'hidden');
 
         form.addEventListener('submit', (event) => {
             event.preventDefault();
             const systemType = document.getElementById('system-type').value;
-            const numAntennas = document.getElementById('num-antennas').value;
+            const numAntennas = parseInt(document.getElementById('num-antennas').value, 10);
 
-            // Simulate server response
             const data = {
                 system_type: systemType,
-                num_rx: systemType === 'SIMO' ? parseInt(numAntennas, 10) : null,
-                num_tx: systemType === 'MISO' ? parseInt(numAntennas, 10) : null
+                num_rx: systemType === 'SIMO' ? numAntennas : null,
+                num_tx: systemType === 'MISO' ? numAntennas : null
             };
 
             renderDiagram(data);
         });
 
         function renderDiagram(data) {
-            svg.selectAll('*').remove(); // Clear existing diagram
+            svg.selectAll('*').remove();
 
             const width = +svg.attr('width');
             const height = +svg.attr('height');
-            const radius = 150; // Radius of the circle
-            const offset = 30; // Offset to avoid overlapping with images
+            const radius = 150;
+            const offset = 30;
 
             const centerX = width / 2;
             const centerY = height / 2;
 
-            // Define arrowhead marker
+            // Enhanced arrowhead marker
             svg.append('defs').append('marker')
                 .attr('id', 'arrowhead')
                 .attr('viewBox', '0 0 10 10')
@@ -76,79 +189,106 @@
                 .attr('orient', 'auto')
                 .append('path')
                 .attr('d', 'M 0 0 L 10 5 L 0 10 Z')
-                .attr('fill', 'gray')
-                .attr('opacity', 0.8); // Increased opacity of the arrowhead
+                .attr('fill', '#7f8c8d');
+
+            // Add system type label with adjusted position
+            svg.append('text')
+                .attr('x', 80)  // Increased x position
+                .attr('y', 40)  // Increased y position
+                .attr('class', 'system-title')
+                .text(`${data.system_type} System`);
 
             if (data.system_type === 'SIMO') {
                 const numRx = data.num_rx;
 
-                // Draw transmitter as an image at the center
-                svg.append('image')
-                    .attr('x', centerX - 20)
-                    .attr('y', centerY - 20)
-                    .attr('width', 40)
-                    .attr('height', 40)
-                    .attr('href', './static/images/antenna-small.svg');
+                // Center transmitter
+                const centerGroup = svg.append('g')
+                    .attr('transform', `translate(${centerX}, ${centerY})`);
+                
+                centerGroup.append('circle')
+                    .attr('class', 'antenna')
+                    .attr('r', 15);
+                
+                centerGroup.append('text')
+                    .attr('class', 'antenna-label')
+                    .attr('y', 30)
+                    .text('Tx');
 
-                // Draw receivers and connections in a circular pattern
+                // Receivers in circle
                 for (let i = 0; i < numRx; i++) {
                     const angle = (i / numRx) * 2 * Math.PI;
                     const x = centerX + radius * Math.cos(angle);
                     const y = centerY + radius * Math.sin(angle);
 
-                    // Draw receiver as an image
-                    svg.append('image')
-                        .attr('x', x - 20)
-                        .attr('y', y - 20)
-                        .attr('width', 40)
-                        .attr('height', 40)
-                        .attr('href', './static/images/antenna-small.svg');
+                    const rxGroup = svg.append('g')
+                        .attr('transform', `translate(${x}, ${y})`);
 
-                    // Draw line connection with arrowhead
-                    svg.append('line')
-                        .attr('x1', centerX + offset * Math.cos(angle))
-                        .attr('y1', centerY + offset * Math.sin(angle))
-                        .attr('x2', x - offset * Math.cos(angle))
-                        .attr('y2', y - offset * Math.sin(angle))
+                    rxGroup.append('circle')
+                        .attr('class', 'antenna')
+                        .attr('r', 15);
+
+                    rxGroup.append('text')
+                        .attr('class', 'antenna-label')
+                        .attr('y', 30)
+                        .text(`Rx ${i + 1}`);
+
+                    // Animated connection line
+                    svg.append('path')
                         .attr('class', 'line')
+                        .attr('d', `M ${centerX + offset * Math.cos(angle)},${centerY + offset * Math.sin(angle)} 
+                                  L ${x - offset * Math.cos(angle)},${y - offset * Math.sin(angle)}`)
                         .attr('marker-end', 'url(#arrowhead)');
                 }
             } else if (data.system_type === 'MISO') {
                 const numTx = data.num_tx;
 
-                // Draw receiver as an image at the center
-                svg.append('image')
-                    .attr('x', centerX - 20)
-                    .attr('y', centerY - 20)
-                    .attr('width', 40)
-                    .attr('height', 40)
-                    .attr('href', './static/images/antenna-small.svg');
+                // Center receiver
+                const centerGroup = svg.append('g')
+                    .attr('transform', `translate(${centerX}, ${centerY})`);
+                
+                centerGroup.append('circle')
+                    .attr('class', 'antenna')
+                    .attr('r', 15);
+                
+                centerGroup.append('text')
+                    .attr('class', 'antenna-label')
+                    .attr('y', 30)
+                    .text('Rx');
 
-                // Draw transmitters and connections in a circular pattern
+                // Transmitters in circle
                 for (let i = 0; i < numTx; i++) {
                     const angle = (i / numTx) * 2 * Math.PI;
                     const x = centerX + radius * Math.cos(angle);
                     const y = centerY + radius * Math.sin(angle);
 
-                    // Draw transmitter as an image
-                    svg.append('image')
-                        .attr('x', x - 20)
-                        .attr('y', y - 20)
-                        .attr('width', 40)
-                        .attr('height', 40)
-                        .attr('href', './static/images/antenna-small.svg');
+                    const txGroup = svg.append('g')
+                        .attr('transform', `translate(${x}, ${y})`);
 
-                    // Draw line connection with arrowhead
-                    svg.append('line')
-                        .attr('x1', x - offset * Math.cos(angle))
-                        .attr('y1', y - offset * Math.sin(angle))
-                        .attr('x2', centerX + offset * Math.cos(angle))
-                        .attr('y2', centerY + offset * Math.sin(angle))
+                    txGroup.append('circle')
+                        .attr('class', 'antenna')
+                        .attr('r', 15);
+
+                    txGroup.append('text')
+                        .attr('class', 'antenna-label')
+                        .attr('y', 30)
+                        .text(`Tx ${i + 1}`);
+
+                    // Animated connection line
+                    svg.append('path')
                         .attr('class', 'line')
+                        .attr('d', `M ${x - offset * Math.cos(angle)},${y - offset * Math.sin(angle)} 
+                                  L ${centerX + offset * Math.cos(angle)},${centerY + offset * Math.sin(angle)}`)
                         .attr('marker-end', 'url(#arrowhead)');
                 }
             }
         }
+
+        // Initial render
+        renderDiagram({
+            system_type: 'SIMO',
+            num_rx: 4,
+            num_tx: null
+        });
     </script>
 </body>
 </html>
