@@ -71,18 +71,8 @@
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            overflow: visible; /* Changed from default to ensure text is visible */
-        }
-
-        .antenna {
-            fill: #3498db;
-            stroke: #2980b9;
-            stroke-width: 2;
-            transition: fill 0.3s ease;
-        }
-
-        .antenna:hover {
-            fill: #2980b9;
+            overflow: visible;
+            text-align: center; /* Center the SVG container */
         }
 
         .line {
@@ -108,20 +98,16 @@
             font-weight: 600;
         }
 
-        .system-info {
-            position: absolute;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 10px;
-            border-radius: 4px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            pointer-events: none;
-            display: none;
-        }
-
         .system-title {
             font-size: 16px;
             fill: #2c3e50;
             font-weight: 600;
+        }
+
+        /* Center the SVG */
+        #diagram {
+            display: block;
+            margin: 0 auto;
         }
     </style>
 </head>
@@ -145,13 +131,6 @@
     <script>
         const form = document.getElementById('system-form');
         const svg = d3.select('#diagram');
-        
-        // Add tooltip div
-        const tooltip = d3.select('body')
-            .append('div')
-            .attr('class', 'system-info')
-            .style('position', 'absolute')
-            .style('visibility', 'hidden');
 
         form.addEventListener('submit', (event) => {
             event.preventDefault();
@@ -173,7 +152,8 @@
             const width = +svg.attr('width');
             const height = +svg.attr('height');
             const radius = 150;
-            const offset = 30;
+            const offset = 40; // Increased offset for image size
+            const imageSize = 40; // Size for the antenna images
 
             const centerX = width / 2;
             const centerY = height / 2;
@@ -191,45 +171,49 @@
                 .attr('d', 'M 0 0 L 10 5 L 0 10 Z')
                 .attr('fill', '#7f8c8d');
 
-            // Add system type label with adjusted position
+            // Add system type label
             svg.append('text')
-                .attr('x', 80)  // Increased x position
-                .attr('y', 40)  // Increased y position
+                .attr('x', 80)
+                .attr('y', 40)
                 .attr('class', 'system-title')
                 .text(`${data.system_type} System`);
 
             if (data.system_type === 'SIMO') {
                 const numRx = data.num_rx;
 
-                // Center transmitter
-                const centerGroup = svg.append('g')
-                    .attr('transform', `translate(${centerX}, ${centerY})`);
-                
-                centerGroup.append('circle')
-                    .attr('class', 'antenna')
-                    .attr('r', 15);
-                
-                centerGroup.append('text')
+                // Center transmitter (large antenna)
+                svg.append('image')
+                    .attr('href', './static/images/antenna-svgrepo-com.svg')
+                    .attr('x', centerX - imageSize/2)
+                    .attr('y', centerY - imageSize/2)
+                    .attr('width', imageSize)
+                    .attr('height', imageSize);
+
+                svg.append('text')
                     .attr('class', 'antenna-label')
-                    .attr('y', 30)
+                    .attr('x', centerX)
+                    .attr('y', centerY + imageSize)
                     .text('Tx');
 
-                // Receivers in circle
+                // Receivers in circle (small antennas)
                 for (let i = 0; i < numRx; i++) {
                     const angle = (i / numRx) * 2 * Math.PI;
                     const x = centerX + radius * Math.cos(angle);
                     const y = centerY + radius * Math.sin(angle);
 
-                    const rxGroup = svg.append('g')
-                        .attr('transform', `translate(${x}, ${y})`);
+                    // Add receiver image
+                    svg.append('image')
+                        .attr('href', './static/images/antenna-small.svg')
+                        .attr('x', x - imageSize/2)
+                        .attr('y', y - imageSize/2)
+                        .attr('width', imageSize)
+                        .attr('height', imageSize);
 
-                    rxGroup.append('circle')
-                        .attr('class', 'antenna')
-                        .attr('r', 15);
-
-                    rxGroup.append('text')
+                    // Add receiver label
+                    svg.append('text')
                         .attr('class', 'antenna-label')
-                        .attr('y', 30)
+                        .attr('x', x)
+                        .attr('y', y + imageSize)
                         .text(`Rx ${i + 1}`);
 
                     // Animated connection line
@@ -242,35 +226,39 @@
             } else if (data.system_type === 'MISO') {
                 const numTx = data.num_tx;
 
-                // Center receiver
-                const centerGroup = svg.append('g')
-                    .attr('transform', `translate(${centerX}, ${centerY})`);
-                
-                centerGroup.append('circle')
-                    .attr('class', 'antenna')
-                    .attr('r', 15);
-                
-                centerGroup.append('text')
+                // Center receiver (small antenna)
+                svg.append('image')
+                    .attr('href', './static/images/antenna-small.svg')
+                    .attr('x', centerX - imageSize/2)
+                    .attr('y', centerY - imageSize/2)
+                    .attr('width', imageSize)
+                    .attr('height', imageSize);
+
+                svg.append('text')
                     .attr('class', 'antenna-label')
-                    .attr('y', 30)
+                    .attr('x', centerX)
+                    .attr('y', centerY + imageSize)
                     .text('Rx');
 
-                // Transmitters in circle
+                // Transmitters in circle (large antennas)
                 for (let i = 0; i < numTx; i++) {
                     const angle = (i / numTx) * 2 * Math.PI;
                     const x = centerX + radius * Math.cos(angle);
                     const y = centerY + radius * Math.sin(angle);
 
-                    const txGroup = svg.append('g')
-                        .attr('transform', `translate(${x}, ${y})`);
+                    // Add transmitter image
+                    svg.append('image')
+                        .attr('href', './static/images/antenna-svgrepo-com.svg')
+                        .attr('x', x - imageSize/2)
+                        .attr('y', y - imageSize/2)
+                        .attr('width', imageSize)
+                        .attr('height', imageSize);
 
-                    txGroup.append('circle')
-                        .attr('class', 'antenna')
-                        .attr('r', 15);
-
-                    txGroup.append('text')
+                    // Add transmitter label
+                    svg.append('text')
                         .attr('class', 'antenna-label')
-                        .attr('y', 30)
+                        .attr('x', x)
+                        .attr('y', y + imageSize)
                         .text(`Tx ${i + 1}`);
 
                     // Animated connection line
