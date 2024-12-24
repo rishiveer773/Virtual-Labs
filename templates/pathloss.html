@@ -3,67 +3,209 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Path Loss Experiment with Antenna Heights</title>
+    <title>Path Loss Experiment</title>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            margin: 20px;
+        :root {
+            --primary-color: #2563eb;
+            --background-color: #f8fafc;
+            --card-background: #ffffff;
+            --text-color: #1e293b;
+            --experiment-padding: 80px;
         }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0.5rem;
+            line-height: 1.6;
+            height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 0.5rem;
+            height: 100%;
+        }
+
+        h1 {
+            grid-column: 1 / -1;
+            text-align: center;
+            color: var(--text-color);
+            font-size: 1.1rem;
+            margin: 0;
+            padding: 0.25rem 0;
+            height: 1.5rem;
+            line-height: 1.5rem;
+        }
+
+        .sidebar {
+            background: var(--card-background);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            padding: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            height: calc(100vh - 10rem);
+        }
+
+        .main-content {
+            background: var(--card-background);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            padding: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 10rem);
+        }
+
         #experiment-area {
             position: relative;
-            width: 800px;
-            height: 300px;
-            border: 1px solid #ccc;
-            margin: 20px auto;
+            flex-grow: 1;
+            border-radius: 12px;
+            background: linear-gradient(180deg, #87CEEB 0%, #87CEEB 60%, #90EE90 60%, #90EE90 100%);
+            overflow: hidden; /* Prevent overflowing images */
+            box-sizing: border-box;
+            padding: 0 var(--experiment-padding);
         }
+
+
         .antenna {
             position: absolute;
-            top: 50%;
-            transform: translateY(-50%);
+            bottom: 40%;
             text-align: center;
+            transition: all 0.3s ease;
         }
+
+        .antenna img {
+            filter: drop-shadow(0 4px 3px rgb(0 0 0 / 0.07));
+            transition: height 0.3s ease, width 0.3s ease;
+            width: 60px;
+            height: auto;
+        }
+
         #transmitter {
-            left: 0;
+            left: var(--experiment-padding);
         }
+
         #receiver {
             cursor: pointer;
         }
-        .slider-container,
-        .input-container {
-            margin: 20px auto;
-            width: 80%;
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
         }
-        img {
-            display: block;
-            margin: 4 auto;
+
+        label {
+            font-weight: 500;
+            color: var(--text-color);
+            font-size: 0.9rem;
+        }
+
+        input[type="number"] {
+            padding: 0.5rem;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 1rem;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            appearance: none;
+            width: 24px;
+            height: 24px;
+            background: var(--primary-color);
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.1s ease;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+        }
+
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.75rem;
+        }
+
+        .metric-card {
+            background: var(--background-color);
+            padding: 0.75rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        .metric-label {
+            font-size: 0.875rem;
+            color: #64748b;
+            margin-top: 0.25rem;
         }
     </style>
 </head>
 <body>
-    <h1>Path Loss Experiment with Antenna Heights</h1>
-    <div class="input-container">
-        <label for="tx-height">Transmitter Height (meters):</label>
-        <input type="number" id="tx-height" min="1" value="10" step="1">
-        <label for="rx-height">Receiver Height (meters):</label>
-        <input type="number" id="rx-height" min="1" value="10" step="1">
-    </div>
-    <div id="experiment-area">
-        <div id="transmitter" class="antenna">
-            <img src="static\images\antenna-svgrepo-com.svg" id="tx-image" style="height: 100px;" draggable="false">
+    <div class="container">
+        <h1>Path Loss Experiment</h1>
+
+        <div class="sidebar">
+            <div class="input-group">
+                <label for="tx-height">Transmitter Height (meters)</label>
+                <input type="number" id="tx-height" min="1" max="150" value="10" step="1">
+            </div>
+            <div class="input-group">
+                <label for="rx-height">Receiver Height (meters)</label>
+                <input type="number" id="rx-height" min="1" max="150" value="10" step="1">
+            </div>
+            <div class="metrics">
+                <div class="metric-card">
+                    <div class="metric-value"><span id="distance">0</span> m</div>
+                    <div class="metric-label">Distance</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value"><span id="path-loss">0</span> dB</div>
+                    <div class="metric-label">Path Loss</div>
+                </div>
+            </div>
         </div>
-        <div id="receiver" class="antenna" style="left: 0;">
-            <img src="static\images\antenna-svgrepo-com.svg" id="rx-image" style="height: 100px;" draggable="false">
+
+        <div class="main-content">
+            <div id="experiment-area">
+                <div id="transmitter" class="antenna">
+                    <img src="static/images/antenna-small.svg" alt="Transmitter antenna">
+                </div>
+                <div id="receiver" class="antenna">
+                    <img src="static/images/antenna-small.svg" alt="Receiver antenna">
+                </div>
+            </div>
+            <div class="input-group">
+                <label for="distance-slider">Adjust Receiver Position</label>
+                <input type="range" id="distance-slider" min="0" max="100" value="0" step="1">
+            </div>
         </div>
     </div>
-    <div class="slider-container">
-        <label for="distance-slider">Adjust Receiver Position:</label><br>
-        <input type="range" id="distance-slider" min="0" max="750" value="0" step="1" style="width: 100%;">
-    </div>
-    <div>
-        <p><strong>Distance:</strong> <span id="distance">0</span> meters</p>
-        <p><strong>Path Loss:</strong> <span id="path-loss">0</span> dB</p>
-    </div>
+
     <script>
         const slider = document.getElementById('distance-slider');
         const transmitter = document.getElementById('transmitter');
@@ -72,12 +214,12 @@
         const rxHeightInput = document.getElementById('rx-height');
         const distanceDisplay = document.getElementById('distance');
         const pathLossDisplay = document.getElementById('path-loss');
-        const txImage = document.getElementById('tx-image');
-        const rxImage = document.getElementById('rx-image');
-
-        const transmitterPosition = 0; // Fixed position of the transmitter
-        const frequency = 900; // Frequency in MHz
-
+    
+        const frequency = 900; // MHz
+        const maxDistance = 100; // Maximum distance in meters
+    
+        slider.max = maxDistance;
+    
         function calculatePathLoss(distance, frequency, txHeight, rxHeight) {
             return (
                 20 * Math.log10(distance || 1) +
@@ -87,29 +229,69 @@
                 147.55
             ).toFixed(2);
         }
-
+    
+        function updateAntennaImage(height, imgElement) {
+            if (height <= 50) {
+                imgElement.src = 'static/images/antenna-small.svg';
+                imgElement.style.width = `${height + 30}px`; // Dynamically scale size
+            } else if (height <= 100) {
+                imgElement.src = 'static/images/antenna-medium.svg';
+                imgElement.style.width = `80px`;
+            } else {
+                imgElement.src = 'static/images/antenna-large.svg';
+                imgElement.style.width = `100px`;
+            }
+        }
+    
         function updateAntennaHeights() {
-            const txHeight = parseInt(txHeightInput.value);
-            const rxHeight = parseInt(rxHeightInput.value);
-            txImage.style.height = `${txHeight * 10}px`; // Scale height visually
-            rxImage.style.height = `${rxHeight * 10}px`; // Scale height visually
+            const txHeight = Math.min(parseInt(txHeightInput.value), 150);
+            const rxHeight = Math.min(parseInt(rxHeightInput.value), 150);
+    
+            updateAntennaImage(txHeight, transmitter.querySelector('img'));
+            updateAntennaImage(rxHeight, receiver.querySelector('img'));
+    
+            updatePathLoss();
+        }
+    
+        function updateReceiverPosition() {
+            const distance = parseInt(slider.value); // Slider value as distance
+            const experimentPadding = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--experiment-padding'));
+            const experimentWidth = document.getElementById('experiment-area').offsetWidth;
+
+            // Calculate receiver's horizontal position
+            const receiverWidth = receiver.offsetWidth / 2; // Half the width to center the antenna
+            const receiverX = Math.min(
+                experimentWidth - experimentPadding - receiverWidth, // Ensure it doesn't exceed the right boundary
+                Math.max(
+                    experimentPadding - receiverWidth, // Ensure it doesn't exceed the left boundary
+                    experimentPadding + (distance / maxDistance) * (experimentWidth - 2 * experimentPadding)
+                )
+            );
+
+            receiver.style.left = `${receiverX}px`;
         }
 
-        slider.addEventListener('input', () => {
-            const receiverPosition = parseInt(slider.value);
-            const distance = Math.abs(receiverPosition - transmitterPosition); // Distance between antennas
-            receiver.style.left = `${receiverPosition}px`;
-            const txHeight = parseInt(txHeightInput.value);
-            const rxHeight = parseInt(rxHeightInput.value);
+    
+        function updatePathLoss() {
+            const distance = parseInt(slider.value); // Slider value as distance
+            const txHeight = parseInt(txHeightInput.value) || 1; // Ensure height is at least 1
+            const rxHeight = parseInt(rxHeightInput.value) || 1;
+    
             distanceDisplay.textContent = distance;
             pathLossDisplay.textContent = calculatePathLoss(distance, frequency, txHeight, rxHeight);
-        });
-
+    
+            updateReceiverPosition();
+        }
+    
+        // Event Listeners
+        slider.addEventListener('input', updatePathLoss);
         txHeightInput.addEventListener('input', updateAntennaHeights);
         rxHeightInput.addEventListener('input', updateAntennaHeights);
-
-        // Initialize antenna heights
+    
+        // Initial Setup
         updateAntennaHeights();
+        updateReceiverPosition();
     </script>
+    
 </body>
 </html>
