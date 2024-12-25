@@ -267,11 +267,11 @@
                     <div class="metric-value"><span id="path-loss">0</span> dB</div>
                     <div class="metric-label">Path Loss</div>
                 </div>
-                <div class="input-group">
+                <!-- <div class="input-group">
                     <button id="register-btn">Register</button>
-                    <!-- <button id="plot-btn" disabled>Plot Graph</button> -->
-                    <button id="resetBtn">Reset</button>
-                </div>
+                    <button id="plot-btn" disabled>Plot Graph</button> -->
+                    <!-- <button id="resetBtn">Reset</button>
+                </div> -->
             </div>
         </div>
 
@@ -287,7 +287,11 @@
             <div class="input-group">
                 <label for="distance-slider">Adjust Receiver Position</label>
                 <input type="range" id="distance-slider" min="0" max="100" value="0" step="1">
-            </div>
+                <div id="button-container" style="margin-top: 10px; display: flex; justify-content: center;">
+                    <button id="register-btn" style="margin-right: 10px;">Register</button>
+                    <button id="resetBtn">Reset</button>
+                </div>
+            </div>            
         </div>
 
         <!-- Table Section -->
