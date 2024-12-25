@@ -340,17 +340,26 @@
         }
     
         function updateAntennaImage(height, imgElement) {
+            if (!height || !imgElement) {
+                console.error("Invalid height or imgElement:", height, imgElement);
+                return;
+            }
+
             if (height <= 50) {
                 imgElement.src = 'static/images/antenna-small.svg';
                 imgElement.style.width = `${height + 30}px`; // Dynamically scale size
             } else if (height <= 100) {
                 imgElement.src = 'static/images/antenna-medium.svg';
-                imgElement.style.width = `80px`;
+                imgElement.style.width = `${height + 30}px`;
             } else {
                 imgElement.src = 'static/images/antenna-large.svg';
                 imgElement.style.width = `100px`;
             }
+
+            imgElement.style.height = 'auto'; // Maintain aspect ratio
+            console.log(`Updated antenna image to: ${imgElement.src}, width: ${imgElement.style.width}`);
         }
+
     
         function updateAntennaHeights() {
             const txHeight = Math.min(parseInt(txHeightInput.value), 150);

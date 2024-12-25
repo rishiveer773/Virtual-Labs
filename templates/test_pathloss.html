@@ -277,10 +277,10 @@
         <div class="main-content">
             <div id="experiment-area">
                 <div id="transmitter" class="antenna">
-                    <img src="static/images/antenna-small.svg" alt="Transmitter antenna">
+                    <img src="static/images/antenna-small.svg" alt="Transmitter antenna" draggable="false">
                 </div>
                 <div id="receiver" class="antenna">
-                    <img src="static/images/antenna-small.svg" alt="Receiver antenna">
+                    <img src="static/images/antenna-small.svg" alt="Receiver antenna" draggable="false">
                 </div>
             </div>
             <div class="input-group">
@@ -340,6 +340,14 @@
         }
     
         function updateAntennaImage(height, imgElement) {
+            if (!imgElement) {
+                console.error("Image element is invalid or not found.");
+                return;
+            }
+
+            console.log("Height:", height);
+            console.log("Image Element:", imgElement);
+
             if (height <= 50) {
                 imgElement.src = 'static/images/antenna-small.svg';
                 imgElement.style.width = `${height + 30}px`; // Dynamically scale size
@@ -350,22 +358,30 @@
                 imgElement.src = 'static/images/antenna-large.svg';
                 imgElement.style.width = `100px`;
             }
+
+            imgElement.style.height = 'auto'; // Maintain aspect ratio
+            console.log(`Updated image source to: ${imgElement.src}`);
         }
-    
+
         function updateAntennaHeights() {
-            const txHeight = Math.min(parseInt(txHeightInput.value), 150);
-            const rxHeight = Math.min(parseInt(rxHeightInput.value), 150);
-    
+            const txHeight = Math.min(parseInt(txHeightInput.value || "0", 10), 150);
+            const rxHeight = Math.min(parseInt(rxHeightInput.value || "0", 10), 150);
+
+            console.log("TX Height:", txHeight, "RX Height:", rxHeight);
+
             updateAntennaImage(txHeight, transmitter.querySelector('img'));
             updateAntennaImage(rxHeight, receiver.querySelector('img'));
-    
-            updatePathLoss();
+
+            updatePathLoss(); // Ensure this function is also debugged if necessary
         }
-    
-        function updateReceiverPosition() {
-            const distance = parseInt(slider.value); // Slider value as distance
-            const experimentPadding = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--experiment-padding'));
-            const experimentWidth = document.getElementById('experiment-area').offsetWidth;
+
+        // Attach Event Listeners
+        txHeightInput.addEventListener('input', updateAntennaHeights);
+        rxHeightInput.addEventListener('input', updateAntennaHeights);
+                function updateReceiverPosition() {
+                    const distance = parseInt(slider.value); // Slider value as distance
+                    const experimentPadding = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--experiment-padding'));
+                    const experimentWidth = document.getElementById('experiment-area').offsetWidth;
 
             // Calculate receiver's horizontal position
             const receiverWidth = receiver.offsetWidth / 2; // Half the width to center the antenna
