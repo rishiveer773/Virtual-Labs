@@ -44,6 +44,13 @@
             line-height: 1.5rem;
         }
 
+        canvas {
+            max-width: 100%;
+            max-height: 300px; /* Adjust as needed */
+            display: block;
+        }
+
+
         .sidebar {
             background: var(--card-background);
             border-radius: 12px;
@@ -163,9 +170,82 @@
             color: #64748b;
             margin-top: 0.25rem;
         }
+
+        /* Button Styling */
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+        }
+
+        .btn-primary:hover {
+            background-color: #174cbc;
+        }
+
+        /* Table Styling */
+        .table-container {
+            overflow-x: auto;
+            margin-top: 1rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            background: var(--card-background);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: center;
+            font-size: 0.9rem;
+            color: var(--text-color);
+        }
+
+        table th, table td {
+            padding: 0.75rem;
+            border: 1px solid #e2e8f0;
+        }
+
+        table thead th {
+            background-color: var(--primary-color);
+            color: white;
+            font-weight: 600;
+        }
+
+        table tbody tr:nth-child(even) {
+            background-color: #f1f5f9;
+        }
+
+        /* Plot Section */
+        .plot-section {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: var(--card-background);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            width: 100%; /* Ensure it scales to fit the container */
+            height: 400px; /* Cap the height to prevent scrolling */
+            overflow: hidden; /* Prevent scrollbars */
+        }
+
+
+        .plot-section canvas {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
     </style>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
+    <div id="notification" style="display:none; position:fixed; top:1rem; right:1rem; background:#2563eb; color:white; padding:0.5rem 1rem; border-radius:8px; box-shadow:0 4px 6px rgba(0,0,0,0.1); z-index:1000;">
+    </div>
+
     <div class="container">
         <h1>Path Loss Experiment</h1>
 
@@ -187,6 +267,10 @@
                     <div class="metric-value"><span id="path-loss">0</span> dB</div>
                     <div class="metric-label">Path Loss</div>
                 </div>
+                <div class="input-group">
+                    <button id="register-btn">Register</button>
+                    <button id="plot-btn" disabled>Plot Graph</button>
+                </div>
             </div>
         </div>
 
@@ -204,6 +288,25 @@
                 <input type="range" id="distance-slider" min="0" max="100" value="0" step="1">
             </div>
         </div>
+
+        <!-- Table Section -->
+        <div class="input-group">
+            <h2>Registered Values</h2>
+            <table id="values-table" border="1" style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr>
+                        <th>Distance (m)</th>
+                        <th>Path Loss (dB)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Values will be dynamically added here -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Graph Section -->
+        <canvas id="pathloss-chart" style="max-height: 300px;"></canvas>
     </div>
 
     <script>
@@ -214,10 +317,16 @@
         const rxHeightInput = document.getElementById('rx-height');
         const distanceDisplay = document.getElementById('distance');
         const pathLossDisplay = document.getElementById('path-loss');
+        const registerBtn = document.getElementById('register-btn');
+        const plotBtn = document.getElementById('plot-btn');
+        const chartCanvas = document.getElementById('pathloss-chart');
+        const valuesTableBody = document.querySelector('#values-table tbody');
     
         const frequency = 900; // MHz
         const maxDistance = 100; // Maximum distance in meters
-    
+        
+        let dataPoints = [];
+
         slider.max = maxDistance;
     
         function calculatePathLoss(distance, frequency, txHeight, rxHeight) {
@@ -282,16 +391,105 @@
     
             updateReceiverPosition();
         }
-    
+
+        function showNotification(message) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.style.display = 'block';
+
+            // Hide the notification after 3 seconds
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 3000);
+        }
+
+        function registerValues() {
+            const distance = parseInt(slider.value);
+            const pathLoss = parseFloat(pathLossDisplay.textContent);
+
+            // Add values to the dataPoints array
+            if (dataPoints.length < 6) {
+                dataPoints.push({ distance, pathLoss });
+
+                // Add row to the table
+                const newRow = document.createElement('tr');
+                newRow.innerHTML = `
+                    <td>${distance}</td>
+                    <td>${pathLoss}</td>
+                `;
+                valuesTableBody.appendChild(newRow);
+
+                showNotification(`Registered: Distance = ${distance}m, Path Loss = ${pathLoss}dB`);
+            } else {
+                showNotification("You can only register up to 6 values!");
+            }
+
+            // Enable plot button once we have 6 points
+            if (dataPoints.length === 6) {
+                plotBtn.disabled = false;
+            }
+        }
+
+        function plotGraph() {
+            const distances = dataPoints.map(point => point.distance);
+            const pathLosses = dataPoints.map(point => point.pathLoss);
+
+            // Debugging: Log data to ensure it's correct
+            console.log("Distances:", distances);
+            console.log("Path Losses:", pathLosses);
+
+            if (distances.length === 0 || pathLosses.length === 0) {
+                alert("No data to plot. Please register values first!");
+                return;
+            }
+
+            // Clear existing chart instance (if any)
+            if (Chart.getChart(chartCanvas)) {
+                Chart.getChart(chartCanvas).destroy();
+            }
+
+            new Chart(chartCanvas, {
+                type: 'line',
+                data: {
+                    labels: distances,
+                    datasets: [{
+                        label: 'Path Loss vs Distance',
+                        data: pathLosses,
+                        borderColor: 'rgba(37, 99, 235, 0.8)',
+                        backgroundColor: 'rgba(37, 99, 235, 0.2)',
+                        borderWidth: 2,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false, // Allow dynamic sizing
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Distance (m)'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Path Loss (dB)'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+
         // Event Listeners
         slider.addEventListener('input', updatePathLoss);
-        txHeightInput.addEventListener('input', updateAntennaHeights);
-        rxHeightInput.addEventListener('input', updateAntennaHeights);
-    
+        registerBtn.addEventListener('click', registerValues);
+        plotBtn.addEventListener('click', plotGraph);
+
         // Initial Setup
-        updateAntennaHeights();
-        updateReceiverPosition();
+        updatePathLoss();
     </script>
-    
 </body>
 </html>
