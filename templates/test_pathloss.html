@@ -458,7 +458,7 @@
             const pathLoss = parseFloat(pathLossDisplay.textContent);
 
             // Add values to the dataPoints array
-            if (dataPoints.length < 6) {
+            if (dataPoints.length < 10) {
                 dataPoints.push({ distance, pathLoss });
 
                 // Sort dataPoints by distance to ensure ascending order
@@ -480,7 +480,7 @@
                 // Automatically plot the graph with updated dataPoints
                 plotGraph(dataPoints);
             } else {
-                showNotification("You can only register up to 6 values!");
+                showNotification("You can only register up to 10 values!");
             }
         }
 
