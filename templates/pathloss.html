@@ -323,6 +323,7 @@
         const resetBtn = document.getElementById('resetBtn');
         const chartCanvas = document.getElementById('pathloss-chart');
         const valuesTableBody = document.querySelector('#values-table tbody');
+        const sliderDisplay = document.getElementById('sliderDisplay');
     
         const frequency = 900; // MHz
         const maxDistance = 100; // Maximum distance in meters
@@ -344,6 +345,9 @@
             if (Chart.getChart(chartCanvas)) {
                 Chart.getChart(chartCanvas).destroy();
             }
+
+            slider.value = slider.min;
+            sliderDisplay.textContent = slider.value;
 
             showNotification("Table and plot have been reset!");
         });

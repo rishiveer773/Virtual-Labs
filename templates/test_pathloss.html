@@ -270,6 +270,7 @@
                 <div class="input-group">
                     <button id="register-btn">Register</button>
                     <!-- <button id="plot-btn" disabled>Plot Graph</button> -->
+                    <button id="resetBtn">Reset</button>
                 </div>
             </div>
         </div>
@@ -319,8 +320,10 @@
         const pathLossDisplay = document.getElementById('path-loss');
         const registerBtn = document.getElementById('register-btn');
         const plotBtn = document.getElementById('plot-btn');
+        const resetBtn = document.getElementById('resetBtn');
         const chartCanvas = document.getElementById('pathloss-chart');
         const valuesTableBody = document.querySelector('#values-table tbody');
+        const sliderDisplay = document.getElementById('sliderDisplay');
     
         const frequency = 900; // MHz
         const maxDistance = 100; // Maximum distance in meters
@@ -328,7 +331,34 @@
         let dataPoints = [];
 
         slider.max = maxDistance;
-    
+        
+
+        // Add event listener to reset button
+        resetBtn.addEventListener('click', () => {
+            // Clear the dataPoints array
+            dataPoints = [];
+
+            // Clear the table
+            valuesTableBody.innerHTML = '';
+
+            // Reset the chart
+            if (Chart.getChart(chartCanvas)) {
+                Chart.getChart(chartCanvas).destroy();
+            }
+
+            slider.value = slider.min;
+            sliderDisplay.textContent = slider.value;
+
+            const txHeight = parseInt(slider.min); // Assuming the slider's min value correlates to the initial height
+            const rxHeight = parseInt(slider.min); // Same assumption for the receiver
+
+            updateAntennaImage(txHeight, transmitter.querySelector('img'));
+            updateAntennaImage(rxHeight, receiver.querySelector('img'));
+
+            showNotification("Table, plot, slider, and antenna images have been reset!");
+        });
+
+
         function calculatePathLoss(distance, frequency, txHeight, rxHeight) {
             return (
                 20 * Math.log10(distance || 1) +

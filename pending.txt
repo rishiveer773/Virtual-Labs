@@ -1,4 +1,4 @@
-1) Make the plot look more organized
-2) Bring the register button closer to the slider
-3) Add 'reset' button
+1) Make the plot look more organized                    
+2) Bring the register button closer to the slider   -     
+3) Add 'reset' button           -                       Done
 4) Change the notification setting
