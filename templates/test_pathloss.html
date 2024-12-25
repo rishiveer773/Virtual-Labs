@@ -269,7 +269,7 @@
                 </div>
                 <div class="input-group">
                     <button id="register-btn">Register</button>
-                    <button id="plot-btn" disabled>Plot Graph</button>
+                    <!-- <button id="plot-btn" disabled>Plot Graph</button> -->
                 </div>
             </div>
         </div>
@@ -427,22 +427,26 @@
             if (dataPoints.length < 6) {
                 dataPoints.push({ distance, pathLoss });
 
-                // Add row to the table
-                const newRow = document.createElement('tr');
-                newRow.innerHTML = `
-                    <td>${distance}</td>
-                    <td>${pathLoss}</td>
-                `;
-                valuesTableBody.appendChild(newRow);
+                // Sort dataPoints by distance to ensure ascending order
+                dataPoints.sort((a, b) => a.distance - b.distance);
+
+                // Clear and repopulate the table to reflect sorted dataPoints
+                valuesTableBody.innerHTML = ''; // Clear existing rows
+                dataPoints.forEach(point => {
+                    const newRow = document.createElement('tr');
+                    newRow.innerHTML = `
+                        <td>${point.distance}</td>
+                        <td>${point.pathLoss}</td>
+                    `;
+                    valuesTableBody.appendChild(newRow);
+                });
 
                 showNotification(`Registered: Distance = ${distance}m, Path Loss = ${pathLoss}dB`);
+
+                // Automatically plot the graph with updated dataPoints
+                plotGraph(dataPoints);
             } else {
                 showNotification("You can only register up to 6 values!");
-            }
-
-            // Enable plot button once we have 6 points
-            if (dataPoints.length === 6) {
-                plotBtn.disabled = false;
             }
         }
 
