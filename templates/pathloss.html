@@ -232,19 +232,58 @@
             overflow: hidden; /* Prevent scrollbars */
         }
 
-
         .plot-section canvas {
             display: block;
             max-width: 100%;
             height: auto;
         }
-    </style>
 
+        .notification {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-size: 16px;
+            color: white;
+            background-color: #4caf50; /* Default green for success */
+            z-index: 1000;
+            display: none; /* Hidden by default */
+            animation: fadein 0.5s, fadeout 0.5s 2.5s; /* Fade effect */
+        }
+
+        .notification.error {
+            background-color: #ffa07a; /* Light red */
+            color: #800000; /* Dark red text for better contrast */
+        }
+
+        @keyframes fadein {
+            from {
+                opacity: 0;
+                top: 0;
+            }
+            to {
+                opacity: 1;
+                top: 20px;
+            }
+        }
+
+        @keyframes fadeout {
+            from {
+                opacity: 1;
+                top: 20px;
+            }
+            to {
+                opacity: 0;
+                top: 0;
+            }
+        }
+    </style>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-    <div id="notification" style="display:none; position:fixed; top:1rem; right:1rem; background:#2563eb; color:white; padding:0.5rem 1rem; border-radius:8px; box-shadow:0 4px 6px rgba(0,0,0,0.1); z-index:1000;">
-    </div>
+    <div id="notification" class="notification"></div>
 
     <div class="container">
         <h1>Path Loss Experiment</h1>
@@ -267,11 +306,11 @@
                     <div class="metric-value"><span id="path-loss">0</span> dB</div>
                     <div class="metric-label">Path Loss</div>
                 </div>
-                <div class="input-group">
+                <!-- <div class="input-group">
                     <button id="register-btn">Register</button>
-                    <!-- <button id="plot-btn" disabled>Plot Graph</button> -->
-                    <button id="resetBtn">Reset</button>
-                </div>
+                    <button id="plot-btn" disabled>Plot Graph</button> -->
+                    <!-- <button id="resetBtn">Reset</button>
+                </div> -->
             </div>
         </div>
 
@@ -287,7 +326,11 @@
             <div class="input-group">
                 <label for="distance-slider">Adjust Receiver Position</label>
                 <input type="range" id="distance-slider" min="0" max="100" value="0" step="1">
-            </div>
+                <div id="button-container" style="margin-top: 10px; display: flex; justify-content: center;">
+                    <button id="register-btn" style="margin-right: 10px;">Register</button>
+                    <button id="resetBtn">Reset</button>
+                </div>
+            </div>            
         </div>
 
         <!-- Table Section -->
@@ -307,7 +350,7 @@
         </div>
 
         <!-- Graph Section -->
-        <canvas id="pathloss-chart" style="max-height: 300px;"></canvas>
+        <canvas id="pathloss-chart" style="max-height: 450px;"></canvas>
     </div>
 
     <script>
@@ -349,7 +392,13 @@
             slider.value = slider.min;
             sliderDisplay.textContent = slider.value;
 
-            showNotification("Table and plot have been reset!");
+            const txHeight = parseInt(slider.min); // Assuming the slider's min value correlates to the initial height
+            const rxHeight = parseInt(slider.min); // Same assumption for the receiver
+
+            updateAntennaImage(txHeight, transmitter.querySelector('img'));
+            updateAntennaImage(rxHeight, receiver.querySelector('img'));
+
+            showNotification("Table, plot, slider, and antenna images have been reset!");
         });
 
 
@@ -432,9 +481,10 @@
             updateReceiverPosition();
         }
 
-        function showNotification(message) {
+        function showNotification(message, isError = false) {
             const notification = document.getElementById('notification');
             notification.textContent = message;
+            notification.className = isError ? 'notification error' : 'notification';
             notification.style.display = 'block';
 
             // Hide the notification after 3 seconds
@@ -448,7 +498,7 @@
             const pathLoss = parseFloat(pathLossDisplay.textContent);
 
             // Add values to the dataPoints array
-            if (dataPoints.length < 6) {
+            if (dataPoints.length < 10) {
                 dataPoints.push({ distance, pathLoss });
 
                 // Sort dataPoints by distance to ensure ascending order
@@ -470,7 +520,7 @@
                 // Automatically plot the graph with updated dataPoints
                 plotGraph(dataPoints);
             } else {
-                showNotification("You can only register up to 6 values!");
+                showNotification("You can only register up to 10 values!", true);
             }
         }
 
