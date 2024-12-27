@@ -26,10 +26,38 @@
             <option value="SIMO">SIMO</option>
             <option value="MISO">MISO</option>
         </select>
+        
         <label for="num-antennas">Number of Antennas:</label>
-        <input type="number" id="num-antennas" name="num_antennas" min="1" required>
+        <input type="number" id="num-antennas" name="num_antennas" min="1" max="5" required>
+        
+        <div id="combining-method-container" style="display: none;">
+            <label for="combining-method">Combining Method:</label>
+            <select id="combining-method" name="combining_method">
+                <option value="EGC">Equal Gain Combining (EGC)</option>
+                <option value="SC">Selection Combining (SC)</option>
+                <option value="MRC">Maximal Ratio Combining (MRC)</option>
+            </select>
+        </div>
+    
         <button type="submit">Generate</button>
     </form>
+    
+    <script>
+        const numAntennasInput = document.getElementById('num-antennas');
+        const combiningMethodContainer = document.getElementById('combining-method-container');
+    
+        numAntennasInput.addEventListener('input', () => {
+            const numAntennas = parseInt(numAntennasInput.value, 10);
+            
+            // Show combining method dropdown only if the input is valid
+            if (numAntennas >= 1 && numAntennas <= 5) {
+                combiningMethodContainer.style.display = 'block';
+            } else {
+                combiningMethodContainer.style.display = 'none';
+            }
+        });
+    </script>
+    
 
     <div id="diagram-container">
         <svg id="diagram" width="800" height="400"></svg>
@@ -38,6 +66,7 @@
     <script>
         const form = document.getElementById('system-form');
         const svg = d3.select('#diagram');
+        const combiningMethod = document.getElementById('combining-method').value;
 
         form.addEventListener('submit', (event) => {
             event.preventDefault();
@@ -149,6 +178,57 @@
                 }
             }
         }
+
+        function equalGainCombining(signals) {
+            // Normalize and combine signals with equal weights
+            const combined = signals.reduce((sum, signal) => sum + signal / signals.length, 0);
+            return combined;
+        }
+
+        function selectionCombining(signals) {
+            return Math.max(...signals.map(signal => Math.abs(signal)));
+        }
+
+        function maximalRatioCombining(signals, snrs) {
+            const combined = signals.reduce((sum, signal, i) => sum + signal * snrs[i], 0);
+            return combined;
+        }
+
+        function generateSignals(numAntennas) {
+            const signals = Array.from({ length: numAntennas }, () => Math.random() * 2 - 1); // Random signals
+            const snrs = Array.from({ length: numAntennas }, () => Math.random() * 10); // Random SNRs
+            return { signals, snrs };
+        }
+
+        function updateVisualization(combinedSignal) {
+            d3.select('#diagram').append('text')
+                .attr('x', 50)
+                .attr('y', 50)
+                .text(`Combined Signal Strength: ${combinedSignal.toFixed(2)}`)
+                .style('font-size', '16px')
+                .attr('fill', 'black');
+        }
+
+        form.addEventListener('submit', (event) => {
+            event.preventDefault();
+            const systemType = document.getElementById('system-type').value;
+            const numAntennas = parseInt(document.getElementById('num-antennas').value, 10);
+            const combiningMethod = document.getElementById('combining-method').value;
+
+            const { signals, snrs } = generateSignals(numAntennas);
+
+            let combinedSignal;
+            if (combiningMethod === 'EGC') {
+                combinedSignal = equalGainCombining(signals);
+            } else if (combiningMethod === 'SC') {
+                combinedSignal = selectionCombining(signals);
+            } else if (combiningMethod === 'MRC') {
+                combinedSignal = maximalRatioCombining(signals, snrs);
+            }
+
+            renderDiagram({ system_type: systemType, num_rx: systemType === 'SIMO' ? numAntennas : null, num_tx: systemType === 'MISO' ? numAntennas : null });
+            updateVisualization(combinedSignal);
+        });
     </script>
 </body>
 </html>
