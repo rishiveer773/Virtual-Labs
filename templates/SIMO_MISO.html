@@ -14,7 +14,16 @@
         .line {
             stroke: gray;
             stroke-width: 1.5;
-            opacity: 0.8; /* Increased opacity of the lines */
+            opacity: 0.8;
+        }
+        table {
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
         }
     </style>
 </head>
@@ -26,11 +35,23 @@
             <option value="SIMO">SIMO</option>
             <option value="MISO">MISO</option>
         </select>
+        
         <label for="num-antennas">Number of Antennas:</label>
-        <input type="number" id="num-antennas" name="num_antennas" min="1" required>
+        <input type="number" id="num-antennas" name="num_antennas" min="1" max="5" required>
+        
+        <div id="combining-method-container" style="display: none;">
+            <label for="combining-method">Combining Method:</label>
+            <select id="combining-method" name="combining_method">
+                <option value="EGC">Equal Gain Combining (EGC)</option>
+                <option value="SC">Selection Combining (SC)</option>
+                <option value="MRC">Maximal Ratio Combining (MRC)</option>
+            </select>
+        </div>
+    
         <button type="submit">Generate</button>
     </form>
 
+    <div id="table-container"></div>
     <div id="diagram-container">
         <svg id="diagram" width="800" height="400"></svg>
     </div>
@@ -38,34 +59,93 @@
     <script>
         const form = document.getElementById('system-form');
         const svg = d3.select('#diagram');
+        const numAntennasInput = document.getElementById('num-antennas');
+        const combiningMethodContainer = document.getElementById('combining-method-container').style.display = 'block';
 
-        form.addEventListener('submit', (event) => {
-            event.preventDefault();
-            const systemType = document.getElementById('system-type').value;
-            const numAntennas = document.getElementById('num-antennas').value;
-
-            // Simulate server response
-            const data = {
-                system_type: systemType,
-                num_rx: systemType === 'SIMO' ? parseInt(numAntennas, 10) : null,
-                num_tx: systemType === 'MISO' ? parseInt(numAntennas, 10) : null
-            };
-
-            renderDiagram(data);
+        // Show combining method dropdown based on antenna count
+        numAntennasInput.addEventListener('input', () => {
+            const numAntennas = parseInt(numAntennasInput.value, 10);
+            if (numAntennas >= 1 && numAntennas <= 5) {
+                combiningMethodContainer.style.display = 'block';
+            } else {
+                combiningMethodContainer.style.display = 'none';
+            }
         });
 
+        // Generate Rayleigh coefficients
+        function generateRayleighCoefficients(numAntennas) {
+            return Array.from({ length: numAntennas }, () => Math.sqrt(-2 * Math.log(Math.random())));
+        }
+
+        // Display coefficients in a table
+        function displayCoefficients(coefficients) {
+            const tableContainer = document.getElementById('table-container');
+            tableContainer.innerHTML = '';
+
+            const table = document.createElement('table');
+            const tbody = document.createElement('tbody');
+
+            const headerRow = document.createElement('tr');
+            headerRow.innerHTML = '<th>Antenna</th><th>Channel Coefficient</th>';
+            tbody.appendChild(headerRow);
+
+            coefficients.forEach((coeff, i) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `<td>Antenna ${i + 1}</td><td>${coeff.toFixed(3)}</td>`;
+                tbody.appendChild(row);
+            });
+
+            table.appendChild(tbody);
+            tableContainer.appendChild(table);
+        }
+
+        // Calculate combining weights
+        function calculateWeights(coefficients, method) {
+            if (method === 'EGC') {
+                return coefficients.map(() => 1 / coefficients.length);
+            } else if (method === 'SC') {
+                const maxIndex = coefficients.indexOf(Math.max(...coefficients));
+                return coefficients.map((_, i) => (i === maxIndex ? 1 : 0));
+            } else if (method === 'MRC') {
+                return coefficients.map((coeff) => coeff / Math.sqrt(coefficients.reduce((sum, c) => sum + c ** 2, 0)));
+            }
+        }
+
+        // Update the diagram with weights
+        function updateDiagramWithWeights(data, coefficients, weights) {
+            renderDiagram(data);
+
+            const centerX = +svg.attr('width') / 2;
+            const centerY = +svg.attr('height') / 2;
+            const radius = 150;
+
+            weights.forEach((weight, i) => {
+                const angle = (i / weights.length) * 2 * Math.PI;
+                const x = centerX + radius * Math.cos(angle);
+                const y = centerY + radius * Math.sin(angle);
+
+                svg.append('text')
+                    .attr('x', x)
+                    .attr('y', y - 30)
+                    .text(`W: ${weight.toFixed(2)}`)
+                    .style('font-size', '12px')
+                    .attr('fill', 'black');
+            });
+        }
+
+        // Render the base diagram
         function renderDiagram(data) {
             svg.selectAll('*').remove(); // Clear existing diagram
 
             const width = +svg.attr('width');
             const height = +svg.attr('height');
-            const radius = 150; // Radius of the circle
-            const offset = 30; // Offset to avoid overlapping with images
+            const radius = 150;
+            const offset = 30;
 
             const centerX = width / 2;
             const centerY = height / 2;
 
-            // Define arrowhead marker
+            // Append arrowhead marker for line ends
             svg.append('defs').append('marker')
                 .attr('id', 'arrowhead')
                 .attr('viewBox', '0 0 10 10')
@@ -76,35 +156,33 @@
                 .attr('orient', 'auto')
                 .append('path')
                 .attr('d', 'M 0 0 L 10 5 L 0 10 Z')
-                .attr('fill', 'gray')
-                .attr('opacity', 0.8); // Increased opacity of the arrowhead
+                .attr('fill', 'gray');
 
+            // Handle SIMO (Single Input, Multiple Output) system
             if (data.system_type === 'SIMO') {
                 const numRx = data.num_rx;
-
-                // Draw transmitter as an image at the center
+                
+                // Transmitter (central antenna)
                 svg.append('image')
                     .attr('x', centerX - 20)
                     .attr('y', centerY - 20)
                     .attr('width', 40)
                     .attr('height', 40)
-                    .attr('href', './static/images/antenna-svgrepo-com.svg');
+                    .attr('href', './static/images/antenna-svgrepo-com.svg'); // Transmitter
 
-                // Draw receivers and connections in a circular pattern
+                // Receiver antennas arranged in a circle around the transmitter
                 for (let i = 0; i < numRx; i++) {
                     const angle = (i / numRx) * 2 * Math.PI;
                     const x = centerX + radius * Math.cos(angle);
                     const y = centerY + radius * Math.sin(angle);
 
-                    // Draw receiver as an image
                     svg.append('image')
                         .attr('x', x - 20)
                         .attr('y', y - 20)
                         .attr('width', 40)
                         .attr('height', 40)
-                        .attr('href', './static/images/antenna-small.svg');
+                        .attr('href', './static/images/antenna-small.svg'); // Receiver
 
-                    // Draw line connection with arrowhead
                     svg.append('line')
                         .attr('x1', centerX + offset * Math.cos(angle))
                         .attr('y1', centerY + offset * Math.sin(angle))
@@ -113,42 +191,57 @@
                         .attr('class', 'line')
                         .attr('marker-end', 'url(#arrowhead)');
                 }
-            } else if (data.system_type === 'MISO') {
+            }
+
+            // Handle MISO (Multiple Input, Single Output) system
+            else if (data.system_type === 'MISO') {
                 const numTx = data.num_tx;
 
-                // Draw receiver as an image at the center
+                // Receiver (central antenna)
                 svg.append('image')
                     .attr('x', centerX - 20)
                     .attr('y', centerY - 20)
                     .attr('width', 40)
                     .attr('height', 40)
-                    .attr('href', './static/images/antenna-small.svg');
+                    .attr('href', './static/images/antenna-small.svg'); // Receiver
 
-                // Draw transmitters and connections in a circular pattern
+                // Transmitter antennas arranged in a circle around the receiver
                 for (let i = 0; i < numTx; i++) {
                     const angle = (i / numTx) * 2 * Math.PI;
                     const x = centerX + radius * Math.cos(angle);
                     const y = centerY + radius * Math.sin(angle);
 
-                    // Draw transmitter as an image
                     svg.append('image')
                         .attr('x', x - 20)
                         .attr('y', y - 20)
                         .attr('width', 40)
                         .attr('height', 40)
-                        .attr('href', './static/images/antenna-svgrepo-com.svg');
+                        .attr('href', './static/images/antenna-svgrepo-com.svg'); // Transmitter
 
-                    // Draw line connection with arrowhead
                     svg.append('line')
-                        .attr('x1', x - offset * Math.cos(angle))
-                        .attr('y1', y - offset * Math.sin(angle))
-                        .attr('x2', centerX + offset * Math.cos(angle))
-                        .attr('y2', centerY + offset * Math.sin(angle))
+                        .attr('x1', centerX + offset * Math.cos(angle))
+                        .attr('y1', centerY + offset * Math.sin(angle))
+                        .attr('x2', x - offset * Math.cos(angle))
+                        .attr('y2', y - offset * Math.sin(angle))
                         .attr('class', 'line')
                         .attr('marker-end', 'url(#arrowhead)');
                 }
             }
         }
+
+        form.addEventListener('submit', (event) => {
+            event.preventDefault();
+
+            const systemType = document.getElementById('system-type').value;
+            const numAntennas = parseInt(numAntennasInput.value, 10);
+            const combiningMethod = document.getElementById('combining-method').value;
+
+            const coefficients = generateRayleighCoefficients(numAntennas);
+            displayCoefficients(coefficients);
+
+            const weights = calculateWeights(coefficients, combiningMethod);
+            updateDiagramWithWeights({ system_type: systemType, num_rx: systemType === 'SIMO' ? numAntennas : null, num_tx: systemType === 'MISO' ? numAntennas : null }, coefficients, weights);
+        });
     </script>
 </body>
 </html>
