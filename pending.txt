@@ -2,3 +2,10 @@
 2) Bring the register button closer to the slider   -   Done  
 3) Add 'reset' button           -                       Done
 4) Change the notification setting           -          Done
+5) Try out the two-ray model              -             
+
+---------------------------------------------------------------
+
+GitHub Pending
+1) Figure out the 404 error for the.. something regarding the gh-pages
+2) Change the font of the 'Theory' section of the experiment 'Multiplexing vs Diversity'
