@@ -166,7 +166,6 @@
         </div>
     </div>
     <script>
-        // DOM Elements
         const canvas = document.getElementById('simulationCanvas');
         const ctx = canvas.getContext('2d');
         const resultsDiv = document.getElementById('results');
@@ -178,34 +177,31 @@
         const scenario1Radio = document.getElementById('scenario1');
         const scenario2Radio = document.getElementById('scenario2');
     
-        // Simulation variables
         let scenario = 1;
+        let time = 0;
         let animationFrame;
     
-        // Object representations
         const transmitter = { x: 100, y: 200, img: new Image() };
         const receiver = { x: 400, y: 200, velocity: 0, img: new Image() };
         const wall = { x: 600, y: 100, width: 20, height: 200 };
-
+    
+        // Disable Case 2 radio button initially
+        scenario2Radio.disabled = true;
+    
         transmitter.img.onload = () => {
-            if (transmitter.img.complete && receiver.img.complete) { 
-                draw(); 
-            }
-        };
-
-        receiver.img.onload = () => {
-            if (transmitter.img.complete && receiver.img.complete) { 
-                draw(); 
+            if (transmitter.img.complete && receiver.img.complete) {
+                draw();
             }
         };
     
-        // Load images
+        receiver.img.onload = () => {
+            if (transmitter.img.complete && receiver.img.complete) {
+                draw();
+            }
+        };
+    
         transmitter.img.src = './static/images/antenna-svgrepo-com.svg';
         receiver.img.src = './static/images/car.svg';
-    
-        // Set Scenario
-        scenario1Radio.addEventListener('change', () => setScenario(1));
-        scenario2Radio.addEventListener('change', () => setScenario(2));
     
         function setScenario(selectedScenario) {
             scenario = selectedScenario;
@@ -219,7 +215,6 @@
             resetSimulation();
         }
     
-        // Calculate results
         function calculateResults() {
             const r = parseFloat(distanceInput.value) || 100;
             const v = parseFloat(velocityInput.value) || 0;
@@ -227,15 +222,19 @@
             const d = parseFloat(obstacleDistanceInput.value) || 150;
     
             receiver.velocity = v;
+    
             let output = '';
     
             if (scenario === 1) {
-                const dopplerShift = -(f * 1e6 * v) / 3e8; // Doppler shift formula
-                const coherenceTime = 1 / Math.abs(dopplerShift); // Coherence time
+                const dopplerShift = -(f * 1e6 * v) / 3e8;
+                const coherenceTime = 1 / Math.abs(dopplerShift);
                 output = `Doppler Shift: ${dopplerShift.toFixed(2)} Hz<br>Coherence Time: ${coherenceTime.toFixed(2)} s`;
+    
+                // Enable Case 2 radio button after Case 1 is calculated
+                scenario2Radio.disabled = false;
             } else if (scenario === 2) {
-                const delaySpread = Math.abs((2 * d - r) / 3e8 - r / 3e8); // Delay spread formula
-                const coherenceBandwidth = 1 / (2 * delaySpread); // Coherence bandwidth
+                const delaySpread = Math.abs((2 * d - r) / 3e8 - r / 3e8);
+                const coherenceBandwidth = 1 / (2 * delaySpread);
                 output = `Delay Spread: ${delaySpread.toFixed(8)} s<br>Coherence Bandwidth: ${coherenceBandwidth.toFixed(2)} Hz`;
             }
     
@@ -243,56 +242,54 @@
             startSimulation();
         }
     
-        // Reset simulation
         function resetSimulation() {
             receiver.x = 400;
+            receiver.y = 200;
             receiver.velocity = 0;
             distanceInput.value = 100;
             velocityInput.value = 0;
-            obstacleDistanceInput.value = 150;
             document.getElementById('frequency').value = 100;
-            resultsDiv.innerHTML = '<p>Simulation results will appear here</p>';
+            obstacleDistanceInput.value = 150;
+            time = 0;
             cancelAnimationFrame(animationFrame);
+            resultsDiv.innerHTML = '';
             draw();
         }
     
-        // Start simulation animation
         function startSimulation() {
             cancelAnimationFrame(animationFrame);
             updateSimulation();
         }
     
-        // Update simulation logic
         function updateSimulation() {
             if (scenario === 1 || scenario === 2) {
                 receiver.x += receiver.velocity * 0.1;
-                receiver.x = Math.min(Math.max(50, receiver.x), canvas.width - 50); // Keep receiver within canvas bounds
+                const margin = 50;
+                if (receiver.x < margin) receiver.x = margin;
+                if (receiver.x > canvas.width - margin) receiver.x = canvas.width - margin;
             }
             draw();
             animationFrame = requestAnimationFrame(updateSimulation);
         }
     
-        // Draw the simulation
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
     
-            // Transmitter
             ctx.drawImage(transmitter.img, transmitter.x - 40, transmitter.y - 40, 80, 80);
-            ctx.fillStyle = '#000';
-            ctx.fillText('Transmitter', transmitter.x - 40, transmitter.y - 50);
+            ctx.fillText("Transmitter", transmitter.x - 40, transmitter.y - 40);
     
-            // Receiver
-            ctx.drawImage(receiver.img, receiver.x - 30, receiver.y - 30, 60, 60);
-            ctx.fillText('Receiver', receiver.x - 30, receiver.y - 50);
+            if (receiver.velocity < 0) {
+                flipImageHorizontally(receiver.img, receiver.x - 30, receiver.y - 30, 60, 60);
+            } else {
+                ctx.drawImage(receiver.img, receiver.x - 30, receiver.y - 30, 60, 60);
+            }
+            ctx.fillText("Receiver", receiver.x - 30, receiver.y - 40);
     
-            // Wall (Scenario 2)
             if (scenario === 2) {
-                ctx.fillStyle = '#808080';
+                ctx.fillStyle = 'gray';
                 ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
-                ctx.fillStyle = '#000';
-                ctx.fillText('Wall', wall.x - 10, wall.y - 10);
+                ctx.fillText("Wall", wall.x - 10, wall.y - 10);
     
-                // Reflected signal
                 ctx.strokeStyle = 'red';
                 ctx.beginPath();
                 ctx.moveTo(transmitter.x, transmitter.y);
@@ -301,12 +298,18 @@
                 ctx.stroke();
             }
     
-            // Direct signal
             ctx.strokeStyle = 'orange';
             ctx.beginPath();
             ctx.moveTo(transmitter.x, transmitter.y);
             ctx.lineTo(receiver.x, receiver.y);
             ctx.stroke();
+        }
+    
+        function flipImageHorizontally(img, x, y, width, height) {
+            ctx.save();
+            ctx.scale(-1, 1);
+            ctx.drawImage(img, -x - width, y, width, height);
+            ctx.restore();
         }
     
         // Initial draw
