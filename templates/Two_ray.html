@@ -54,6 +54,7 @@
         <input type="number" id="obstacleDistance" value="150" step="1" style="display:none">
         <br>
         <button onclick="calculateResults()">Calculate</button>
+        <button onclick="resetSimulation()">Reset</button>
     </div>
 
     <canvas id="simulationCanvas" width="800" height="400"></canvas>
@@ -66,13 +67,17 @@
         const resultsDiv = document.getElementById('results');
         const obstacleDistanceInput = document.getElementById('obstacleDistance');
         const obstacleDistanceLabel = document.getElementById('obstacleDistanceLabel');
-        
+
         let scenario = 1;
         let time = 0;
+        let animationFrame;
 
-        const transmitter = { x: 100, y: 200 };
-        let receiver = { x: 400, y: 200 };
+        const transmitter = { x: 100, y: 200, img: new Image() };
+        const receiver = { x: 400, y: 200, velocity: 0, img: new Image() };
         const wall = { x: 600, y: 100, width: 20, height: 200 };
+
+        transmitter.img.src = './static/images/antenna-svgrepo-com.svg';
+        receiver.img.src = './static/images/car.svg';
 
         function setScenario(selectedScenario) {
             scenario = selectedScenario;
@@ -96,6 +101,8 @@
             const f = parseFloat(document.getElementById('frequency').value) || 100;
             const d = parseFloat(obstacleDistanceInput.value) || 150;
 
+            receiver.velocity = v; // Set the receiver's velocity
+
             let output = '';
 
             if (scenario === 1) {
@@ -109,32 +116,50 @@
             }
 
             resultsDiv.innerHTML = output;
-            draw();
+            startSimulation();
         }
 
         function resetSimulation() {
-            receiver = { x: 400, y: 200 };
+            receiver.x = 400;
+            receiver.y = 200;
+            receiver.velocity = 0;
+            document.getElementById('distance').value = 100;
+            document.getElementById('velocity').value = 0;
+            document.getElementById('frequency').value = 100;
+            document.getElementById('obstacleDistance').value = 150;
             time = 0;
+            cancelAnimationFrame(animationFrame);
             resultsDiv.innerHTML = '';
             draw();
+        }
+
+        function startSimulation() {
+            cancelAnimationFrame(animationFrame);
+            updateSimulation();
+        }
+
+        function updateSimulation() {
+            if (scenario === 1 || scenario === 2) {
+                receiver.x += receiver.velocity * 0.1; // Update receiver position
+                // Ensure receiver stays within canvas boundaries with a margin
+                const margin = 50; // Margin from the canvas edges
+                if (receiver.x < margin) receiver.x = margin;
+                if (receiver.x > canvas.width - margin) receiver.x = canvas.width - margin;
+            }
+            draw();
+            animationFrame = requestAnimationFrame(updateSimulation);
         }
 
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             // Draw transmitter
-            ctx.fillStyle = 'blue';
-            ctx.beginPath();
-            ctx.arc(transmitter.x, transmitter.y, 10, 0, 2 * Math.PI);
-            ctx.fill();
-            ctx.fillText("Transmitter", transmitter.x - 40, transmitter.y - 20);
+            ctx.drawImage(transmitter.img, transmitter.x - 40, transmitter.y - 40, 80, 80);
+            ctx.fillText("Transmitter", transmitter.x - 40, transmitter.y - 40);
 
             // Draw receiver
-            ctx.fillStyle = 'green';
-            ctx.beginPath();
-            ctx.arc(receiver.x, receiver.y, 10, 0, 2 * Math.PI);
-            ctx.fill();
-            ctx.fillText("Receiver", receiver.x - 30, receiver.y - 20);
+            ctx.drawImage(receiver.img, receiver.x - 30, receiver.y - 30, 60, 60);
+            ctx.fillText("Receiver", receiver.x - 30, receiver.y - 40);
 
             // Draw wall for Scenario 2
             if (scenario === 2) {

@@ -72,9 +72,12 @@
         let time = 0;
         let animationFrame;
 
-        const transmitter = { x: 100, y: 200 };
-        let receiver = { x: 400, y: 200, velocity: 0 };
+        const transmitter = { x: 100, y: 200, img: new Image() };
+        const receiver = { x: 400, y: 200, velocity: 0, img: new Image() };
         const wall = { x: 600, y: 100, width: 20, height: 200 };
+
+        transmitter.img.src = './static/images/antenna-svgrepo-com.svg';
+        receiver.img.src = './static/images/car.svg';
 
         function setScenario(selectedScenario) {
             scenario = selectedScenario;
@@ -117,7 +120,9 @@
         }
 
         function resetSimulation() {
-            receiver = { x: 400, y: 200, velocity: 0 };
+            receiver.x = 400;
+            receiver.y = 200;
+            receiver.velocity = 0;
             document.getElementById('distance').value = 100;
             document.getElementById('velocity').value = 0;
             document.getElementById('frequency').value = 100;
@@ -149,18 +154,12 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             // Draw transmitter
-            ctx.fillStyle = 'blue';
-            ctx.beginPath();
-            ctx.arc(transmitter.x, transmitter.y, 10, 0, 2 * Math.PI);
-            ctx.fill();
-            ctx.fillText("Transmitter", transmitter.x - 40, transmitter.y - 20);
+            ctx.drawImage(transmitter.img, transmitter.x - 40, transmitter.y - 40, 80, 80);
+            ctx.fillText("Transmitter", transmitter.x - 40, transmitter.y - 40);
 
             // Draw receiver
-            ctx.fillStyle = 'green';
-            ctx.beginPath();
-            ctx.arc(receiver.x, receiver.y, 10, 0, 2 * Math.PI);
-            ctx.fill();
-            ctx.fillText("Receiver", receiver.x - 30, receiver.y - 20);
+            ctx.drawImage(receiver.img, receiver.x - 30, receiver.y - 30, 60, 60);
+            ctx.fillText("Receiver", receiver.x - 30, receiver.y - 40);
 
             // Draw wall for Scenario 2
             if (scenario === 2) {
@@ -190,4 +189,3 @@
     </script>
 </body>
 </html>
-    
