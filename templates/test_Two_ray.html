@@ -7,76 +7,143 @@
     <style>
         body {
             font-family: Arial, sans-serif;
-            text-align: center;
             margin: 0;
             padding: 0;
+            display: flex;
+            flex-direction: column;
         }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .container {
+            display: flex;
+        }
+
+        .input-section {
+            flex: 1;
+            padding: 20px;
+            box-sizing: border-box; 
+        }
+
+        .simulation-section {
+            flex: 3; /* Increase space even further */
+            padding: 20px;
+            box-sizing: border-box; 
+            text-align: center;
+        }
+
+        .output-section {
+            flex: 1;
+            padding: 10px; /* Reduce padding for smaller width */
+            box-sizing: border-box; 
+            text-align: center;
+        }
+
         canvas {
-            border: 1px solid #000;
+            border: 1px solid #ccc;
             display: block;
-            margin: 20px auto;
+            margin: 0 auto;
+            background-color: #fff;
         }
+
         .controls {
-            margin: 20px;
+            background-color: #e0e0e0;
+            padding: 15px;
+            border-radius: 5px;
         }
-        .controls input, .controls button {
-            margin: 5px;
-            padding: 5px 10px;
-        }
+
         .results {
-            margin: 20px;
-            font-weight: bold;
+            background-color: #e0e0e0;
+            padding: 10px; 
+            border-radius: 5px;
+            overflow-y: auto;
+            max-height: 250px; /* Reduce maximum height */
+        }
+
+        .transmitter-image, .receiver-image {
+            max-width: 100px;
+            max-height: 100px;
+        }
+
+        /* CSS transitions for smoother receiver movement */
+        .receiver {
+            transition: transform 0.2s ease-in-out;
         }
     </style>
 </head>
 <body>
-    <h1>Two-Ray Model Simulation</h1>
-    <p>To understand the various performance characteristics of a two-ray model-based wireless channel, follow these steps:</p>
-    <ol>
-        <li>Enter the values of the distance between transmitter and receiver (<strong>r</strong>), the velocity at which the receiver is moving (<strong>v</strong>), and the frequency of the input signal (<strong>f</strong>).</li>
-        <li>Click on <strong>Calculate</strong> to observe the Doppler spread and coherence time for Case 1.</li>
-        <li>Enter the values of the distance between transmitter and receiver (<strong>r</strong>), the distance between the transmitter and the obstacle (<strong>d</strong>), and the frequency of the input signal (<strong>f</strong>).</li>
-        <li>Click on <strong>Calculate</strong> to observe the delay spread and coherence bandwidth for Case 2.</li>
-    </ol>
-    <p><strong>Note:</strong> The velocity at which the receiver is moving can be negative, indicating the receiver is moving away from the transmitter, and vice-versa.</p>
-
-    <div class="controls">
-        <button onclick="setScenario(1)">Scenario 1: Free Space</button>
-        <button onclick="setScenario(2)">Scenario 2: Reflection</button>
-        <br>
-        <label for="distance">Distance (r) in meters:</label>
-        <input type="number" id="distance" value="100" step="1">
-        <label id="velocityLabel" for="velocity">Receiver Velocity (v) in m/s:</label>
-        <input type="number" id="velocity" value="0" step="1">
-        <label for="frequency">Frequency (f) in MHz:</label>
-        <input type="number" id="frequency" value="100" step="1">
-        <label id="obstacleDistanceLabel" style="display:none" for="obstacleDistance">Obstacle Distance (d) in meters:</label>
-        <input type="number" id="obstacleDistance" value="150" step="1" style="display:none">
-        <br>
-        <button onclick="calculateResults()">Calculate</button>
-        <button onclick="resetSimulation()">Reset</button>
+    <div class="header">
+        <h1>Two-Ray Model Simulation</h1> 
     </div>
 
-    <canvas id="simulationCanvas" width="800" height="400"></canvas>
+    <div class="container">
+        <div class="input-section">
+            <h2>Inputs</h2> 
+            <div class="controls">
+                <h3>Select Scenario:</h3>
+                <input type="radio" id="scenario1" name="scenario" value="1" checked>
+                <label for="scenario1">Scenario 1: Free Space</label><br>
+                <input type="radio" id="scenario2" name="scenario" value="2">
+                <label for="scenario2">Scenario 2: Reflection</label><br><br>
 
-    <div class="results" id="results"></div>
+                <label for="distance">Distance (r) in meters:</label>
+                <input type="number" id="distance" value="100" step="1" min="1" required> 
+                <br>
+
+                <div id="scenario1-inputs"> 
+                    <label for="velocity">Receiver Velocity (v) in m/s:</label>
+                    <input type="number" id="velocity" value="0" step="1" required>
+                </div>
+
+                <div id="scenario2-inputs" style="display: none;">
+                    <label for="obstacleDistance">Obstacle Distance (d) in meters:</label>
+                    <input type="number" id="obstacleDistance" value="150" step="1" min="1" required>
+                </div>
+
+                <label for="frequency">Frequency (f) in MHz:</label>
+                <input type="number" id="frequency" value="100" step="1" min="1" required>
+                <br>
+
+                <button onclick="calculateResults()">Calculate</button>
+                <button onclick="resetSimulation()">Reset</button>
+            </div>
+        </div>
+
+        <div class="simulation-section"> 
+            <h2>Simulation</h2> 
+            <canvas id="simulationCanvas" width="800" height="400"></canvas>
+        </div>
+
+        <div class="output-section">
+            <h2>Outputs</h2>
+            <div class="results" id="results"></div>
+        </div>
+    </div>
 
     <script>
         const canvas = document.getElementById('simulationCanvas');
         const ctx = canvas.getContext('2d');
         const resultsDiv = document.getElementById('results');
+        const distanceInput = document.getElementById('distance');
+        const velocityInput = document.getElementById('velocity');
         const obstacleDistanceInput = document.getElementById('obstacleDistance');
-        const obstacleDistanceLabel = document.getElementById('obstacleDistanceLabel');
+        const scenario1Inputs = document.getElementById('scenario1-inputs');
+        const scenario2Inputs = document.getElementById('scenario2-inputs');
+        const scenario1Radio = document.getElementById('scenario1');
+        const scenario2Radio = document.getElementById('scenario2');
 
-        let scenario = 1;
+        let scenario = 1; 
         let time = 0;
         let animationFrame;
 
         const transmitter = { x: 100, y: 200, img: new Image() };
-        const receiver = { x: 400, y: 200, velocity: 0, img: new Image() };
+        const receiver = { x: 400, y: 200, velocity: 0, img: new Image() }; 
         const wall = { x: 600, y: 100, width: 20, height: 200 };
 
-        transmitter.img.src = './static/images/antenna-svgrepo-com.svg';
+        transmitter.img.src = './static/images/antenna-svgrepo-com.svg'; 
         receiver.img.src = './static/images/car.svg';
 
         function setScenario(selectedScenario) {
