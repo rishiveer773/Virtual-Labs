@@ -350,6 +350,18 @@
         const receiver = { x: 400, y: 200, velocity: 0, img: receiverImg }; 
         const wall = { x: 600, y: 100, width: 20, height: 200 };
 
+        transmitterImg.onload = () => {
+            if (transmitterImg.complete && receiverImg.complete) {
+                draw();
+            }
+        };
+        
+        receiverImg.onload = () => {
+            if (transmitterImg.complete && receiverImg.complete) {
+                draw();
+            }
+        };
+
         function setScenario(selectedScenario) {
             scenario = selectedScenario;
             if (scenario === 2) {
@@ -363,18 +375,20 @@
         }
 
         function calculateResults() {
+            resetSimulation(); // Reset the simulation before starting it
+
             const r = parseFloat(distanceInput.value) || 100;
             const v = parseFloat(velocityInput.value) || 0;
             const f = parseFloat(document.getElementById('frequency').value) || 100;
             const d = parseFloat(obstacleDistanceInput.value) || 150;
 
-            receiver.velocity = v; 
+            receiver.velocity = v; // Set the receiver's velocity
 
             let output = '';
 
             if (scenario === 1) {
-                const dopplerShift = -(f * 1e6 * v) / 3e8; 
-                const coherenceTime = 1 / Math.abs(dopplerShift); 
+                const dopplerShift = -(f * 1e6 * v) / 3e8; // Doppler shift formula
+                const coherenceTime = 1 / Math.abs(dopplerShift); // Coherence time (approximate)
                 output = `
                     <div class="result-item">
                         <span>Doppler Shift:</span> ${dopplerShift.toFixed(2)} Hz
@@ -384,8 +398,8 @@
                     </div>
                 `;
             } else if (scenario === 2) {
-                const delaySpread = Math.abs((2 * d - r) / 3e8 - r / 3e8); 
-                const coherenceBandwidth = 1 / (2 * delaySpread); 
+                const delaySpread = Math.abs((2 * d - r) / 3e8 - r / 3e8); // Delay spread formula
+                const coherenceBandwidth = 1 / (2 * delaySpread); // Coherence bandwidth
                 output = `
                     <div class="result-item">
                         <span>Delay Spread:</span> ${delaySpread.toFixed(8)} s
@@ -399,17 +413,15 @@
             resultsDiv.innerHTML = output;
             resultsDiv.classList.add('animate-fade'); // Add fade-in animation
 
-            resetSimulation(); 
-            startSimulation(); 
+            startSimulation(); // Start the simulation after resetting it
         }
 
         function resetSimulation() {
             receiver.x = 400;
             receiver.y = 200;
-            receiver.velocity = 0; 
             time = 0;
-            cancelAnimationFrame(animationFrame); 
-            draw(); 
+            cancelAnimationFrame(animationFrame); // Cancel any ongoing animation
+            draw(); // Initial draw
         }
 
         function startSimulation() {
@@ -419,32 +431,36 @@
 
         function updateSimulation() {
             if (scenario === 1 || scenario === 2) {
-                receiver.x += receiver.velocity * 0.1; 
-                const margin = 50; 
+                receiver.x += receiver.velocity * 0.1; // Update receiver position
+                const margin = 50; // Margin from the canvas edges
                 if (receiver.x < margin) receiver.x = margin;
                 if (receiver.x > canvas.width - margin) receiver.x = canvas.width - margin;
             }
             draw();
-            animationFrame = requestAnimationFrame(updateSimulation);
+            animationFrame = requestAnimationFrame(updateSimulation); // Continue the animation
         }
 
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             // Draw transmitter
-            ctx.drawImage(transmitter.img, transmitter.x - 40, transmitter.y - 40, 80, 80);
-            ctx.fillText("Transmitter", transmitter.x - 40, transmitter.y - 40);
+            if (transmitter.img) {
+                ctx.drawImage(transmitter.img, transmitter.x - 40, transmitter.y - 40, 80, 80);
+                ctx.fillText("Transmitter", transmitter.x - 40, transmitter.y - 40);
+            }
 
             // Draw receiver
-            if (receiver.velocity < 0) {
-                ctx.save();
-                ctx.scale(-1, 1);
-                ctx.drawImage(receiver.img, -receiver.x - 30, receiver.y - 30, 60, 60);
-                ctx.restore();
-            } else {
-                ctx.drawImage(receiver.img, receiver.x - 30, receiver.y - 30, 60, 60);
+            if (receiver.img) {
+                if (receiver.velocity < 0) {
+                    ctx.save();
+                    ctx.scale(-1, 1);
+                    ctx.drawImage(receiver.img, -receiver.x - 30, receiver.y - 30, 60, 60);
+                    ctx.restore();
+                } else {
+                    ctx.drawImage(receiver.img, receiver.x - 30, receiver.y - 30, 60, 60);
+                }
+                ctx.fillText("Receiver", receiver.x - 30, receiver.y - 40);
             }
-            ctx.fillText("Receiver", receiver.x - 30, receiver.y - 40);
 
             // Draw wall for Scenario 2
             if (scenario === 2) {
@@ -470,6 +486,7 @@
         }
 
         // Initial draw after both images are loaded
-            </script>
+        draw();
+    </script>
 </body>
 </html>
