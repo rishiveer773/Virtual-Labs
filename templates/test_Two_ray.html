@@ -54,6 +54,7 @@
         <input type="number" id="obstacleDistance" value="150" step="1" style="display:none">
         <br>
         <button onclick="calculateResults()">Calculate</button>
+        <button onclick="resetSimulation()">Reset</button>
     </div>
 
     <canvas id="simulationCanvas" width="800" height="400"></canvas>
@@ -66,12 +67,13 @@
         const resultsDiv = document.getElementById('results');
         const obstacleDistanceInput = document.getElementById('obstacleDistance');
         const obstacleDistanceLabel = document.getElementById('obstacleDistanceLabel');
-        
+
         let scenario = 1;
         let time = 0;
+        let animationFrame;
 
         const transmitter = { x: 100, y: 200 };
-        let receiver = { x: 400, y: 200 };
+        let receiver = { x: 400, y: 200, velocity: 0 };
         const wall = { x: 600, y: 100, width: 20, height: 200 };
 
         function setScenario(selectedScenario) {
@@ -96,6 +98,8 @@
             const f = parseFloat(document.getElementById('frequency').value) || 100;
             const d = parseFloat(obstacleDistanceInput.value) || 150;
 
+            receiver.velocity = v; // Set the receiver's velocity
+
             let output = '';
 
             if (scenario === 1) {
@@ -109,14 +113,36 @@
             }
 
             resultsDiv.innerHTML = output;
-            draw();
+            startSimulation();
         }
 
         function resetSimulation() {
-            receiver = { x: 400, y: 200 };
+            receiver = { x: 400, y: 200, velocity: 0 };
+            document.getElementById('distance').value = 100;
+            document.getElementById('velocity').value = 0;
+            document.getElementById('frequency').value = 100;
+            document.getElementById('obstacleDistance').value = 150;
             time = 0;
+            cancelAnimationFrame(animationFrame);
             resultsDiv.innerHTML = '';
             draw();
+        }
+
+        function startSimulation() {
+            cancelAnimationFrame(animationFrame);
+            updateSimulation();
+        }
+
+        function updateSimulation() {
+            if (scenario === 1 || scenario === 2) {
+                receiver.x += receiver.velocity * 0.1; // Update receiver position
+                // Ensure receiver stays within canvas boundaries with a margin
+                const margin = 50; // Margin from the canvas edges
+                if (receiver.x < margin) receiver.x = margin;
+                if (receiver.x > canvas.width - margin) receiver.x = canvas.width - margin;
+            }
+            draw();
+            animationFrame = requestAnimationFrame(updateSimulation);
         }
 
         function draw() {
@@ -164,3 +190,4 @@
     </script>
 </body>
 </html>
+    
