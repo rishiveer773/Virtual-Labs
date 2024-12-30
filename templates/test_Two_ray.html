@@ -155,30 +155,19 @@
             }
         };
 
-        transmitter.img.src = './static/images/antenna-svgrepo-com.svg'; 
-        receiver.img.src = './static/images/car.svg';
+        transmitter.img.src = './static/images/antenna-svgrepo-com.svg';
+        receiver.img.src = './static/images/car.svg'; 
 
         function setScenario(selectedScenario) {
             scenario = selectedScenario;
             if (scenario === 2) {
                 obstacleDistanceInput.style.display = 'inline';
-                obstacleDistanceLabel.style.display = 'inline';
                 document.getElementById('velocity').style.display = 'none';
-                document.getElementById('velocityLabel').style.display = 'none';
             } else {
                 obstacleDistanceInput.style.display = 'none';
-                obstacleDistanceLabel.style.display = 'none';
                 document.getElementById('velocity').style.display = 'inline';
-                document.getElementById('velocityLabel').style.display = 'inline';
             }
-            resetSimulation();
-        }
-
-        function flipImageHorizontally(img, x, y, width, height) {
-            ctx.save();
-            ctx.scale(-1, 1);
-            ctx.drawImage(img, -x - width, y, width, height);
-            ctx.restore();
+            calculateResults(); // Start simulation immediately
         }
 
         function calculateResults() {
@@ -187,36 +176,32 @@
             const f = parseFloat(document.getElementById('frequency').value) || 100;
             const d = parseFloat(obstacleDistanceInput.value) || 150;
 
-            receiver.velocity = v; // Set the receiver's velocity
+            receiver.velocity = v; 
 
             let output = '';
 
             if (scenario === 1) {
-                const dopplerShift = -(f * 1e6 * v) / 3e8; // Doppler shift formula
-                const coherenceTime = 1 / Math.abs(dopplerShift); // Coherence time (approximate)
+                const dopplerShift = -(f * 1e6 * v) / 3e8; 
+                const coherenceTime = 1 / Math.abs(dopplerShift); 
                 output = `Doppler Shift: ${dopplerShift.toFixed(2)} Hz<br>Coherence Time: ${coherenceTime.toFixed(2)} s`;
             } else if (scenario === 2) {
-                const delaySpread = Math.abs((2 * d - r) / 3e8 - r / 3e8); // Delay spread formula
-                const coherenceBandwidth = 1 / (2 * delaySpread); // Coherence bandwidth
+                const delaySpread = Math.abs((2 * d - r) / 3e8 - r / 3e8); 
+                const coherenceBandwidth = 1 / (2 * delaySpread); 
                 output = `Delay Spread: ${delaySpread.toFixed(8)} s<br>Coherence Bandwidth: ${coherenceBandwidth.toFixed(2)} Hz`;
             }
 
             resultsDiv.innerHTML = output;
-            startSimulation();
+            resetSimulation(); // Reset before starting new simulation
+            startSimulation(); 
         }
 
         function resetSimulation() {
             receiver.x = 400;
             receiver.y = 200;
-            receiver.velocity = 0;
-            document.getElementById('distance').value = 100;
-            document.getElementById('velocity').value = 0;
-            document.getElementById('frequency').value = 100;
-            document.getElementById('obstacleDistance').value = 150;
+            receiver.velocity = 0; 
             time = 0;
-            cancelAnimationFrame(animationFrame);
-            resultsDiv.innerHTML = '';
-            draw();
+            cancelAnimationFrame(animationFrame); 
+            draw(); 
         }
 
         function startSimulation() {
@@ -226,9 +211,8 @@
 
         function updateSimulation() {
             if (scenario === 1 || scenario === 2) {
-                receiver.x += receiver.velocity * 0.1; // Update receiver position
-                // Ensure receiver stays within canvas boundaries with a margin
-                const margin = 50; // Margin from the canvas edges
+                receiver.x += receiver.velocity * 0.1; 
+                const margin = 50; 
                 if (receiver.x < margin) receiver.x = margin;
                 if (receiver.x > canvas.width - margin) receiver.x = canvas.width - margin;
             }
@@ -273,6 +257,8 @@
             ctx.lineTo(receiver.x, receiver.y);
             ctx.stroke();
         }
+
+        // Initial draw after both images are loaded
 
         // Initial draw
         draw();
