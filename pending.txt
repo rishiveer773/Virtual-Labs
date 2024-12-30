@@ -9,3 +9,5 @@
 GitHub Pending
 1) Figure out the 404 error for the.. something regarding the gh-pages
 2) Change the font of the 'Theory' section of the experiment 'Multiplexing vs Diversity'
+3) Formula not clearly visible in the Theory section of the experiment 'Two-ray Model'. Also, the mathematical letters are not properly visible
+4) 

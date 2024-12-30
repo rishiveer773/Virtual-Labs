@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Two-Ray Model Simulation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 0;
+            padding: 0;
+        }
+        canvas {
+            border: 1px solid #000;
+            display: block;
+            margin: 20px auto;
+        }
+        .controls {
+            margin: 20px;
+        }
+        .controls input, .controls button {
+            margin: 5px;
+            padding: 5px 10px;
+        }
+        .results {
+            margin: 20px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <h1>Two-Ray Model Simulation</h1>
+    <p>To understand the various performance characteristics of a two-ray model-based wireless channel, follow these steps:</p>
+    <ol>
+        <li>Enter the values of the distance between transmitter and receiver (<strong>r</strong>), the velocity at which the receiver is moving (<strong>v</strong>), and the frequency of the input signal (<strong>f</strong>).</li>
+        <li>Click on <strong>Calculate</strong> to observe the Doppler spread and coherence time for Case 1.</li>
+        <li>Enter the values of the distance between transmitter and receiver (<strong>r</strong>), the distance between the transmitter and the obstacle (<strong>d</strong>), and the frequency of the input signal (<strong>f</strong>).</li>
+        <li>Click on <strong>Calculate</strong> to observe the delay spread and coherence bandwidth for Case 2.</li>
+    </ol>
+    <p><strong>Note:</strong> The velocity at which the receiver is moving can be negative, indicating the receiver is moving away from the transmitter, and vice-versa.</p>
+
+    <div class="controls">
+        <button onclick="setScenario(1)">Scenario 1: Free Space</button>
+        <button onclick="setScenario(2)">Scenario 2: Reflection</button>
+        <br>
+        <label for="distance">Distance (r) in meters:</label>
+        <input type="number" id="distance" value="100" step="1">
+        <label id="velocityLabel" for="velocity">Receiver Velocity (v) in m/s:</label>
+        <input type="number" id="velocity" value="0" step="1">
+        <label for="frequency">Frequency (f) in MHz:</label>
+        <input type="number" id="frequency" value="100" step="1">
+        <label id="obstacleDistanceLabel" style="display:none" for="obstacleDistance">Obstacle Distance (d) in meters:</label>
+        <input type="number" id="obstacleDistance" value="150" step="1" style="display:none">
+        <br>
+        <button onclick="calculateResults()">Calculate</button>
+    </div>
+
+    <canvas id="simulationCanvas" width="800" height="400"></canvas>
+
+    <div class="results" id="results"></div>
+
+    <script>
+        const canvas = document.getElementById('simulationCanvas');
+        const ctx = canvas.getContext('2d');
+        const resultsDiv = document.getElementById('results');
+        const obstacleDistanceInput = document.getElementById('obstacleDistance');
+        const obstacleDistanceLabel = document.getElementById('obstacleDistanceLabel');
+        
+        let scenario = 1;
+        let time = 0;
+
+        const transmitter = { x: 100, y: 200 };
+        let receiver = { x: 400, y: 200 };
+        const wall = { x: 600, y: 100, width: 20, height: 200 };
+
+        function setScenario(selectedScenario) {
+            scenario = selectedScenario;
+            if (scenario === 2) {
+                obstacleDistanceInput.style.display = 'inline';
+                obstacleDistanceLabel.style.display = 'inline';
+                document.getElementById('velocity').style.display = 'none';
+                document.getElementById('velocityLabel').style.display = 'none';
+            } else {
+                obstacleDistanceInput.style.display = 'none';
+                obstacleDistanceLabel.style.display = 'none';
+                document.getElementById('velocity').style.display = 'inline';
+                document.getElementById('velocityLabel').style.display = 'inline';
+            }
+            resetSimulation();
+        }
+
+        function calculateResults() {
+            const r = parseFloat(document.getElementById('distance').value) || 100;
+            const v = parseFloat(document.getElementById('velocity').value) || 0;
+            const f = parseFloat(document.getElementById('frequency').value) || 100;
+            const d = parseFloat(obstacleDistanceInput.value) || 150;
+
+            let output = '';
+
+            if (scenario === 1) {
+                const dopplerShift = -(f * 1e6 * v) / 3e8; // Doppler shift formula
+                const coherenceTime = 1 / Math.abs(dopplerShift); // Coherence time (approximate)
+                output = `Doppler Shift: ${dopplerShift.toFixed(2)} Hz<br>Coherence Time: ${coherenceTime.toFixed(2)} s`;
+            } else if (scenario === 2) {
+                const delaySpread = Math.abs((2 * d - r) / 3e8 - r / 3e8); // Delay spread formula
+                const coherenceBandwidth = 1 / (2 * delaySpread); // Coherence bandwidth
+                output = `Delay Spread: ${delaySpread.toFixed(8)} s<br>Coherence Bandwidth: ${coherenceBandwidth.toFixed(2)} Hz`;
+            }
+
+            resultsDiv.innerHTML = output;
+            draw();
+        }
+
+        function resetSimulation() {
+            receiver = { x: 400, y: 200 };
+            time = 0;
+            resultsDiv.innerHTML = '';
+            draw();
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw transmitter
+            ctx.fillStyle = 'blue';
+            ctx.beginPath();
+            ctx.arc(transmitter.x, transmitter.y, 10, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.fillText("Transmitter", transmitter.x - 40, transmitter.y - 20);
+
+            // Draw receiver
+            ctx.fillStyle = 'green';
+            ctx.beginPath();
+            ctx.arc(receiver.x, receiver.y, 10, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.fillText("Receiver", receiver.x - 30, receiver.y - 20);
+
+            // Draw wall for Scenario 2
+            if (scenario === 2) {
+                ctx.fillStyle = 'gray';
+                ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
+                ctx.fillText("Wall", wall.x - 10, wall.y - 10);
+
+                // Draw reflected signal
+                ctx.strokeStyle = 'red';
+                ctx.beginPath();
+                ctx.moveTo(transmitter.x, transmitter.y);
+                ctx.lineTo(wall.x, wall.y + wall.height / 2);
+                ctx.lineTo(receiver.x, receiver.y);
+                ctx.stroke();
+            }
+
+            // Draw direct signal
+            ctx.strokeStyle = 'orange';
+            ctx.beginPath();
+            ctx.moveTo(transmitter.x, transmitter.y);
+            ctx.lineTo(receiver.x, receiver.y);
+            ctx.stroke();
+        }
+
+        // Initial draw
+        draw();
+    </script>
+</body>
+</html>
