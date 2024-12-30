@@ -95,6 +95,13 @@
             resetSimulation();
         }
 
+        function flipImageHorizontally(img, x, y, width, height) {
+            ctx.save();
+            ctx.scale(-1, 1);
+            ctx.drawImage(img, -x - width, y, width, height);
+            ctx.restore();
+        }
+
         function calculateResults() {
             const r = parseFloat(document.getElementById('distance').value) || 100;
             const v = parseFloat(document.getElementById('velocity').value) || 0;
@@ -158,7 +165,11 @@
             ctx.fillText("Transmitter", transmitter.x - 40, transmitter.y - 40);
 
             // Draw receiver
-            ctx.drawImage(receiver.img, receiver.x - 30, receiver.y - 30, 60, 60);
+            if (receiver.velocity < 0) {
+                flipImageHorizontally(receiver.img, receiver.x - 30, receiver.y - 30, 60, 60);
+            } else {
+                ctx.drawImage(receiver.img, receiver.x - 30, receiver.y - 30, 60, 60);
+            }
             ctx.fillText("Receiver", receiver.x - 30, receiver.y - 40);
 
             // Draw wall for Scenario 2
