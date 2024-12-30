@@ -143,6 +143,18 @@
         const receiver = { x: 400, y: 200, velocity: 0, img: new Image() }; 
         const wall = { x: 600, y: 100, width: 20, height: 200 };
 
+        transmitter.img.onload = () => {
+            if (transmitter.img.complete && receiver.img.complete) { 
+                draw(); 
+            }
+        };
+
+        receiver.img.onload = () => {
+            if (transmitter.img.complete && receiver.img.complete) { 
+                draw(); 
+            }
+        };
+
         transmitter.img.src = './static/images/antenna-svgrepo-com.svg'; 
         receiver.img.src = './static/images/car.svg';
 
