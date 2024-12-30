@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Two-Ray Model Simulation</title>
+    <style>
+        body {
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            margin: 0;
+            padding: 2rem;
+            background-color: #f5f7fa;
+            color: #1a1f36;
+            line-height: 1.5;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding: 1rem;
+            background: linear-gradient(135deg, #2563eb, #3b82f6);
+            color: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 2rem;
+            font-weight: 600;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 300px 1fr 300px;
+            gap: 2rem;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .input-section, .output-section {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .simulation-section {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .controls {
+            background: #f8fafc;
+            padding: 1.5rem;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+        }
+
+        .controls h3 {
+            margin-top: 0;
+            color: #2563eb;
+            font-size: 1.1rem;
+        }
+
+        .input-group {
+            margin-bottom: 1.25rem;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #475569;
+        }
+
+        .input-group input[type="number"],
+        .input-group input[type="radio"] {
+            margin-bottom: 0.5rem;
+        }
+
+        input[type="number"] {
+            width: 100%;
+            padding: 0.5rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            font-size: 0.95rem;
+        }
+
+        input[type="number"]:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        .button-group {
+            display: flex;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        button {
+            flex: 1;
+            padding: 0.75rem 1rem;
+            border: none;
+            border-radius: 6px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        button:first-child {
+            background-color: #2563eb;
+            color: white;
+        }
+
+        button:last-child {
+            background-color: #e2e8f0;
+            color: #475569;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        canvas {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background-color: #fff;
+            margin-top: 1rem;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .results {
+            background: #f8fafc;
+            padding: 1.25rem;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            overflow-y: auto;
+            max-height: 300px;
+        }
+
+        .results:empty {
+            display: none;
+        }
+
+        .result-item {
+            padding: 0.75rem;
+            background: white;
+            border-radius: 6px;
+            margin-bottom: 0.75rem;
+            border: 1px solid #e2e8f0;
+        }
+
+        .result-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .transmitter-image, .receiver-image {
+            max-width: 120px;
+            max-height: 120px;
+            transition: transform 0.3s ease;
+        }
+
+        @media (max-width: 1200px) {
+            .container {
+                grid-template-columns: 1fr;
+                gap: 1.5rem;
+            }
+            
+            .input-section, .output-section {
+                max-width: 600px;
+                margin: 0 auto;
+            }
+        }
+
+        /* Animation classes */
+        .animate-fade {
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .receiver {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Tooltip styles */
+        .tooltip {
+            position: relative;
+            display: inline-block;
+        }
+
+        .tooltip:hover::before {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 0.5rem;
+            background: #1a1f36;
+            color: white;
+            border-radius: 4px;
+            font-size: 0.875rem;
+            white-space: nowrap;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Two-Ray Model Simulation</h1>
+    </div>
+
+    <div class="container">
+        <div class="input-section">
+            <h2>Configuration</h2>
+            <div class="controls">
+                <div class="input-group">
+                    <h3>Simulation Mode</h3>
+                    <div class="radio-group">
+                        <div class="radio-option">
+                            <input type="radio" id="scenario1" name="scenario" value="1" checked>
+                            <label for="scenario1" class="tooltip" data-tooltip="Simulate free space propagation">
+                                Free Space Mode
+                            </label>
+                        </div>
+                        <div class="radio-option">
+                            <input type="radio" id="scenario2" name="scenario" value="2">
+                            <label for="scenario2" class="tooltip" data-tooltip="Simulate with ground reflection">
+                                Reflection Mode
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label for="distance" class="tooltip" data-tooltip="Distance between transmitter and receiver">
+                        Distance (r) in meters:
+                    </label>
+                    <input type="number" id="distance" value="100" step="1" min="1" required>
+                </div>
+
+                <div class="input-group" id="scenario1-inputs">
+                    <label for="velocity" class="tooltip" data-tooltip="Speed of the receiver">
+                        Receiver Velocity (v) in m/s:
+                    </label>
+                    <input type="number" id="velocity" value="0" step="1" required>
+                </div>
+
+                <div class="input-group" id="scenario2-inputs" style="display: none;">
+                    <label for="obstacleDistance" class="tooltip" data-tooltip="Distance to reflecting surface">
+                        Obstacle Distance (d) in meters:
+                    </label>
+                    <input type="number" id="obstacleDistance" value="150" step="1" min="1" required>
+                </div>
+
+                <div class="input-group">
+                    <label for="frequency" class="tooltip" data-tooltip="Signal frequency">
+                        Frequency (f) in MHz:
+                    </label>
+                    <input type="number" id="frequency" value="100" step="1" min="1" required>
+                </div>
+
+                <div class="button-group">
+                    <button id="calculateBtn" class="primary-button tooltip" data-tooltip="Run simulation">
+                        Simulate
+                    </button>
+                    <button id="resetBtn" class="secondary-button tooltip" data-tooltip="Reset all values">
+                        Reset
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="simulation-section">
+            <h2>Visualization</h2>
+            <div class="canvas-container">
+                <canvas id="simulationCanvas" width="800" height="400"></canvas>
+            </div>
+            <div class="simulation-legend">
+                <div class="legend-item">
+                    <span class="legend-color" style="background: orange;"></span>
+                    <span>Direct Path</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color" style="background: red;"></span>
+                    <span>Reflected Path</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="output-section">
+            <h2>Results</h2>
+            <div class="results animate-fade" id="results">
+                <div class="result-placeholder">
+                    Run simulation to see results
+                </div>
+            </div>
+            <div class="export-section">
+                <button id="exportBtn" class="secondary-button tooltip" data-tooltip="Download simulation data">
+                    Export Results
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Image preload container (hidden) -->
+    <div style="display: none;">
+        <img id="transmitterImg" src="./static/images/antenna-svgrepo-com.svg" alt="Transmitter">
+        <img id="receiverImg" src="./static/images/car.svg" alt="Receiver">
+    </div>
+    
+    <script>
+        const canvas = document.getElementById('simulationCanvas');
+        const ctx = canvas.getContext('2d');
+        const resultsDiv = document.getElementById('results');
+        const distanceInput = document.getElementById('distance');
+        const velocityInput = document.getElementById('velocity');
+        const obstacleDistanceInput = document.getElementById('obstacleDistance');
+        const scenario1Inputs = document.getElementById('scenario1-inputs');
+        const scenario2Inputs = document.getElementById('scenario2-inputs');
+        const scenario1Radio = document.getElementById('scenario1');
+        const scenario2Radio = document.getElementById('scenario2');
+        const calculateBtn = document.getElementById('calculateBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const exportBtn = document.getElementById('exportBtn');
+
+        const transmitterImg = document.getElementById('transmitterImg');
+        const receiverImg = document.getElementById('receiverImg');
+
+        let scenario = 1; 
+        let time = 0;
+        let animationFrame;
+
+        const transmitter = { x: 100, y: 200, img: transmitterImg };
+        const receiver = { x: 400, y: 200, velocity: 0, img: receiverImg }; 
+        const wall = { x: 600, y: 100, width: 20, height: 200 };
+
+        function setScenario(selectedScenario) {
+            scenario = selectedScenario;
+            if (scenario === 2) {
+                obstacleDistanceInput.style.display = 'block';
+                velocityInput.style.display = 'none';
+            } else {
+                obstacleDistanceInput.style.display = 'none';
+                velocityInput.style.display = 'block';
+            }
+            calculateResults(); 
+        }
+
+        function calculateResults() {
+            const r = parseFloat(distanceInput.value) || 100;
+            const v = parseFloat(velocityInput.value) || 0;
+            const f = parseFloat(document.getElementById('frequency').value) || 100;
+            const d = parseFloat(obstacleDistanceInput.value) || 150;
+
+            receiver.velocity = v; 
+
+            let output = '';
+
+            if (scenario === 1) {
+                const dopplerShift = -(f * 1e6 * v) / 3e8; 
+                const coherenceTime = 1 / Math.abs(dopplerShift); 
+                output = `
+                    <div class="result-item">
+                        <span>Doppler Shift:</span> ${dopplerShift.toFixed(2)} Hz
+                    </div>
+                    <div class="result-item">
+                        <span>Coherence Time:</span> ${coherenceTime.toFixed(2)} s
+                    </div>
+                `;
+            } else if (scenario === 2) {
+                const delaySpread = Math.abs((2 * d - r) / 3e8 - r / 3e8); 
+                const coherenceBandwidth = 1 / (2 * delaySpread); 
+                output = `
+                    <div class="result-item">
+                        <span>Delay Spread:</span> ${delaySpread.toFixed(8)} s
+                    </div>
+                    <div class="result-item">
+                        <span>Coherence Bandwidth:</span> ${coherenceBandwidth.toFixed(2)} Hz
+                    </div>
+                `;
+            }
+
+            resultsDiv.innerHTML = output;
+            resultsDiv.classList.add('animate-fade'); // Add fade-in animation
+
+            resetSimulation(); 
+            startSimulation(); 
+        }
+
+        function resetSimulation() {
+            receiver.x = 400;
+            receiver.y = 200;
+            receiver.velocity = 0; 
+            time = 0;
+            cancelAnimationFrame(animationFrame); 
+            draw(); 
+        }
+
+        function startSimulation() {
+            cancelAnimationFrame(animationFrame);
+            updateSimulation();
+        }
+
+        function updateSimulation() {
+            if (scenario === 1 || scenario === 2) {
+                receiver.x += receiver.velocity * 0.1; 
+                const margin = 50; 
+                if (receiver.x < margin) receiver.x = margin;
+                if (receiver.x > canvas.width - margin) receiver.x = canvas.width - margin;
+            }
+            draw();
+            animationFrame = requestAnimationFrame(updateSimulation);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw transmitter
+            ctx.drawImage(transmitter.img, transmitter.x - 40, transmitter.y - 40, 80, 80);
+            ctx.fillText("Transmitter", transmitter.x - 40, transmitter.y - 40);
+
+            // Draw receiver
+            if (receiver.velocity < 0) {
+                ctx.save();
+                ctx.scale(-1, 1);
+                ctx.drawImage(receiver.img, -receiver.x - 30, receiver.y - 30, 60, 60);
+                ctx.restore();
+            } else {
+                ctx.drawImage(receiver.img, receiver.x - 30, receiver.y - 30, 60, 60);
+            }
+            ctx.fillText("Receiver", receiver.x - 30, receiver.y - 40);
+
+            // Draw wall for Scenario 2
+            if (scenario === 2) {
+                ctx.fillStyle = 'gray';
+                ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
+                ctx.fillText("Wall", wall.x - 10, wall.y - 10);
+
+                // Draw reflected signal
+                ctx.strokeStyle = 'red';
+                ctx.beginPath();
+                ctx.moveTo(transmitter.x, transmitter.y);
+                ctx.lineTo(wall.x, wall.y + wall.height / 2);
+                ctx.lineTo(receiver.x, receiver.y);
+                ctx.stroke();
+            }
+
+            // Draw direct signal
+            ctx.strokeStyle = 'orange';
+            ctx.beginPath();
+            ctx.moveTo(transmitter.x, transmitter.y);
+            ctx.lineTo(receiver.x, receiver.y);
+            ctx.stroke();
+        }
+
+        // Initial draw after both images are loaded
+            </script>
+</body>
+</html>
