@@ -3,193 +3,386 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Shadowing in Wireless Communication</title>
+    <title>SIMO/MISO System Visualization</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
     <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            display: flex;
-            height: 100vh;
-            background-color: #f4f4f4;
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #64748b;
+            --background-color: #f8fafc;
+            --border-color: #e2e8f0;
         }
-        #input-section, #experiment-section, #output-section {
-            flex: 1;
+
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            background-color: var(--background-color);
+        }
+
+        .container {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            color: var(--primary-color);
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        #system-form {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .form-group {
             display: flex;
             flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
+            gap: 0.5rem;
         }
-        #input-section {
-            background-color: #e8f5e9;
+
+        label {
+            font-weight: 500;
+            color: var(--secondary-color);
         }
-        #experiment-section {
-            background-color: #ffffff;
-            border-left: 1px solid #ccc;
-            border-right: 1px solid #ccc;
-        }
-        #output-section {
-            background-color: #ffebee;
-        }
-        canvas {
-            border: 1px solid #ccc;
-        }
-        #controls {
-            margin-top: 10px;
-        }
-        #output-section pre {
-            background: #fff;
-            padding: 10px;
+
+        select, input {
+            padding: 0.5rem;
+            border: 1px solid var(--border-color);
             border-radius: 4px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            width: 100%;
-            max-width: 300px;
-            overflow-x: auto;
+            font-size: 1rem;
         }
-        .obstacle-type {
-            margin: 5px;
+
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: #1d4ed8;
+        }
+
+        .visualization-container {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 2rem;
+            margin-top: 2rem;
+            height: 100%;
+            max-height: 600px;
+        }
+
+        #diagram-container {
+            width: 100%;
+            height: 100%;
+            aspect-ratio: 4/3;
+            position: relative;
+            overflow: hidden; /* Changed from visible to hidden */
+        }
+
+        #diagram {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+            background-color: white;
+        }
+
+        th, td {
+            border: 1px solid var(--border-color);
+            padding: 0.75rem;
+            text-align: center;
+        }
+
+        th {
+            background-color: var(--background-color);
+            font-weight: 500;
+        }
+
+        .line {
+            stroke: var(--secondary-color);
+            stroke-width: 2;
+            stroke-dasharray: 4;
+            animation: dash 1s linear infinite;
+        }
+
+        @keyframes dash {
+            to {
+                stroke-dashoffset: -8;
+            }
+        }
+
+        .weight-label {
+            font-size: 0.875rem;
+            fill: var(--secondary-color);
+            text-anchor: middle;
+        }
+
+        #error-message {
+            color: #ef4444;
+            margin-top: 0.5rem;
+            display: none;
+        }
+
+        .antenna-image {
+            transform-origin: center;
         }
     </style>
 </head>
 <body>
-    <div id="input-section">
-        <h2>Inputs</h2>
-        <label for="frequency">Signal Frequency (MHz): </label>
-        <input type="number" id="frequency" value="2400" min="100" max="5000"><br><br>
-        <label for="power">Transmitter Power (dBm): </label>
-        <input type="number" id="power" value="20" min="0" max="100"><br><br>
-        <div>
-            <span>Select Obstacle Type:</span><br>
-            <input type="radio" name="obstacleType" value="tree" checked> Tree<br>
-            <input type="radio" name="obstacleType" value="wall"> Wall<br>
-            <input type="radio" name="obstacleType" value="building"> Building<br>
-        </div><br>
-        <button onclick="startSimulation()">Start Simulation</button>
-        <button onclick="resetSimulation()">Reset</button>
-    </div>
-    <div id="experiment-section">
-        <h2>Experiment</h2>
-        <canvas id="simulation" width="500" height="400"></canvas>
-        <p id="info">Click on the canvas to add obstacles.</p>
-    </div>
-    <div id="output-section">
-        <h2>Output</h2>
-        <pre id="output">Signal strength, path loss, and shadowing loss will be displayed here after running the simulation.</pre>
+    <div class="container">
+        <h1>SIMO/MISO System Visualization</h1>
+        
+        <form id="system-form">
+            <div class="form-group">
+                <label for="system-type">System Type:</label>
+                <select id="system-type" name="system_type" required>
+                    <option value="SIMO">SIMO</option>
+                    <option value="MISO">MISO</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="num-antennas">Number of Antennas:</label>
+                <input type="number" id="num-antennas" name="num_antennas" min="1" max="10" value="2" required>
+            </div>
+
+            <div class="form-group" id="combining-method-container">
+                <label for="combining-method">Combining Method:</label>
+                <select id="combining-method" name="combining_method" required>
+                    <option value="EGC">Equal Gain Combining (EGC)</option>
+                    <option value="SC">Selection Combining (SC)</option>
+                    <option value="MRC">Maximal Ratio Combining (MRC)</option>
+                </select>
+            </div>
+
+            <div class="form-group">
+                <button type="submit">Generate Visualization</button>
+            </div>
+        </form>
+
+        <div id="error-message"></div>
+
+        <div class="visualization-container">
+            <div id="table-container"></div>
+            <div id="diagram-container">
+                <svg id="diagram" viewBox="0 0 800 400"></svg>
+            </div>
+        </div>
     </div>
 
     <script>
-        const canvas = document.getElementById('simulation');
-        const ctx = canvas.getContext('2d');
-        const obstacles = [];
-        const transmitter = { x: 50, y: 200 };
-        const receiver = { x: 450, y: 200 };
-
-        canvas.addEventListener('click', (e) => {
-            const rect = canvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-            const obstacleType = document.querySelector('input[name="obstacleType"]:checked').value;
-            let shadowingEffect;
-            let color;
-
-            if (obstacleType === 'tree') {
-                shadowingEffect = 5; // Trees cause minimal shadowing
-                color = 'green';
-            } else if (obstacleType === 'wall') {
-                shadowingEffect = 15; // Walls cause moderate shadowing
-                color = 'orange';
-            } else if (obstacleType === 'building') {
-                shadowingEffect = 30; // Buildings cause significant shadowing
-                color = 'gray';
+        class AntennaSystem {
+            constructor() {
+                this.svg = d3.select('#diagram');
+                this.setupEventListeners();
+                this.setupAntennaSymbols();
             }
 
-            obstacles.push({ x, y, radius: 30, shadowingEffect, color });
-            draw();
-        });
+            setupAntennaSymbols() {
+                // Define placeholder SVG symbols for transmitter and receiver antennas
+                const defs = this.svg.append('defs');
+                
+                // Transmitter antenna symbol (larger)
+                defs.append('symbol')
+                    .attr('id', 'transmitter')
+                    .attr('viewBox', '0 0 100 100')
+                    .append('image')
+                    .attr('href', './static/images/antenna-svgrepo-com.svg')
+                    .attr('width', '100')
+                    .attr('height', '100');
 
-        function calculatePathLoss(distance, frequency) {
-            const pathLossExponent = 2.7; // Typical value for urban areas
-            const speedOfLight = 3e8; // m/s
-            const wavelength = speedOfLight / (frequency * 1e6);
-            const freeSpacePathLoss = 20 * Math.log10(distance / wavelength);
-            const fading = randomGaussian(0, 2); // Log-normal shadow fading with mean 0 and std-dev 2 dB
-            return freeSpacePathLoss + pathLossExponent * 10 * Math.log10(distance) + fading;
-        }
+                // Receiver antenna symbol (smaller)
+                defs.append('symbol')
+                    .attr('id', 'receiver')
+                    .attr('viewBox', '0 0 100 100')
+                    .append('image')
+                    .attr('href', './static/images/antenna-small.svg')
+                    .attr('width', '100')
+                    .attr('height', '100');
 
-        function randomGaussian(mean, stdDev) {
-            let u1 = Math.random();
-            let u2 = Math.random();
-            let randStdNormal = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
-            return mean + stdDev * randStdNormal;
-        }
+                // Arrow marker for signal paths
+                defs.append('marker')
+                    .attr('id', 'arrowhead')
+                    .attr('viewBox', '0 0 10 10')
+                    .attr('refX', 10)
+                    .attr('refY', 5)
+                    .attr('markerWidth', 6)
+                    .attr('markerHeight', 6)
+                    .attr('orient', 'auto')
+                    .append('path')
+                    .attr('d', 'M 0 0 L 10 5 L 0 10 Z')
+                    .attr('fill', 'var(--secondary-color)');
+            }
 
-        function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            setupEventListeners() {
+                document.getElementById('system-form').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.handleFormSubmit();
+                });
 
-            // Draw transmitter and receiver
-            ctx.fillStyle = 'blue';
-            ctx.beginPath();
-            ctx.arc(transmitter.x, transmitter.y, 10, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = 'green';
-            ctx.beginPath();
-            ctx.arc(receiver.x, receiver.y, 10, 0, Math.PI * 2);
-            ctx.fill();
+                document.getElementById('num-antennas').addEventListener('input', (e) => {
+                    this.validateAntennaCount(e.target.value);
+                });
+            }
 
-            // Draw line of communication
-            ctx.strokeStyle = 'black';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(transmitter.x, transmitter.y);
-            ctx.lineTo(receiver.x, receiver.y);
-            ctx.stroke();
-
-            // Draw obstacles
-            obstacles.forEach(obstacle => {
-                ctx.fillStyle = obstacle.color;
-                ctx.beginPath();
-                ctx.arc(obstacle.x, obstacle.y, obstacle.radius, 0, Math.PI * 2);
-                ctx.fill();
-            });
-        }
-
-        function startSimulation() {
-            const frequency = parseFloat(document.getElementById('frequency').value);
-            const power = parseFloat(document.getElementById('power').value);
-            let shadowingLoss = 0;
-
-            obstacles.forEach(obstacle => {
-                const dx = receiver.x - transmitter.x;
-                const dy = receiver.y - transmitter.y;
-                const distance = Math.sqrt(dx * dx + dy * dy);
-                const distanceToObstacle = Math.abs((dy * obstacle.x - dx * obstacle.y + receiver.x * transmitter.y - receiver.y * transmitter.x) / distance);
-
-                if (distanceToObstacle < obstacle.radius) {
-                    const randomShadowing = randomGaussian(obstacle.shadowingEffect, obstacle.shadowingEffect * 0.2);
-                    shadowingLoss += randomShadowing; // Add shadowing loss with random variation
+            validateAntennaCount(value) {
+                const errorMessage = document.getElementById('error-message');
+                const numAntennas = parseInt(value, 10);
+                
+                if (numAntennas < 1 || numAntennas > 10) {
+                    errorMessage.textContent = 'Please enter a number between 1 and 5';
+                    errorMessage.style.display = 'block';
+                    return false;
                 }
-            });
+                
+                errorMessage.style.display = 'none';
+                return true;
+            }
 
-            const distance = Math.sqrt(Math.pow(receiver.x - transmitter.x, 2) + Math.pow(receiver.y - transmitter.y, 2));
-            const pathLoss = calculatePathLoss(distance, frequency);
-            const totalLoss = pathLoss + shadowingLoss;
+            generateRayleighCoefficients(numAntennas) {
+                return Array.from({ length: numAntennas }, () => {
+                    const u1 = Math.random();
+                    const u2 = Math.random();
+                    const coefficient = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+                    return Math.abs(coefficient); // Return the absolute value
+                });
+            }
 
-            const receivedPower = power - totalLoss;
+            calculateWeights(coefficients, method) {
+                switch (method) {
+                    case 'EGC':
+                        return coefficients.map(() => 1 / coefficients.length);
+                    case 'SC':
+                        const maxIndex = coefficients.indexOf(Math.max(...coefficients));
+                        return coefficients.map((_, i) => i === maxIndex ? 1 : 0);
+                    case 'MRC':
+                        const normFactor = Math.sqrt(coefficients.reduce((sum, c) => sum + c ** 2, 0));
+                        return coefficients.map(coeff => coeff / normFactor);
+                    default:
+                        throw new Error('Invalid combining method');
+                }
+            }
 
-            document.getElementById('output').textContent = 
-                `Signal strength at the receiver: ${receivedPower.toFixed(2)} dBm\n` +
-                `Path Loss: ${pathLoss.toFixed(2)} dB\n` +
-                `Shadowing Loss: ${shadowingLoss.toFixed(2)} dB`;
+            displayCoefficients(coefficients, weights) {
+                const container = document.getElementById('table-container');
+                container.innerHTML = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Antenna</th>
+                                <th>Channel Coefficient</th>
+                                <th>Weight</th>
+                                <th>Combined Gain</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${coefficients.map((coeff, i) => `
+                                <tr>
+                                    <td>Antenna ${i + 1}</td>
+                                    <td>${coeff.toFixed(3)}</td>
+                                    <td>${weights[i].toFixed(3)}</td>
+                                    <td>${(coeff * weights[i]).toFixed(3)}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            }
+
+            renderDiagram(systemType, numAntennas, coefficients, weights) {
+                this.svg.selectAll('*').remove();
+                this.setupAntennaSymbols();
+
+                const svgElement = this.svg.node();
+                const svgBox = svgElement.getBoundingClientRect();
+
+                this.svg.attr('viewBox', `0 0 800 600`);
+
+                const width = 800;
+                const height = 600;
+                const centerX = width / 4; // Move center to the left
+                const centerY = height / 2;
+                const antennaSize = 50;
+                const verticalSpacing = 70; // Space between antennas
+                const gap = 18; // Gap for arrowheads
+
+                // Draw multiple antennas in a vertical line on the right
+                const rightX = width * 0.75; // Position on the right side
+                const startY = centerY - ((numAntennas - 1) * verticalSpacing) / 2;
+
+                for (let i = 0; i < numAntennas; i++) {
+                    const y = startY + i * verticalSpacing;
+
+                    // Draw connection line with gap
+                    this.svg.append('line')
+                        .attr('class', 'line')
+                        .attr('x1', centerX + gap)
+                        .attr('y1', centerY)
+                        .attr('x2', rightX - gap)
+                        .attr('y2', y)
+                        .attr('marker-end', `url(#${systemType === 'SIMO' ? 'arrowhead' : 'arrowtail'})`); // Arrowhead based on system type
+
+                    // Draw peripheral antenna
+                    this.svg.append('use')
+                        .attr('href', systemType === 'SIMO' ? '#receiver' : '#transmitter')
+                        .attr('class', 'antenna-image')
+                        .attr('x', rightX - antennaSize / 2)
+                        .attr('y', y - antennaSize / 2)
+                        .attr('width', antennaSize)
+                        .attr('height', antennaSize);
+
+                    // Add weight label
+                    this.svg.append('text')
+                        .attr('class', 'weight-label')
+                        .attr('x', rightX + antennaSize / 2 + 10)
+                        .attr('y', y)
+                        .text(`W${i + 1}: ${weights[i].toFixed(2)}`);
+                }
+
+                // Draw single antenna on the left
+                this.svg.append('use')
+                    .attr('href', systemType === 'SIMO' ? '#transmitter' : '#receiver')
+                    .attr('class', 'antenna-image')
+                    .attr('x', centerX - antennaSize / 2)
+                    .attr('y', centerY - antennaSize / 2)
+                    .attr('width', antennaSize)
+                    .attr('height', antennaSize);
+            }
+
+            handleFormSubmit() {
+                const systemType = document.getElementById('system-type').value;
+                const numAntennas = parseInt(document.getElementById('num-antennas').value, 10);
+                const combiningMethod = document.getElementById('combining-method').value;
+
+                if (!this.validateAntennaCount(numAntennas)) return;
+
+                const coefficients = this.generateRayleighCoefficients(numAntennas);
+                const weights = this.calculateWeights(coefficients, combiningMethod);
+
+                this.displayCoefficients(coefficients, weights);
+                this.renderDiagram(systemType, numAntennas, coefficients, weights);
+            }
         }
 
-        function resetSimulation() {
-            obstacles.length = 0;
-            document.getElementById('output').textContent = "Signal strength, path loss, and shadowing loss will be displayed here after running the simulation.";
-            draw();
-        }
-
-        draw();
+        // Initialize the application
+        const antennaSystem = new AntennaSystem();
     </script>
 </body>
 </html>

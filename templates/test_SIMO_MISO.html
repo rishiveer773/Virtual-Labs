@@ -153,14 +153,14 @@
             <div class="form-group">
                 <label for="system-type">System Type:</label>
                 <select id="system-type" name="system_type" required>
-                    <option value="SIMO">SIMO (Single Input, Multiple Output)</option>
-                    <option value="MISO">MISO (Multiple Input, Single Output)</option>
+                    <option value="SIMO">SIMO</option>
+                    <option value="MISO">MISO</option>
                 </select>
             </div>
 
             <div class="form-group">
                 <label for="num-antennas">Number of Antennas:</label>
-                <input type="number" id="num-antennas" name="num_antennas" min="1" max="5" value="2" required>
+                <input type="number" id="num-antennas" name="num_antennas" min="1" max="10" value="2" required>
             </div>
 
             <div class="form-group" id="combining-method-container">
@@ -246,7 +246,7 @@
                 const errorMessage = document.getElementById('error-message');
                 const numAntennas = parseInt(value, 10);
                 
-                if (numAntennas < 1 || numAntennas > 5) {
+                if (numAntennas < 1 || numAntennas > 10) {
                     errorMessage.textContent = 'Please enter a number between 1 and 5';
                     errorMessage.style.display = 'block';
                     return false;
@@ -317,54 +317,46 @@
 
                 const width = 800;
                 const height = 600;
-                const centerX = width / 2;
+                const centerX = width / 4; // Move center to the left
                 const centerY = height / 2;
-                const maxRadius = Math.min(width, height) * 0.28; // 35% of smaller dimension
-                const radius = maxRadius * (numAntennas <= 3 ? 0.9 : 0.8); // Reduce radius for more antennas
                 const antennaSize = 50;
-                
-                const angleOffset = numAntennas === 4 ? Math.PI / 4 : 0;
+                const verticalSpacing = 70; // Space between antennas
+                const gap = 18; // Gap for arrowheads
 
-                // Draw antennas and connections
+                // Draw multiple antennas in a vertical line on the right
+                const rightX = width * 0.75; // Position on the right side
+                const startY = centerY - ((numAntennas - 1) * verticalSpacing) / 2;
+
                 for (let i = 0; i < numAntennas; i++) {
-                    const angle = (i / numAntennas) * 2 * Math.PI;
-                    const x = centerX + radius * Math.cos(angle);
-                    const y = centerY + radius * Math.sin(angle);
-                
-                const offsetRatio = 0.2;  // Adjust this value to change the gap
-                const centerOffsetX = centerX + (radius * offsetRatio * Math.cos(angle));
-                const centerOffsetY = centerY + (radius * offsetRatio * Math.sin(angle));
-                const antennaOffsetX = x - (radius * offsetRatio * Math.cos(angle));
-                const antennaOffsetY = y - (radius * offsetRatio * Math.sin(angle));
+                    const y = startY + i * verticalSpacing;
 
-                    // Draw connection line
+                    // Draw connection line with gap
                     this.svg.append('line')
                         .attr('class', 'line')
-                        .attr('x1', centerOffsetX)
-                        .attr('y1', centerOffsetY)
-                        .attr('x2', antennaOffsetX)
-                        .attr('y2', antennaOffsetY)
-                        .attr('marker-end', 'url(#arrowhead)');
+                        .attr('x1', centerX + gap)
+                        .attr('y1', centerY)
+                        .attr('x2', rightX - gap)
+                        .attr('y2', y)
+                        .attr('marker-end', `url(#${systemType === 'SIMO' ? 'arrowhead' : 'arrowtail'})`); // Arrowhead based on system type
 
                     // Draw peripheral antenna
                     this.svg.append('use')
                         .attr('href', systemType === 'SIMO' ? '#receiver' : '#transmitter')
                         .attr('class', 'antenna-image')
-                        .attr('x', x - antennaSize/2)
-                        .attr('y', y - antennaSize/2)
+                        .attr('x', rightX - antennaSize / 2)
+                        .attr('y', y - antennaSize / 2)
                         .attr('width', antennaSize)
                         .attr('height', antennaSize);
 
-                    // Add weight label with improved positioning
-                    const labelOffset = numAntennas >= 4 ? 40 : 30; // Increase label offset for more antennas
+                    // Add weight label
                     this.svg.append('text')
                         .attr('class', 'weight-label')
-                        .attr('x', x)
-                        .attr('y', y - labelOffset)
+                        .attr('x', rightX + antennaSize / 2 + 10)
+                        .attr('y', y)
                         .text(`W${i + 1}: ${weights[i].toFixed(2)}`);
                 }
 
-                // Draw central antenna
+                // Draw single antenna on the left
                 this.svg.append('use')
                     .attr('href', systemType === 'SIMO' ? '#transmitter' : '#receiver')
                     .attr('class', 'antenna-image')
