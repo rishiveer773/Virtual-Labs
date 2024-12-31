@@ -323,7 +323,8 @@
                 const centerY = height / 2;
                 const antennaSize = 50;
                 const verticalSpacing = 70; // Space between antennas
-                const gap = 18; // Gap for arrowheads
+                const gap = 20; // Gap for arrowheads
+                const labelGap = 26; // Gap for weight labels
 
                 // Draw multiple antennas in a vertical line on the right
                 const rightX = width * 0.75; // Position on the right side
@@ -335,10 +336,10 @@
                     // Draw connection line with gap
                     this.svg.append('line')
                         .attr('class', 'line')
-                        .attr('x1', centerX + gap)
-                        .attr('y1', centerY)
-                        .attr('x2', rightX - gap)
-                        .attr('y2', y)
+                        .attr('x1', systemType === 'SIMO' ? centerX + gap : rightX - gap)
+                        .attr('y1', systemType === 'SIMO' ? centerY : y)
+                        .attr('x2', systemType === 'SIMO' ? rightX - gap : centerX + gap)
+                        .attr('y2', systemType === 'SIMO' ? y : centerY)
                         .attr('marker-end', `url(#${systemType === 'SIMO' ? 'arrowhead' : 'arrowtail'})`); // Arrowhead based on system type
 
                     // Draw peripheral antenna
@@ -350,10 +351,10 @@
                         .attr('width', antennaSize)
                         .attr('height', antennaSize);
 
-                    // Add weight label
+                    // Add weight label with gap
                     this.svg.append('text')
                         .attr('class', 'weight-label')
-                        .attr('x', rightX + antennaSize / 2 + 10)
+                        .attr('x', rightX + antennaSize / 2 + labelGap)
                         .attr('y', y)
                         .text(`W${i + 1}: ${weights[i].toFixed(2)}`);
                 }
