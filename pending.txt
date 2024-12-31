@@ -2,11 +2,11 @@
 2) Bring the register button closer to the slider   -   Done  
 3) Add 'reset' button           -                       Done
 4) Change the notification setting           -          Done
-5) Try out the two-ray model              -             
+5) Try out the two-ray model              -             Done
 6) In the pathloss experiment make 
    changes so that the plots are of different   -       
    colors for different heights of antennas
-7) Make the antennas in the diversity experiment
+7) Make the antennas in the diversity experiment    -   
    linear from circular. 
 
 
