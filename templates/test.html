@@ -26,6 +26,7 @@
             padding: 2rem;
             border-radius: 8px;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            overflow: auto;
         }
 
         h1 {
@@ -102,6 +103,7 @@
             border-collapse: collapse;
             margin-top: 1rem;
             background-color: white;
+            margin-bottom: 2rem;
         }
 
         th, td {
@@ -163,24 +165,27 @@
                 <input type="number" id="num-antennas" name="num_antennas" min="1" max="10" value="2" required>
             </div>
 
-            <div class="form-group" id="combining-method-container">
+            <div class="form-group">
+                <button type="button" id="generate-diagram">Generate Diagram</button>
+            </div>
+
+            <div class="form-group" id="combining-method-container" style="display: none;">
                 <label for="combining-method">Combining Method:</label>
                 <select id="combining-method" name="combining_method" required>
                     <option value="EGC">Equal Gain Combining (EGC)</option>
                     <option value="SC">Selection Combining (SC)</option>
                     <option value="MRC">Maximal Ratio Combining (MRC)</option>
                 </select>
-            </div>
-
-            <div class="form-group">
-                <button type="submit">Generate Visualization</button>
+                <div class="form-group">
+                    <button type="button" id="apply-diversity">Apply Diversity</button>
+                </div>
             </div>
         </form>
 
         <div id="error-message"></div>
 
         <div class="visualization-container">
-            <div id="table-container"></div>
+            <div id="table-container" style="display: none;"></div>
             <div id="diagram-container">
                 <svg id="diagram" viewBox="0 0 800 400"></svg>
             </div>
@@ -194,11 +199,10 @@
                 this.setupEventListeners();
                 this.setupAntennaSymbols();
             }
-
+    
             setupAntennaSymbols() {
-                // Define placeholder SVG symbols for transmitter and receiver antennas
                 const defs = this.svg.append('defs');
-                
+    
                 // Transmitter antenna symbol (larger)
                 defs.append('symbol')
                     .attr('id', 'transmitter')
@@ -207,7 +211,7 @@
                     .attr('href', './static/images/antenna-svgrepo-com.svg')
                     .attr('width', '100')
                     .attr('height', '100');
-
+    
                 // Receiver antenna symbol (smaller)
                 defs.append('symbol')
                     .attr('id', 'receiver')
@@ -216,7 +220,7 @@
                     .attr('href', './static/images/antenna-small.svg')
                     .attr('width', '100')
                     .attr('height', '100');
-
+    
                 // Arrow marker for signal paths
                 defs.append('marker')
                     .attr('id', 'arrowhead')
@@ -230,32 +234,55 @@
                     .attr('d', 'M 0 0 L 10 5 L 0 10 Z')
                     .attr('fill', 'var(--secondary-color)');
             }
-
+    
             setupEventListeners() {
-                document.getElementById('system-form').addEventListener('submit', (e) => {
-                    e.preventDefault();
-                    this.handleFormSubmit();
-                });
-
-                document.getElementById('num-antennas').addEventListener('input', (e) => {
-                    this.validateAntennaCount(e.target.value);
-                });
+                document.getElementById('generate-diagram').addEventListener('click', () => this.generateSystemDiagram());
+                document.getElementById('apply-diversity').addEventListener('click', () => this.applyDiversity());
             }
-
-            validateAntennaCount(value) {
-                const errorMessage = document.getElementById('error-message');
-                const numAntennas = parseInt(value, 10);
-                
-                if (numAntennas < 1 || numAntennas > 10) {
-                    errorMessage.textContent = 'Please enter a number between 1 and 5';
+    
+            generateSystemDiagram() {
+                const systemType = document.getElementById('system-type').value;
+                const numAntennas = parseInt(document.getElementById('num-antennas').value, 10);
+    
+                if (isNaN(numAntennas) || numAntennas < 1 || numAntennas > 10) {
+                    const errorMessage = document.getElementById('error-message');
+                    errorMessage.textContent = 'Please enter a valid number of antennas (1-10).';
                     errorMessage.style.display = 'block';
-                    return false;
+                    return;
                 }
-                
+    
+                const errorMessage = document.getElementById('error-message');
                 errorMessage.style.display = 'none';
-                return true;
+    
+                this.svg.selectAll('*').remove();
+                this.setupAntennaSymbols();
+    
+                const coefficients = this.generateRayleighCoefficients(numAntennas);
+                const weights = coefficients.map(() => 1 / numAntennas); // Default weights
+    
+                // Render diagram with default weights
+                this.renderDiagram(systemType, numAntennas, coefficients, weights);
+    
+                // Make combining method dropdown visible
+                const combiningMethodContainer = document.getElementById('combining-method-container');
+                combiningMethodContainer.style.display = 'block';
+    
+                // Display default coefficients and weights
+                this.displayCoefficients(coefficients, weights);
             }
-
+    
+            applyDiversity() {
+                const combiningMethod = document.getElementById('combining-method').value;
+                const systemType = document.getElementById('system-type').value;
+                const numAntennas = parseInt(document.getElementById('num-antennas').value, 10);
+    
+                const coefficients = this.generateRayleighCoefficients(numAntennas);
+                const weights = this.calculateWeights(coefficients, combiningMethod);
+    
+                this.displayCoefficients(coefficients, weights);
+                this.renderDiagram(systemType, numAntennas, coefficients, weights);
+            }
+    
             generateRayleighCoefficients(numAntennas) {
                 return Array.from({ length: numAntennas }, () => {
                     const u1 = Math.random();
@@ -264,7 +291,7 @@
                     return Math.abs(coefficient); // Return the absolute value
                 });
             }
-
+    
             calculateWeights(coefficients, method) {
                 switch (method) {
                     case 'EGC':
@@ -279,9 +306,10 @@
                         throw new Error('Invalid combining method');
                 }
             }
-
+    
             displayCoefficients(coefficients, weights) {
                 const container = document.getElementById('table-container');
+                container.style.display = 'block';
                 container.innerHTML = `
                     <table>
                         <thead>
@@ -305,84 +333,66 @@
                     </table>
                 `;
             }
-
+    
             renderDiagram(systemType, numAntennas, coefficients, weights) {
                 this.svg.selectAll('*').remove();
                 this.setupAntennaSymbols();
-
-                const svgElement = this.svg.node();
-                const svgBox = svgElement.getBoundingClientRect();
-
-                this.svg.attr('viewBox', `0 0 800 600`);
-
+    
                 const width = 800;
                 const height = 600;
-                const centerX = width / 4; // Move center to the left
+                const centerX = width / 4;
                 const centerY = height / 2;
                 const antennaSize = 50;
-                const verticalSpacing = 70; // Space between antennas
-                const gap = 18; // Gap for arrowheads
-
-                // Draw multiple antennas in a vertical line on the right
-                const rightX = width * 0.75; // Position on the right side
+                const verticalSpacing = 70;
+                const gap = 20;
+    
+                const rightX = width * 0.75;
                 const startY = centerY - ((numAntennas - 1) * verticalSpacing) / 2;
-
+    
                 for (let i = 0; i < numAntennas; i++) {
                     const y = startY + i * verticalSpacing;
-
-                    // Draw connection line with gap
+    
                     this.svg.append('line')
                         .attr('class', 'line')
                         .attr('x1', centerX + gap)
                         .attr('y1', centerY)
                         .attr('x2', rightX - gap)
                         .attr('y2', y)
-                        .attr('marker-end', `url(#${systemType === 'SIMO' ? 'arrowhead' : 'arrowtail'})`); // Arrowhead based on system type
-
-                    // Draw peripheral antenna
+                        .attr('marker-end', `url(#arrowhead)`);
+    
+                        this.svg.append('text')
+                        .attr('class', 'coefficient-label')
+                        .attr('x', (centerX + rightX) / 2)
+                        .attr('y', (centerY + y) / 2 - 10)
+                        .attr('text-anchor', 'middle')
+                        .text(`h${i + 1}: ${coefficients[i].toFixed(2)}`);
+    
+                    this.svg.append('text')
+                        .attr('class', 'weight-label')
+                        .attr('x', rightX + antennaSize / 2 + 26)
+                        .attr('y', y)
+                        .text(`W${i + 1}: ${weights[i].toFixed(2)}`);
+    
                     this.svg.append('use')
-                        .attr('href', systemType === 'SIMO' ? '#receiver' : '#transmitter')
+                        .attr('href', '#receiver')
                         .attr('class', 'antenna-image')
                         .attr('x', rightX - antennaSize / 2)
                         .attr('y', y - antennaSize / 2)
                         .attr('width', antennaSize)
                         .attr('height', antennaSize);
-
-                    // Add weight label
-                    this.svg.append('text')
-                        .attr('class', 'weight-label')
-                        .attr('x', rightX + antennaSize / 2 + 10)
-                        .attr('y', y)
-                        .text(`W${i + 1}: ${weights[i].toFixed(2)}`);
                 }
-
-                // Draw single antenna on the left
+    
                 this.svg.append('use')
-                    .attr('href', systemType === 'SIMO' ? '#transmitter' : '#receiver')
+                    .attr('href', '#transmitter')
                     .attr('class', 'antenna-image')
                     .attr('x', centerX - antennaSize / 2)
                     .attr('y', centerY - antennaSize / 2)
                     .attr('width', antennaSize)
                     .attr('height', antennaSize);
             }
-
-            handleFormSubmit() {
-                const systemType = document.getElementById('system-type').value;
-                const numAntennas = parseInt(document.getElementById('num-antennas').value, 10);
-                const combiningMethod = document.getElementById('combining-method').value;
-
-                if (!this.validateAntennaCount(numAntennas)) return;
-
-                const coefficients = this.generateRayleighCoefficients(numAntennas);
-                const weights = this.calculateWeights(coefficients, combiningMethod);
-
-                this.displayCoefficients(coefficients, weights);
-                this.renderDiagram(systemType, numAntennas, coefficients, weights);
-            }
         }
-
-        // Initialize the application
+    
         const antennaSystem = new AntennaSystem();
-    </script>
+    </script>    
 </body>
 </html>
