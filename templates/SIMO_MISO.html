@@ -345,6 +345,7 @@
                     // Add channel coefficient label on the line
                     const labelX = (centerX + rightX) / 2;
                     const labelY = (centerY + y) / 2;
+                    const angle = Math.atan2(y - centerY, rightX - centerX) * (180 / Math.PI);
 
                     this.svg.append('text')
                         .attr('class', 'coefficient-label')
@@ -352,7 +353,8 @@
                         .attr('y', labelY - 10) // Adjust position slightly above the line
                         .attr('text-anchor', 'middle')
                         .attr('fill', 'var(--secondary-color)')
-                        .text(`C${i + 1}: ${coefficients[i].toFixed(2)}`);
+                        .attr('transform', `rotate(${angle}, ${labelX}, ${labelY})`)
+                        .text(`h${i + 1}: ${coefficients[i].toFixed(2)}`);
 
                     // Draw peripheral antenna
                     this.svg.append('use')

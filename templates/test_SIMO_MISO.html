@@ -342,7 +342,7 @@
                         .attr('y2', systemType === 'SIMO' ? y : centerY)
                         .attr('marker-end', `url(#${systemType === 'SIMO' ? 'arrowhead' : 'arrowtail'})`); // Arrowhead based on system type
 
-                    // Add channel coefficient label along the line
+                    // Add channel coefficient label on the line
                     const labelX = (centerX + rightX) / 2;
                     const labelY = (centerY + y) / 2;
                     const angle = Math.atan2(y - centerY, rightX - centerX) * (180 / Math.PI);
