@@ -6,8 +6,8 @@
 6) In the pathloss experiment make 
    changes so that the plots are of different   -       
    colors for different heights of antennas
-7) Make the antennas in the diversity experiment    -   
-   linear from circular. 
+7) Make the antennas in the diversity experiment    -   Done
+   linear from circular.
 
 
 ---------------------------------------------------------------
