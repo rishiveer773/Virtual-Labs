@@ -359,12 +359,19 @@
                         .attr('x2', rightX - gap)
                         .attr('y2', y)
                         .attr('marker-end', `url(#arrowhead)`);
-    
+
+                        // Adding channel coefficients label along the line
+                        const labelX =(centerX + rightX) / 2;
+                        const labelY = (centerY + y) / 2;
+                        const angle = Math.atan2(y - centerY, rightX - centerX) * (180 / Math.PI);
+
                         this.svg.append('text')
                         .attr('class', 'coefficient-label')
-                        .attr('x', (centerX + rightX) / 2)
-                        .attr('y', (centerY + y) / 2 - 10)
+                        .attr('x', labelX)
+                        .attr('y', labelY)
                         .attr('text-anchor', 'middle')
+                        .attr('fill', 'var(--secondary-color)')
+                        .attr('transform',`rotate(${angle}, ${labelX}, ${labelY})`)
                         .text(`h${i + 1}: ${coefficients[i].toFixed(2)}`);
     
                     this.svg.append('text')
