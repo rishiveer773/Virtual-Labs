@@ -165,20 +165,20 @@
                 <input type="number" id="num-antennas" name="num_antennas" min="1" max="10" value="2" required>
             </div>
 
-            <div class="form-group">
-                <button type="button" id="generate-diagram">Generate Diagram</button>
-            </div>
-
             <div class="form-group" id="combining-method-container" style="display: none;">
                 <label for="combining-method">Combining Method:</label>
-                <select id="combining-method" name="combining_method" required>
+                <select id="combining-method" name="combining_method" style='margin-top: 0.45rem;' required>
                     <option value="EGC">Equal Gain Combining (EGC)</option>
                     <option value="SC">Selection Combining (SC)</option>
                     <option value="MRC">Maximal Ratio Combining (MRC)</option>
                 </select>
-                <div class="form-group">
+                <!-- <div class="form-group">
                     <button type="button" id="apply-diversity">Apply Diversity</button>
-                </div>
+                </div> -->
+            </div>
+
+            <div class="form-group">
+                <button type="button" id="generate-diagram" style="margin-top: 1.65rem">Generate Diagram</button>
             </div>
         </form>
 
