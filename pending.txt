@@ -9,7 +9,7 @@
 7) Make the antennas in the diversity experiment    -   Done
    linear from circular.
 8) Check whether the Two-ray model is working
-   correctly or not (for scenario 2)          -         
+   correctly or not (for scenario 2)          -          
 
 
 ---------------------------------------------------------------
