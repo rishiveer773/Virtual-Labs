@@ -172,13 +172,11 @@
                     <option value="SC">Selection Combining (SC)</option>
                     <option value="MRC">Maximal Ratio Combining (MRC)</option>
                 </select>
-                <!-- <div class="form-group">
-                    <button type="button" id="apply-diversity">Apply Diversity</button>
-                </div> -->
             </div>
 
             <div class="form-group">
                 <button type="button" id="generate-diagram" style="margin-top: 1.55rem">Generate Diagram</button>
+                <button type="button" id="apply-diversity" style="margin-top: 1.55rem; display: none;">Apply Diversity</button>
             </div>
         </form>
 
@@ -236,8 +234,20 @@
             }
     
             setupEventListeners() {
-                document.getElementById('generate-diagram').addEventListener('click', () => this.generateSystemDiagram());
-                document.getElementById('apply-diversity').addEventListener('click', () => this.applyDiversity());
+                const generateButton = document.getElementById('generate-diagram');
+                const applyDiversityButton = document.getElementById('apply-diversity');
+                const combiningMethodContainer = document.getElementById('combining-method-container');
+
+                generateButton.addEventListener('click', () => {
+                    this.generateSystemDiagram();
+                    // Once the diagram is generated and combining method is visible, toggle buttons
+                    if (combiningMethodContainer.style.display === 'block') {
+                        generateButton.style.display = 'none';
+                        applyDiversityButton.style.display = 'inline-block';
+                    }
+                });
+
+                applyDiversityButton.addEventListener('click', () => this.applyDiversity());
             }
     
             generateSystemDiagram() {
