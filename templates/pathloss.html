@@ -367,40 +367,38 @@
         const chartCanvas = document.getElementById('pathloss-chart');
         const valuesTableBody = document.querySelector('#values-table tbody');
         const sliderDisplay = document.getElementById('sliderDisplay');
-    
+
         const frequency = 900; // MHz
         const maxDistance = 100; // Maximum distance in meters
-        
-        let dataPoints = [];
+
+        // Modified data structure to store multiple curves
+        let curves = [];
 
         slider.max = maxDistance;
-        
 
-        // Add event listener to reset button
         resetBtn.addEventListener('click', () => {
-            // Clear the dataPoints array
-            dataPoints = [];
-
+            // Clear all curves
+            curves = [];
+            
             // Clear the table
             valuesTableBody.innerHTML = '';
-
+            
             // Reset the chart
             if (Chart.getChart(chartCanvas)) {
                 Chart.getChart(chartCanvas).destroy();
             }
-
+            
             slider.value = slider.min;
             sliderDisplay.textContent = slider.value;
-
-            const txHeight = parseInt(slider.min); // Assuming the slider's min value correlates to the initial height
-            const rxHeight = parseInt(slider.min); // Same assumption for the receiver
-
+            
+            const txHeight = parseInt(slider.min);
+            const rxHeight = parseInt(slider.min);
+            
             updateAntennaImage(txHeight, transmitter.querySelector('img'));
             updateAntennaImage(rxHeight, receiver.querySelector('img'));
-
-            showNotification("Table, plot, slider, and antenna images have been reset!");
+            
+            showNotification("All curves and data have been reset!");
         });
-
 
         function calculatePathLoss(distance, frequency, txHeight, rxHeight) {
             return (
@@ -411,73 +409,62 @@
                 147.55
             ).toFixed(2);
         }
-    
+
         function updateAntennaImage(height, imgElement) {
             if (!imgElement) {
                 console.error("Image element is invalid or not found.");
                 return;
             }
 
-            console.log("Height:", height);
-            console.log("Image Element:", imgElement);
-
             if (height <= 50) {
                 imgElement.src = 'static/images/antenna-small.svg';
-                imgElement.style.width = `${height + 30}px`; // Dynamically scale size
+                imgElement.style.width = `${height + 30}px`;
             } else if (height <= 100) {
                 imgElement.src = 'static/images/antenna-medium.svg';
-                imgElement.style.width = `80px`;
+                imgElement.style.width = '80px';
             } else {
                 imgElement.src = 'static/images/antenna-large.svg';
-                imgElement.style.width = `100px`;
+                imgElement.style.width = '100px';
             }
 
-            imgElement.style.height = 'auto'; // Maintain aspect ratio
-            console.log(`Updated image source to: ${imgElement.src}`);
+            imgElement.style.height = 'auto';
         }
 
         function updateAntennaHeights() {
             const txHeight = Math.min(parseInt(txHeightInput.value || "0", 10), 150);
             const rxHeight = Math.min(parseInt(rxHeightInput.value || "0", 10), 150);
-
-            console.log("TX Height:", txHeight, "RX Height:", rxHeight);
-
+            
             updateAntennaImage(txHeight, transmitter.querySelector('img'));
             updateAntennaImage(rxHeight, receiver.querySelector('img'));
-
-            updatePathLoss(); // Ensure this function is also debugged if necessary
+            
+            updatePathLoss();
         }
 
-        // Attach Event Listeners
-        txHeightInput.addEventListener('input', updateAntennaHeights);
-        rxHeightInput.addEventListener('input', updateAntennaHeights);
-                function updateReceiverPosition() {
-                    const distance = parseInt(slider.value); // Slider value as distance
-                    const experimentPadding = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--experiment-padding'));
-                    const experimentWidth = document.getElementById('experiment-area').offsetWidth;
-
-            // Calculate receiver's horizontal position
-            const receiverWidth = receiver.offsetWidth / 2; // Half the width to center the antenna
+        function updateReceiverPosition() {
+            const distance = parseInt(slider.value);
+            const experimentPadding = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--experiment-padding'));
+            const experimentWidth = document.getElementById('experiment-area').offsetWidth;
+            
+            const receiverWidth = receiver.offsetWidth / 2;
             const receiverX = Math.min(
-                experimentWidth - experimentPadding - receiverWidth, // Ensure it doesn't exceed the right boundary
+                experimentWidth - experimentPadding - receiverWidth,
                 Math.max(
-                    experimentPadding - receiverWidth, // Ensure it doesn't exceed the left boundary
+                    experimentPadding - receiverWidth,
                     experimentPadding + (distance / maxDistance) * (experimentWidth - 2 * experimentPadding)
                 )
             );
-
+            
             receiver.style.left = `${receiverX}px`;
         }
 
-    
         function updatePathLoss() {
-            const distance = parseInt(slider.value); // Slider value as distance
-            const txHeight = parseInt(txHeightInput.value) || 1; // Ensure height is at least 1
+            const distance = parseInt(slider.value);
+            const txHeight = parseInt(txHeightInput.value) || 1;
             const rxHeight = parseInt(rxHeightInput.value) || 1;
-    
+            
             distanceDisplay.textContent = distance;
             pathLossDisplay.textContent = calculatePathLoss(distance, frequency, txHeight, rxHeight);
-    
+            
             updateReceiverPosition();
         }
 
@@ -486,8 +473,7 @@
             notification.textContent = message;
             notification.className = isError ? 'notification error' : 'notification';
             notification.style.display = 'block';
-
-            // Hide the notification after 3 seconds
+            
             setTimeout(() => {
                 notification.style.display = 'none';
             }, 3000);
@@ -495,90 +481,190 @@
 
         function registerValues() {
             const distance = parseInt(slider.value);
+            const txHeight = parseInt(txHeightInput.value) || 1;
+            const rxHeight = parseInt(rxHeightInput.value) || 1;
             const pathLoss = parseFloat(pathLossDisplay.textContent);
+            
+            // Find existing curve for current height configuration
+            let curveIndex = curves.findIndex(curve => 
+                curve.txHeight === txHeight && curve.rxHeight === rxHeight
+            );
+            
+            if (curveIndex === -1) {
+                // Create new curve if height configuration doesn't exist
+                if (curves.length >= 5) {
+                    showNotification("Maximum of 5 different height configurations reached!", true);
+                    return;
+                }
+                
+                curves.push({
+                    txHeight,
+                    rxHeight,
+                    dataPoints: [],
+                    color: `hsl(${curves.length * 60}, 70%, 50%)`  // Different color for each curve
+                });
+                curveIndex = curves.length - 1;
+            }
+            
+            let curve = curves[curveIndex];
+            
+            // Check if we already have a measurement at this distance for this curve
+            const existingPointIndex = curve.dataPoints.findIndex(point => point.distance === distance);
+            if (existingPointIndex !== -1) {
+                showNotification("A measurement at this distance already exists for these heights!", true);
+                return;
+            }
+            
+            // Add new point and sort by distance
+            curve.dataPoints.push({ distance, pathLoss });
+            curve.dataPoints.sort((a, b) => a.distance - b.distance);
+            
+            // Update table
+            updateTable();
+            
+            showNotification(`Registered: Distance=${distance}m, Path Loss=${pathLoss}dB (Tx=${txHeight}m, Rx=${rxHeight}m)`);
+            
+            // Update plot
+            plotGraph();
+        }
 
-            // Add values to the dataPoints array
-            if (dataPoints.length < 10) {
-                dataPoints.push({ distance, pathLoss });
-
-                // Sort dataPoints by distance to ensure ascending order
-                dataPoints.sort((a, b) => a.distance - b.distance);
-
-                // Clear and repopulate the table to reflect sorted dataPoints
-                valuesTableBody.innerHTML = ''; // Clear existing rows
-                dataPoints.forEach(point => {
-                    const newRow = document.createElement('tr');
-                    newRow.innerHTML = `
+        function updateTable() {
+            valuesTableBody.innerHTML = '';
+            curves.forEach((curve, index) => {
+                const headerRow = document.createElement('tr');
+                headerRow.innerHTML = `
+                    <td colspan="3" style="background-color: ${curve.color}20">
+                        Tx Height: ${curve.txHeight}m, Rx Height: ${curve.rxHeight}m
+                    </td>
+                `;
+                valuesTableBody.appendChild(headerRow);
+                
+                curve.dataPoints.forEach(point => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
                         <td>${point.distance}</td>
                         <td>${point.pathLoss}</td>
                     `;
-                    valuesTableBody.appendChild(newRow);
+                    valuesTableBody.appendChild(row);
                 });
-
-                showNotification(`Registered: Distance = ${distance}m, Path Loss = ${pathLoss}dB`);
-
-                // Automatically plot the graph with updated dataPoints
-                plotGraph(dataPoints);
-            } else {
-                showNotification("You can only register up to 10 values!", true);
-            }
+            });
         }
 
+
         function plotGraph() {
-            const distances = dataPoints.map(point => point.distance);
-            const pathLosses = dataPoints.map(point => point.pathLoss);
-
-            // Debugging: Log data to ensure it's correct
-            console.log("Distances:", distances);
-            console.log("Path Losses:", pathLosses);
-
-            if (distances.length === 0 || pathLosses.length === 0) {
-                alert("No data to plot. Please register values first!");
+            if (curves.length === 0) {
+                showNotification("No data to plot. Please register values first!", true);
                 return;
             }
+            
+            const ctx = chartCanvas.getContext('2d');
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, chartCanvas.width, chartCanvas.height);
 
-            // Clear existing chart instance (if any)
             if (Chart.getChart(chartCanvas)) {
                 Chart.getChart(chartCanvas).destroy();
             }
-
+            
+            // Set canvas background to white
+            chartCanvas.style.backgroundColor = 'white';
+            
+            const datasets = curves.map(curve => ({
+                label: `Tx=${curve.txHeight}m, Rx=${curve.rxHeight}m`,
+                data: curve.dataPoints.map(point => ({
+                    x: point.distance,
+                    y: point.pathLoss
+                })),
+                borderColor: curve.color,
+                backgroundColor: `${curve.color}20`,
+                borderWidth: 2,
+                fill: true
+            }));
+            
             new Chart(chartCanvas, {
                 type: 'line',
-                data: {
-                    labels: distances,
-                    datasets: [{
-                        label: 'Path Loss vs Distance',
-                        data: pathLosses,
-                        borderColor: 'rgba(37, 99, 235, 0.8)',
-                        backgroundColor: 'rgba(37, 99, 235, 0.2)',
-                        borderWidth: 2,
-                        fill: true
-                    }]
+                data: { 
+                    datasets,
+                    // Add explicit background color for the chart area
+                    backgroundColor: 'white'
                 },
                 options: {
                     responsive: true,
-                    maintainAspectRatio: false, // Allow dynamic sizing
+                    maintainAspectRatio: false,
                     scales: {
                         x: {
+                            type: 'linear',
                             title: {
                                 display: true,
-                                text: 'Distance (m)'
+                                text: 'Distance (m)',
+                                color: '#333'
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.1)',
+                                drawBackground: true
+                            },
+                            ticks: {
+                                color: '#333'
                             }
                         },
                         y: {
                             title: {
                                 display: true,
-                                text: 'Path Loss (dB)'
+                                text: 'Path Loss (dB)',
+                                color: '#333'
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.1)',
+                                drawBackground: true
+                            },
+                            ticks: {
+                                color: '#333'
                             }
                         }
+                    },
+                    plugins: {
+                        legend: {
+                            labels: {
+                                color: '#333',
+                                usePointStyle: true,
+                                padding: 20
+                            },
+                            backgroundColor: 'white'
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                            titleColor: '#333',
+                            bodyColor: '#333',
+                            borderColor: '#ddd',
+                            borderWidth: 1
+                        }
+                    },
+                    layout: {
+                        padding: {
+                            top: 10,
+                            right: 20,
+                            bottom: 10,
+                            left: 10
+                        }
                     }
-                }
+                },
+                plugins: [{
+                    id: 'customCanvasBackgroundColor',
+                    beforeDraw: (chart, args, options) => {
+                        const {ctx} = chart;
+                        ctx.save();
+                        ctx.globalCompositeOperation = 'destination-over';
+                        ctx.fillStyle = 'white';
+                        ctx.fillRect(0, 0, chart.width, chart.height);
+                        ctx.restore();
+                    }
+                }]
             });
         }
 
-
         // Event Listeners
         slider.addEventListener('input', updatePathLoss);
+        txHeightInput.addEventListener('input', updateAntennaHeights);
+        rxHeightInput.addEventListener('input', updateAntennaHeights);
         registerBtn.addEventListener('click', registerValues);
         plotBtn.addEventListener('click', plotGraph);
 

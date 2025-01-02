@@ -550,15 +550,23 @@
             });
         }
 
+
         function plotGraph() {
             if (curves.length === 0) {
                 showNotification("No data to plot. Please register values first!", true);
                 return;
             }
             
+            const ctx = chartCanvas.getContext('2d');
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, chartCanvas.width, chartCanvas.height);
+
             if (Chart.getChart(chartCanvas)) {
                 Chart.getChart(chartCanvas).destroy();
             }
+            
+            // Set canvas background to white
+            chartCanvas.style.backgroundColor = 'white';
             
             const datasets = curves.map(curve => ({
                 label: `Tx=${curve.txHeight}m, Rx=${curve.rxHeight}m`,
@@ -574,7 +582,11 @@
             
             new Chart(chartCanvas, {
                 type: 'line',
-                data: { datasets },
+                data: { 
+                    datasets,
+                    // Add explicit background color for the chart area
+                    backgroundColor: 'white'
+                },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
@@ -587,7 +599,8 @@
                                 color: '#333'
                             },
                             grid: {
-                                color: 'rgba(0, 0, 0, 0.1)'
+                                color: 'rgba(0, 0, 0, 0.1)',
+                                drawBackground: true
                             },
                             ticks: {
                                 color: '#333'
@@ -600,7 +613,8 @@
                                 color: '#333'
                             },
                             grid: {
-                                color: 'rgba(0, 0, 0, 0.1)'
+                                color: 'rgba(0, 0, 0, 0.1)',
+                                drawBackground: true
                             },
                             ticks: {
                                 color: '#333'
@@ -613,10 +627,17 @@
                                 color: '#333',
                                 usePointStyle: true,
                                 padding: 20
-                            }
+                            },
+                            backgroundColor: 'white'
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                            titleColor: '#333',
+                            bodyColor: '#333',
+                            borderColor: '#ddd',
+                            borderWidth: 1
                         }
                     },
-                    backgroundColor: 'white',
                     layout: {
                         padding: {
                             top: 10,
@@ -625,7 +646,18 @@
                             left: 10
                         }
                     }
-                }
+                },
+                plugins: [{
+                    id: 'customCanvasBackgroundColor',
+                    beforeDraw: (chart, args, options) => {
+                        const {ctx} = chart;
+                        ctx.save();
+                        ctx.globalCompositeOperation = 'destination-over';
+                        ctx.fillStyle = 'white';
+                        ctx.fillRect(0, 0, chart.width, chart.height);
+                        ctx.restore();
+                    }
+                }]
             });
         }
 
@@ -638,6 +670,6 @@
 
         // Initial Setup
         updatePathLoss();
-</script>
+    </script>
 </body>
 </html>
