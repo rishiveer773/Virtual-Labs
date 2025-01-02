@@ -337,7 +337,7 @@
             renderDiagram(systemType, numAntennas, coefficients, weights) {
                 this.svg.selectAll('*').remove();
                 this.setupAntennaSymbols();
-    
+
                 const width = 800;
                 const height = 600;
                 const centerX = width / 4;
@@ -345,26 +345,41 @@
                 const antennaSize = 50;
                 const verticalSpacing = 70;
                 const gap = 20;
-    
-                const rightX = width * 0.75;
-                const startY = centerY - ((numAntennas - 1) * verticalSpacing) / 2;
-    
-                for (let i = 0; i < numAntennas; i++) {
-                    const y = startY + i * verticalSpacing;
-    
-                    this.svg.append('line')
-                        .attr('class', 'line')
-                        .attr('x1', centerX + gap)
-                        .attr('y1', centerY)
-                        .attr('x2', rightX - gap)
-                        .attr('y2', y)
-                        .attr('marker-end', `url(#arrowhead)`);
 
-                        // Adding channel coefficients label along the line with some offset
-                        const labelOffset = 3.75; // Offset for the label to avoid overlap with the line
-                        const labelX = (centerX + rightX) / 2 + labelOffset;
-                        const labelY = (centerY + y) / 2 - labelOffset;
-                        const angle = Math.atan2(y - centerY, rightX - centerX) * (180 / Math.PI);
+                const rightX = width * 0.75;
+                const leftX = width * 0.25;
+                const startY = centerY - ((numAntennas - 1) * verticalSpacing) / 2;
+
+                if (systemType === 'SIMO') {
+                    // SIMO: Single Transmitter to Multiple Receivers
+                    this.svg.append('use')
+                        .attr('href', '#transmitter')
+                        .attr('class', 'antenna-image')
+                        .attr('x', leftX - antennaSize / 2)
+                        .attr('y', centerY - antennaSize / 2)
+                        .attr('width', antennaSize)
+                        .attr('height', antennaSize);
+
+                    for (let i = 0; i < numAntennas; i++) {
+                        const y = startY + i * verticalSpacing;
+
+                        this.svg.append('line')
+                            .attr('class', 'line')
+                            .attr('x1', leftX + gap)
+                            .attr('y1', centerY)
+                            .attr('x2', rightX - gap)
+                            .attr('y2', y)
+                            .attr('marker-end', `url(#arrowhead)`);
+
+                        const dx = rightX - leftX;
+                        const dy = y - centerY;
+                        const length = Math.sqrt(dx * dx + dy * dy);
+                        const offsetX = (dy / length) * 10;
+                        const offsetY = (-dx / length) * 10;
+
+                        const labelX = (leftX + rightX) / 2 + offsetX;
+                        const labelY = (centerY + y) / 2 + offsetY;
+                        const angle = Math.atan2(dy, dx) * (180 / Math.PI);
 
                         this.svg.append('text')
                             .attr('class', 'coefficient-label')
@@ -375,46 +390,82 @@
                             .attr('transform', `rotate(${angle}, ${labelX}, ${labelY})`)
                             .text(`h${i + 1}: ${coefficients[i].toFixed(2)}`);
 
-                        // Adding channel coefficients label along the line
-                        // const labelX =(centerX + rightX) / 2;
-                        // const labelY = (centerY + y) / 2;
-                        // const angle = Math.atan2(y - centerY, rightX - centerX) * (180 / Math.PI);
+                        this.svg.append('text')
+                            .attr('class', 'weight-label')
+                            .attr('x', rightX + antennaSize / 2 + 26)
+                            .attr('y', y)
+                            .attr('alignment-baseline', 'middle')
+                            .text(`W${i + 1}: ${weights[i].toFixed(2)}`);
 
-                        // this.svg.append('text')
-                        // .attr('class', 'coefficient-label')
-                        // .attr('x', labelX)
-                        // .attr('y', labelY)
-                        // .attr('text-anchor', 'middle')
-                        // .attr('fill', 'var(--secondary-color)')
-                        // .attr('transform',`rotate(${angle}, ${labelX}, ${labelY})`)
-                        // .text(`h${i + 1}: ${coefficients[i].toFixed(2)}`);
-    
-                    this.svg.append('text')
-                        .attr('class', 'weight-label')
-                        .attr('x', rightX + antennaSize / 2 + 26)
-                        .attr('y', y)
-                        .text(`W${i + 1}: ${weights[i].toFixed(2)}`);
-    
+                        this.svg.append('use')
+                            .attr('href', '#receiver')
+                            .attr('class', 'antenna-image')
+                            .attr('x', rightX - antennaSize / 2)
+                            .attr('y', y - antennaSize / 2)
+                            .attr('width', antennaSize)
+                            .attr('height', antennaSize);
+                    }
+                } else if (systemType === 'MISO') {
+                    // MISO: Multiple Transmitters to Single Receiver
                     this.svg.append('use')
                         .attr('href', '#receiver')
                         .attr('class', 'antenna-image')
                         .attr('x', rightX - antennaSize / 2)
-                        .attr('y', y - antennaSize / 2)
+                        .attr('y', centerY - antennaSize / 2)
                         .attr('width', antennaSize)
                         .attr('height', antennaSize);
+
+                    for (let i = 0; i < numAntennas; i++) {
+                        const y = startY + i * verticalSpacing;
+
+                        this.svg.append('line')
+                            .attr('class', 'line')
+                            .attr('x1', rightX - gap)
+                            .attr('y1', centerY)
+                            .attr('x2', leftX + gap)
+                            .attr('y2', y)
+                            .attr('marker-start', `url(#arrowhead)`); // Reverse arrow direction
+
+                        const dx = rightX - leftX;
+                        const dy = centerY - y;
+                        const length = Math.sqrt(dx * dx + dy * dy);
+                        const offsetX = (dy / length) * 10;
+                        const offsetY = (-dx / length) * 10;
+
+                        const labelX = (leftX + rightX) / 2 + offsetX;
+                        const labelY = (y + centerY) / 2 + offsetY;
+                        const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+
+                        this.svg.append('text')
+                            .attr('class', 'coefficient-label')
+                            .attr('x', labelX)
+                            .attr('y', labelY)
+                            .attr('text-anchor', 'middle')
+                            .attr('fill', 'var(--secondary-color)')
+                            .attr('transform', `rotate(${angle}, ${labelX}, ${labelY})`)
+                            .text(`h${i + 1}: ${coefficients[i].toFixed(2)}`);
+
+                        this.svg.append('text')
+                            .attr('class', 'weight-label')
+                            .attr('x', leftX - antennaSize / 2 - 26)
+                            .attr('y', y)
+                            .attr('alignment-baseline', 'middle')
+                            .text(`W${i + 1}: ${weights[i].toFixed(2)}`);
+
+                        this.svg.append('use')
+                            .attr('href', '#transmitter')
+                            .attr('class', 'antenna-image')
+                            .attr('x', leftX - antennaSize / 2)
+                            .attr('y', y - antennaSize / 2)
+                            .attr('width', antennaSize)
+                            .attr('height', antennaSize);
+                    }
+                } else {
+                    console.error(`Unknown system type: ${systemType}`);
                 }
-    
-                this.svg.append('use')
-                    .attr('href', '#transmitter')
-                    .attr('class', 'antenna-image')
-                    .attr('x', centerX - antennaSize / 2)
-                    .attr('y', centerY - antennaSize / 2)
-                    .attr('width', antennaSize)
-                    .attr('height', antennaSize);
             }
+        antennaSystem = new AntennaSystem();
         }
-    
-        const antennaSystem = new AntennaSystem();
     </script>    
 </body>
 </html>
