@@ -569,16 +569,16 @@
             chartCanvas.style.backgroundColor = 'white';
             
             const datasets = curves.map(curve => ({
-                label: `Tx=${curve.txHeight}m, Rx=${curve.rxHeight}m`,
-                data: curve.dataPoints.map(point => ({
-                    x: point.distance,
-                    y: point.pathLoss
-                })),
-                borderColor: curve.color,
-                backgroundColor: `${curve.color}20`,
-                borderWidth: 2,
-                fill: true
-            }));
+            label: `Tx=${curve.txHeight}m, Rx=${curve.rxHeight}m`,
+            data: curve.dataPoints.map(point => ({
+                x: point.distance,
+                y: point.pathLoss
+            })),
+            borderColor: curve.color,
+            backgroundColor: 'rgba(118, 223, 237, 0.25)', // Transparent background
+            borderWidth: 2,
+            fill: true
+        }));
             
             new Chart(chartCanvas, {
                 type: 'line',
