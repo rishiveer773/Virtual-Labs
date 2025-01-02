@@ -353,6 +353,7 @@
         <canvas id="pathloss-chart" style="max-height: 450px;"></canvas>
     </div>
 
+    
     <script>
         const slider = document.getElementById('distance-slider');
         const transmitter = document.getElementById('transmitter');
@@ -372,6 +373,8 @@
         const maxDistance = 100; // Maximum distance in meters
     
         let dataPoints = [];
+        let currentTxHeight = parseInt(txHeightInput.value) || 1;
+        let currentRxHeight = parseInt(rxHeightInput.value) || 1;
         const colors = [
             'rgba(255, 99, 132, 0.8)', // Red
             'rgba(54, 162, 235, 0.8)', // Blue
@@ -388,8 +391,8 @@
             dataPoints = [];
             valuesTableBody.innerHTML = '';
     
-            if (Chart.getChart(chartCanvas)) {
-                Chart.getChart(chartCanvas).destroy();
+            if (window.chartInstance) {
+                window.chartInstance.destroy();
             }
     
             slider.value = slider.min;
@@ -467,8 +470,16 @@
         function registerValues() {
             const distance = parseInt(slider.value);
             const pathLoss = parseFloat(pathLossDisplay.textContent);
+            const txHeight = parseInt(txHeightInput.value) || 1;
+            const rxHeight = parseInt(rxHeightInput.value) || 1;
     
             if (dataPoints.length < 10) {
+                if (txHeight !== currentTxHeight || rxHeight !== currentRxHeight) {
+                    currentColorIndex = (currentColorIndex + 1) % colors.length;
+                    currentTxHeight = txHeight;
+                    currentRxHeight = rxHeight;
+                }
+    
                 dataPoints.push({ distance, pathLoss });
                 dataPoints.sort((a, b) => a.distance - b.distance);
     
@@ -487,55 +498,83 @@
         }
     
         function plotGraph() {
-            const distances = dataPoints.map(point => point.distance);
-            const pathLosses = dataPoints.map(point => point.pathLoss);
+            const txHeight = parseInt(txHeightInput.value) || 1;
+            const rxHeight = parseInt(rxHeightInput.value) || 1;
+            let existingDataset = window.chartInstance?.data.datasets.find(dataset => dataset.txHeight === txHeight && dataset.rxHeight === rxHeight);
     
-            if (!window.chartInstance) {
-                window.chartInstance = new Chart(chartCanvas, {
-                    type: 'line',
-                    data: {
-                        labels: distances,
-                        datasets: []
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        scales: {
-                            x: {
-                                title: {
-                                    display: true,
-                                    text: 'Distance (m)'
-                                }
-                            },
-                            y: {
-                                title: {
-                                    display: true,
-                                    text: 'Path Loss (dB)'
+            if (!existingDataset) {
+                if (!window.chartInstance) {
+                    window.chartInstance = new Chart(chartCanvas, {
+                        type: 'line',
+                        data: {
+                            labels: [],
+                            datasets: []
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                x: {
+                                    title: {
+                                        display: true,
+                                        text: 'Distance (m)'
+                                    }
+                                },
+                                y: {
+                                    title: {
+                                        display: true,
+                                        text: 'Path Loss (dB)'
+                                    }
                                 }
                             }
                         }
-                    }
-                });
-            }
+                    });
+                }
     
             const color = colors[currentColorIndex];
-            window.chartInstance.data.datasets.push({
+            existingDataset = {
                 label: `Plot ${window.chartInstance.data.datasets.length + 1}`,
-                data: pathLosses,
+                data: [],
                 borderColor: color,
                 backgroundColor: color.replace('0.8', '0.2'),
                 borderWidth: 2,
-                fill: true
+                fill: true,
+                txHeight: txHeight,
+                rxHeight: rxHeight
+            };
+            window.chartInstance.data.datasets.push(existingDataset);
+        }
+    
+            dataPoints.forEach(point => {
+                existingDataset.data.push({ x: point.distance, y: point.pathLoss });
             });
+    
+            window.chartInstance.data.labels = dataPoints.map(point => point.distance);
             window.chartInstance.update();
-            currentColorIndex = (currentColorIndex + 1) % colors.length;
         }
     
         slider.addEventListener('input', updatePathLoss);
+        txHeightInput.addEventListener('input', () => {
+            updatePathLoss();
+            updateAntennaImage(parseInt(txHeightInput.value) || 1, transmitter.querySelector('img'));
+        });
+        rxHeightInput.addEventListener('input', () => {
+            updatePathLoss();
+            updateAntennaImage(parseInt(rxHeightInput.value) || 1, receiver.querySelector('img'));
+        });
         registerBtn.addEventListener('click', registerValues);
         plotBtn.addEventListener('click', plotGraph);
-    
+
+        document.getElementById('resetBtn').addEventListener('click', resetPlot);
+
+        function resetPlot() {
+            // Clear the plot
+            const svg = document.querySelector('svg');
+            if (svg) {
+                svg.innerHTML = '';
+            }
         updatePathLoss();
-    </script>    
+        }
+    </script>
 </body>
 </html>
