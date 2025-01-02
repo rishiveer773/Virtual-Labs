@@ -3,45 +3,109 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SIMO/MISO System Visualization</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+    <title>Path Loss Experiment</title>
     <style>
         :root {
             --primary-color: #2563eb;
-            --secondary-color: #2c3644;
             --background-color: #f8fafc;
-            --border-color: #e2e8f0;
+            --card-background: #ffffff;
+            --text-color: #1e293b;
+            --experiment-padding: 80px;
         }
 
         body {
-            font-family: system-ui, -apple-system, sans-serif;
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 2rem;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
             background-color: var(--background-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 0.5rem;
+            line-height: 1.6;
+            height: 100vh;
+            box-sizing: border-box;
         }
 
         .container {
-            background-color: white;
-            padding: 2rem;
-            border-radius: 8px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 0.5rem;
+            height: 100%;
         }
 
         h1 {
-            color: var(--primary-color);
-            margin-bottom: 2rem;
+            grid-column: 1 / -1;
             text-align: center;
+            color: var(--text-color);
+            font-size: 1.1rem;
+            margin: 0;
+            padding: 0.25rem 0;
+            height: 1.5rem;
+            line-height: 1.5rem;
         }
 
-        #system-form {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
-            margin-bottom: 2rem;
+        canvas {
+            max-width: 100%;
+            max-height: 300px; /* Adjust as needed */
+            display: block;
         }
 
-        .form-group {
+
+        .sidebar {
+            background: var(--card-background);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            padding: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            height: calc(100vh - 10rem);
+        }
+
+        .main-content {
+            background: var(--card-background);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            padding: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 10rem);
+        }
+
+        #experiment-area {
+            position: relative;
+            flex-grow: 1;
+            border-radius: 12px;
+            background: linear-gradient(180deg, #87CEEB 0%, #87CEEB 60%, #90EE90 60%, #90EE90 100%);
+            overflow: hidden; /* Prevent overflowing images */
+            box-sizing: border-box;
+            padding: 0 var(--experiment-padding);
+        }
+
+
+        .antenna {
+            position: absolute;
+            bottom: 40%;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .antenna img {
+            filter: drop-shadow(0 4px 3px rgb(0 0 0 / 0.07));
+            transition: height 0.3s ease, width 0.3s ease;
+            width: 60px;
+            height: auto;
+        }
+
+        #transmitter {
+            left: var(--experiment-padding);
+        }
+
+        #receiver {
+            cursor: pointer;
+        }
+
+        .input-group {
             display: flex;
             flex-direction: column;
             gap: 0.5rem;
@@ -49,431 +113,429 @@
 
         label {
             font-weight: 500;
-            color: var(--secondary-color);
+            color: var(--text-color);
+            font-size: 0.9rem;
         }
 
-        select, input {
+        input[type="number"] {
             padding: 0.5rem;
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
             font-size: 1rem;
         }
 
-        button {
+        input[type="range"] {
+            width: 100%;
+            height: 8px;
+            background: #e2e8f0;
+            border-radius: 4px;
+            appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            appearance: none;
+            width: 24px;
+            height: 24px;
+            background: var(--primary-color);
+            border-radius: 50%;
+            cursor: pointer;
+            transition: transform 0.1s ease;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+        }
+
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.75rem;
+        }
+
+        .metric-card {
+            background: var(--background-color);
+            padding: 0.75rem;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        .metric-label {
+            font-size: 0.875rem;
+            color: #64748b;
+            margin-top: 0.25rem;
+        }
+
+        /* Button Styling */
+        .btn-primary {
             background-color: var(--primary-color);
             color: white;
             border: none;
             padding: 0.75rem 1.5rem;
-            border-radius: 4px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
             cursor: pointer;
-            font-weight: 500;
-            transition: background-color 0.2s;
+            transition: background-color 0.2s ease;
         }
 
-        button:hover {
-            background-color: #1d4ed8;
+        .btn-primary:hover {
+            background-color: #174cbc;
         }
 
-        .visualization-container {
-            display: grid;
-            grid-template-columns: 1fr 2fr;
-            gap: 2rem;
-            margin-top: 2rem;
-            height: 100%;
-            max-height: 800px;
-        }
-
-        #diagram-container {
-            width: 100%;
-            height: 100%;
-            aspect-ratio: 4/3;
-            position: relative;
-            overflow: hidden; /* Changed from visible to hidden */
-        }
-
-        #diagram {
-            width: 100%;
-            height: 100%;
-            display: block;
+        /* Table Styling */
+        .table-container {
+            overflow-x: auto;
+            margin-top: 1rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            background: var(--card-background);
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 1rem;
-            background-color: white;
-            margin-bottom: 2rem;
-        }
-
-        th, td {
-            border: 1px solid var(--border-color);
-            padding: 0.75rem;
             text-align: center;
+            font-size: 0.9rem;
+            color: var(--text-color);
         }
 
-        th {
-            background-color: var(--background-color);
-            font-weight: 500;
+        table th, table td {
+            padding: 0.75rem;
+            border: 1px solid #e2e8f0;
         }
 
-        .line {
-            stroke: var(--secondary-color);
-            stroke-width: 2;
-            stroke-dasharray: 4;
-            animation: dash 1s linear infinite;
+        table thead th {
+            background-color: var(--primary-color);
+            color: white;
+            font-weight: 600;
         }
 
-        @keyframes dash {
+        table tbody tr:nth-child(even) {
+            background-color: #f1f5f9;
+        }
+
+        /* Plot Section */
+        .plot-section {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: var(--card-background);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            width: 100%; /* Ensure it scales to fit the container */
+            height: 400px; /* Cap the height to prevent scrolling */
+            overflow: hidden; /* Prevent scrollbars */
+        }
+
+        .plot-section canvas {
+            display: block;
+            max-width: 100%;
+            height: auto;
+        }
+
+        .notification {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-size: 16px;
+            color: white;
+            background-color: #4caf50; /* Default green for success */
+            z-index: 1000;
+            display: none; /* Hidden by default */
+            animation: fadein 0.5s, fadeout 0.5s 2.5s; /* Fade effect */
+        }
+
+        .notification.error {
+            background-color: #ffa07a; /* Light red */
+            color: #800000; /* Dark red text for better contrast */
+        }
+
+        @keyframes fadein {
+            from {
+                opacity: 0;
+                top: 0;
+            }
             to {
-                stroke-dashoffset: -8;
+                opacity: 1;
+                top: 20px;
             }
         }
 
-        .weight-label {
-            font-size: 0.875rem;
-            fill: var(--secondary-color);
-            text-anchor: middle;
-        }
-
-        #error-message {
-            color: #ef4444;
-            margin-top: 0.5rem;
-            display: none;
-        }
-
-        .antenna-image {
-            transform-origin: center;
+        @keyframes fadeout {
+            from {
+                opacity: 1;
+                top: 20px;
+            }
+            to {
+                opacity: 0;
+                top: 0;
+            }
         }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
+    <div id="notification" class="notification"></div>
+
     <div class="container">
-        <h1>SIMO/MISO System Visualization</h1>
-        
-        <form id="system-form">
-            <div class="form-group">
-                <label for="system-type">System Type:</label>
-                <select id="system-type" name="system_type" required>
-                    <option value="SIMO">SIMO</option>
-                    <option value="MISO">MISO</option>
-                </select>
+        <h1>Path Loss Experiment</h1>
+
+        <div class="sidebar">
+            <div class="input-group">
+                <label for="tx-height">Transmitter Height (meters)</label>
+                <input type="number" id="tx-height" min="1" max="150" value="10" step="1">
             </div>
-
-            <div class="form-group">
-                <label for="num-antennas">Number of Antennas:</label>
-                <input type="number" id="num-antennas" name="num_antennas" min="1" max="10" value="2" required>
+            <div class="input-group">
+                <label for="rx-height">Receiver Height (meters)</label>
+                <input type="number" id="rx-height" min="1" max="150" value="10" step="1">
             </div>
-
-            <div class="form-group" id="combining-method-container" style="display: none;">
-                <label for="combining-method">Combining Method:</label>
-                <select id="combining-method" name="combining_method" style='margin-top: 0.45rem;' required>
-                    <option value="EGC">Equal Gain Combining (EGC)</option>
-                    <option value="SC">Selection Combining (SC)</option>
-                    <option value="MRC">Maximal Ratio Combining (MRC)</option>
-                </select>
-            </div>
-
-            <div class="form-group">
-                <button type="button" id="generate-diagram" style="margin-top: 1.55rem">Generate Diagram</button>
-                <button type="button" id="apply-diversity" style="margin-top: 1.55rem; display: none;">Apply Diversity</button>
-            </div>
-        </form>
-
-        <div id="error-message"></div>
-
-        <div class="visualization-container">
-            <div id="table-container" style="display: none;"></div>
-            <div id="diagram-container">
-                <svg id="diagram" viewBox="0 0 800 600"></svg>
+            <div class="metrics">
+                <div class="metric-card">
+                    <div class="metric-value"><span id="distance">0</span> m</div>
+                    <div class="metric-label">Distance</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value"><span id="path-loss">0</span> dB</div>
+                    <div class="metric-label">Path Loss</div>
+                </div>
+                <!-- <div class="input-group">
+                    <button id="register-btn">Register</button>
+                    <button id="plot-btn" disabled>Plot Graph</button> -->
+                    <!-- <button id="resetBtn">Reset</button>
+                </div> -->
             </div>
         </div>
+
+        <div class="main-content">
+            <div id="experiment-area">
+                <div id="transmitter" class="antenna">
+                    <img src="static/images/antenna-small.svg" alt="Transmitter antenna" draggable="false">
+                </div>
+                <div id="receiver" class="antenna">
+                    <img src="static/images/antenna-small.svg" alt="Receiver antenna" draggable="false">
+                </div>
+            </div>
+            <div class="input-group">
+                <label for="distance-slider">Adjust Receiver Position</label>
+                <input type="range" id="distance-slider" min="0" max="100" value="0" step="1">
+                <div id="button-container" style="margin-top: 10px; display: flex; justify-content: center;">
+                    <button id="register-btn" style="margin-right: 10px;">Register</button>
+                    <button id="resetBtn">Reset</button>
+                </div>
+            </div>            
+        </div>
+
+        <!-- Table Section -->
+        <div class="input-group">
+            <h2>Registered Values</h2>
+            <table id="values-table" border="1" style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr>
+                        <th>Distance (m)</th>
+                        <th>Path Loss (dB)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Values will be dynamically added here -->
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Graph Section -->
+        <canvas id="pathloss-chart" style="max-height: 450px;"></canvas>
     </div>
 
     <script>
-        class AntennaSystem {
-            constructor() {
-                this.svg = d3.select('#diagram');
-                this.setupEventListeners();
-                this.setupAntennaSymbols();
+        const slider = document.getElementById('distance-slider');
+        const transmitter = document.getElementById('transmitter');
+        const receiver = document.getElementById('receiver');
+        const txHeightInput = document.getElementById('tx-height');
+        const rxHeightInput = document.getElementById('rx-height');
+        const distanceDisplay = document.getElementById('distance');
+        const pathLossDisplay = document.getElementById('path-loss');
+        const registerBtn = document.getElementById('register-btn');
+        const plotBtn = document.getElementById('plot-btn');
+        const resetBtn = document.getElementById('resetBtn');
+        const chartCanvas = document.getElementById('pathloss-chart');
+        const valuesTableBody = document.querySelector('#values-table tbody');
+        const sliderDisplay = document.getElementById('sliderDisplay');
+    
+        const frequency = 900; // MHz
+        const maxDistance = 100; // Maximum distance in meters
+    
+        let dataPoints = [];
+        const colors = [
+            'rgba(255, 99, 132, 0.8)', // Red
+            'rgba(54, 162, 235, 0.8)', // Blue
+            'rgba(255, 206, 86, 0.8)', // Yellow
+            'rgba(75, 192, 192, 0.8)', // Teal
+            'rgba(153, 102, 255, 0.8)', // Purple
+            'rgba(255, 159, 64, 0.8)', // Orange
+            'rgba(201, 203, 207, 0.8)' // Gray
+        ];
+        let currentColorIndex = 0;
+    
+        // Reset functionality
+        resetBtn.addEventListener('click', () => {
+            dataPoints = [];
+            valuesTableBody.innerHTML = '';
+    
+            if (Chart.getChart(chartCanvas)) {
+                Chart.getChart(chartCanvas).destroy();
             }
     
-            setupAntennaSymbols() {
-                const defs = this.svg.append('defs');
+            slider.value = slider.min;
+            sliderDisplay.textContent = slider.value;
     
-                // Transmitter antenna symbol (larger)
-                defs.append('symbol')
-                    .attr('id', 'transmitter')
-                    .attr('viewBox', '0 0 100 100')
-                    .append('image')
-                    .attr('href', './static/images/antenna-svgrepo-com.svg')
-                    .attr('width', '100')
-                    .attr('height', '100');
+            updateAntennaImage(parseInt(slider.min), transmitter.querySelector('img'));
+            updateAntennaImage(parseInt(slider.min), receiver.querySelector('img'));
     
-                // Receiver antenna symbol (smaller)
-                defs.append('symbol')
-                    .attr('id', 'receiver')
-                    .attr('viewBox', '0 0 100 100')
-                    .append('image')
-                    .attr('href', './static/images/antenna-small.svg')
-                    .attr('width', '100')
-                    .attr('height', '100');
+            showNotification("Table, plot, slider, and antenna images have been reset!");
+        });
     
-                // Arrow marker for signal paths
-                defs.append('marker')
-                    .attr('id', 'arrowhead')
-                    .attr('viewBox', '0 0 10 10')
-                    .attr('refX', 10)
-                    .attr('refY', 5)
-                    .attr('markerWidth', 6)
-                    .attr('markerHeight', 6)
-                    .attr('orient', 'auto')
-                    .append('path')
-                    .attr('d', 'M 0 0 L 10 5 L 0 10 Z')
-                    .attr('fill', 'var(--secondary-color)');
+        // Path loss calculation
+        function calculatePathLoss(distance, frequency, txHeight, rxHeight) {
+            return (
+                20 * Math.log10(distance || 1) +
+                20 * Math.log10(frequency) -
+                20 * Math.log10(txHeight) -
+                20 * Math.log10(rxHeight) -
+                147.55
+            ).toFixed(2);
+        }
+    
+        function updateAntennaImage(height, imgElement) {
+            if (height <= 50) {
+                imgElement.src = 'static/images/antenna-small.svg';
+                imgElement.style.width = `${height + 30}px`;
+            } else if (height <= 100) {
+                imgElement.src = 'static/images/antenna-medium.svg';
+                imgElement.style.width = `80px`;
+            } else {
+                imgElement.src = 'static/images/antenna-large.svg';
+                imgElement.style.width = `100px`;
             }
+            imgElement.style.height = 'auto';
+        }
     
-            setupEventListeners() {
-                const generateButton = document.getElementById('generate-diagram');
-                const applyDiversityButton = document.getElementById('apply-diversity');
-                const combiningMethodContainer = document.getElementById('combining-method-container');
-
-                generateButton.addEventListener('click', () => {
-                    this.generateSystemDiagram();
-                    // Once the diagram is generated and combining method is visible, toggle buttons
-                    if (combiningMethodContainer.style.display === 'block') {
-                        generateButton.style.display = 'none';
-                        applyDiversityButton.style.display = 'inline-block';
-                    }
+        function updatePathLoss() {
+            const distance = parseInt(slider.value);
+            const txHeight = parseInt(txHeightInput.value) || 1;
+            const rxHeight = parseInt(rxHeightInput.value) || 1;
+    
+            distanceDisplay.textContent = distance;
+            pathLossDisplay.textContent = calculatePathLoss(distance, frequency, txHeight, rxHeight);
+            updateReceiverPosition();
+        }
+    
+        function updateReceiverPosition() {
+            const distance = parseInt(slider.value);
+            const experimentPadding = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--experiment-padding'));
+            const experimentWidth = document.getElementById('experiment-area').offsetWidth;
+    
+            const receiverWidth = receiver.offsetWidth / 2;
+            const receiverX = Math.min(
+                experimentWidth - experimentPadding - receiverWidth,
+                Math.max(
+                    experimentPadding - receiverWidth,
+                    experimentPadding + (distance / maxDistance) * (experimentWidth - 2 * experimentPadding)
+                )
+            );
+    
+            receiver.style.left = `${receiverX}px`;
+        }
+    
+        function showNotification(message, isError = false) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = isError ? 'notification error' : 'notification';
+            notification.style.display = 'block';
+    
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 3000);
+        }
+    
+        function registerValues() {
+            const distance = parseInt(slider.value);
+            const pathLoss = parseFloat(pathLossDisplay.textContent);
+    
+            if (dataPoints.length < 10) {
+                dataPoints.push({ distance, pathLoss });
+                dataPoints.sort((a, b) => a.distance - b.distance);
+    
+                valuesTableBody.innerHTML = '';
+                dataPoints.forEach(point => {
+                    const newRow = document.createElement('tr');
+                    newRow.innerHTML = `<td>${point.distance}</td><td>${point.pathLoss}</td>`;
+                    valuesTableBody.appendChild(newRow);
                 });
-
-                applyDiversityButton.addEventListener('click', () => this.applyDiversity());
-            }
     
-            generateSystemDiagram() {
-                const systemType = document.getElementById('system-type').value;
-                const numAntennas = parseInt(document.getElementById('num-antennas').value, 10);
-    
-                if (isNaN(numAntennas) || numAntennas < 1 || numAntennas > 10) {
-                    const errorMessage = document.getElementById('error-message');
-                    errorMessage.textContent = 'Please enter a valid number of antennas (1-10).';
-                    errorMessage.style.display = 'block';
-                    return;
-                }
-    
-                const errorMessage = document.getElementById('error-message');
-                errorMessage.style.display = 'none';
-    
-                this.svg.selectAll('*').remove();
-                this.setupAntennaSymbols();
-    
-                const coefficients = this.generateRayleighCoefficients(numAntennas);
-                const weights = coefficients.map(() => 1 / numAntennas); // Default weights
-    
-                // Render diagram with default weights
-                this.renderDiagram(systemType, numAntennas, coefficients, weights);
-    
-                // Make combining method dropdown visible
-                const combiningMethodContainer = document.getElementById('combining-method-container');
-                combiningMethodContainer.style.display = 'block';
-    
-                // Display default coefficients and weights
-                this.displayCoefficients(coefficients, weights);
-            }
-    
-            applyDiversity() {
-                const combiningMethod = document.getElementById('combining-method').value;
-                const systemType = document.getElementById('system-type').value;
-                const numAntennas = parseInt(document.getElementById('num-antennas').value, 10);
-    
-                const coefficients = this.generateRayleighCoefficients(numAntennas);
-                const weights = this.calculateWeights(coefficients, combiningMethod);
-    
-                this.displayCoefficients(coefficients, weights);
-                this.renderDiagram(systemType, numAntennas, coefficients, weights);
-            }
-    
-            generateRayleighCoefficients(numAntennas) {
-                return Array.from({ length: numAntennas }, () => {
-                    const u1 = Math.random();
-                    const u2 = Math.random();
-                    const coefficient = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
-                    return Math.abs(coefficient); // Return the absolute value
-                });
-            }
-    
-            calculateWeights(coefficients, method) {
-                switch (method) {
-                    case 'EGC':
-                        return coefficients.map(() => 1 / coefficients.length);
-                    case 'SC':
-                        const maxIndex = coefficients.indexOf(Math.max(...coefficients));
-                        return coefficients.map((_, i) => i === maxIndex ? 1 : 0);
-                    case 'MRC':
-                        const normFactor = Math.sqrt(coefficients.reduce((sum, c) => sum + c ** 2, 0));
-                        return coefficients.map(coeff => coeff / normFactor);
-                    default:
-                        throw new Error('Invalid combining method');
-                }
-            }
-    
-            displayCoefficients(coefficients, weights) {
-                const container = document.getElementById('table-container');
-                container.style.display = 'block';
-                container.innerHTML = `
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Antenna</th>
-                                <th>Channel Coefficient</th>
-                                <th>Weight</th>
-                                <th>Combined Gain</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${coefficients.map((coeff, i) => `
-                                <tr>
-                                    <td>Antenna ${i + 1}</td>
-                                    <td>${coeff.toFixed(3)}</td>
-                                    <td>${weights[i].toFixed(3)}</td>
-                                    <td>${(coeff * weights[i]).toFixed(3)}</td>
-                                </tr>
-                            `).join('')}
-                        </tbody>
-                    </table>
-                `;
-            }
-    
-            renderDiagram(systemType, numAntennas, coefficients, weights) {
-                this.svg.selectAll('*').remove();
-                this.setupAntennaSymbols();
-
-                const width = 800;
-                const height = 600;
-                const centerX = width / 4;
-                const centerY = height / 2;
-                const antennaSize = 50;
-                const verticalSpacing = 70;
-                const gap = 20;
-
-                const rightX = width * 0.75;
-                const startY = centerY - ((numAntennas - 1) * verticalSpacing) / 2;
-
-                if (systemType === 'SIMO') {
-                    // Single transmitter on the left, multiple receivers on the right
-                    this.svg.append('use')
-                        .attr('href', '#transmitter')
-                        .attr('class', 'antenna-image')
-                        .attr('x', centerX - antennaSize / 2)
-                        .attr('y', centerY - antennaSize / 2)
-                        .attr('width', antennaSize)
-                        .attr('height', antennaSize);
-
-                    for (let i = 0; i < numAntennas; i++) {
-                        const y = startY + i * verticalSpacing;
-
-                        this.svg.append('line')
-                            .attr('class', 'line')
-                            .attr('x1', centerX + gap)
-                            .attr('y1', centerY)
-                            .attr('x2', rightX - gap)
-                            .attr('y2', y)
-                            .attr('marker-end', `url(#arrowhead)`);
-
-                        const labelOffset = 3.75;   // Offset from the line    
-                        const labelX = (centerX + rightX) / 2;
-                        const labelY = (centerY + y) / 2 - labelOffset; // Adjusted to appear above the line
-                        const angle = Math.atan2(
-                            systemType === 'SIMO' ? y - centerY : centerY - y, 
-                            systemType === 'SIMO' ? rightX - centerX : centerX - rightX
-                        ) * (180 / Math.PI);
-
-                        // Ensure the text is upright
-                        const adjustedAngle = angle < -90 || angle > 90 ? angle + 180 : angle;
-
-                        this.svg.append('text')
-                            .attr('class', 'coefficient-label')
-                            .attr('x', labelX)
-                            .attr('y', labelY)
-                            .attr('text-anchor', 'middle')
-                            .attr('fill', 'var(--secondary-color)')
-                            .attr('transform', `rotate(${adjustedAngle}, ${labelX}, ${labelY})`)
-                            .text(`h${i + 1}: ${coefficients[i].toFixed(2)}`);
-
-                        this.svg.append('text')
-                            .attr('class', 'weight-label')
-                            .attr('x', rightX + antennaSize / 2 + 26)
-                            .attr('y', y)
-                            .text(`W${i + 1}: ${weights[i].toFixed(2)}`);
-
-                        this.svg.append('use')
-                            .attr('href', '#receiver')
-                            .attr('class', 'antenna-image')
-                            .attr('x', rightX - antennaSize / 2)
-                            .attr('y', y - antennaSize / 2)
-                            .attr('width', antennaSize)
-                            .attr('height', antennaSize);
-                    }
-                } else if (systemType === 'MISO') {
-                    // Multiple transmitters on the right, single receiver on the left
-                    this.svg.append('use')
-                        .attr('href', '#receiver')
-                        .attr('class', 'antenna-image')
-                        .attr('x', centerX - antennaSize / 2)
-                        .attr('y', centerY - antennaSize / 2)
-                        .attr('width', antennaSize)
-                        .attr('height', antennaSize);
-
-                    for (let i = 0; i < numAntennas; i++) {
-                        const y = startY + i * verticalSpacing;
-
-                        this.svg.append('line')
-                            .attr('class', 'line')
-                            .attr('x1', rightX - gap)
-                            .attr('y1', y)
-                            .attr('x2', centerX + gap)
-                            .attr('y2', centerY)
-                            .attr('marker-end', `url(#arrowhead)`); // Arrowhead at receiving end (single antenna)
-
-                        const labelOffset = 3.75;   // Offset from the line    
-                        const labelX = (centerX + rightX) / 2;
-                        const labelY = (centerY + y) / 2 - labelOffset; // Adjusted to appear above the line
-                        const angle = Math.atan2(
-                            systemType === 'SIMO' ? y - centerY : centerY - y, 
-                            systemType === 'SIMO' ? rightX - centerX : centerX - rightX
-                        ) * (180 / Math.PI);
-
-                        // Ensure the text is upright
-                        const adjustedAngle = angle < -90 || angle > 90 ? angle + 180 : angle;
-
-                        this.svg.append('text')
-                            .attr('class', 'coefficient-label')
-                            .attr('x', labelX)
-                            .attr('y', labelY)
-                            .attr('text-anchor', 'middle')
-                            .attr('fill', 'var(--secondary-color)')
-                            .attr('transform', `rotate(${adjustedAngle}, ${labelX}, ${labelY})`)
-                            .text(`h${i + 1}: ${coefficients[i].toFixed(2)}`);
-
-                        this.svg.append('text')
-                            .attr('class', 'weight-label')
-                            .attr('x', rightX + antennaSize / 2 + 26)
-                            .attr('y', y)
-                            .text(`W${i + 1}: ${weights[i].toFixed(2)}`);
-
-                        this.svg.append('use')
-                            .attr('href', '#transmitter')
-                            .attr('class', 'antenna-image')
-                            .attr('x', rightX - antennaSize / 2)
-                            .attr('y', y - antennaSize / 2)
-                            .attr('width', antennaSize)
-                            .attr('height', antennaSize);
-                    }
-                } else {
-                    console.error(`Invalid system type: ${systemType}`);
-                }
+                showNotification(`Registered: Distance = ${distance}m, Path Loss = ${pathLoss}dB`);
+                plotGraph();
+            } else {
+                showNotification("You can only register up to 10 values!", true);
             }
         }
-        const antennaSystem = new AntennaSystem();
+    
+        function plotGraph() {
+            const distances = dataPoints.map(point => point.distance);
+            const pathLosses = dataPoints.map(point => point.pathLoss);
+    
+            if (!window.chartInstance) {
+                window.chartInstance = new Chart(chartCanvas, {
+                    type: 'line',
+                    data: {
+                        labels: distances,
+                        datasets: []
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: {
+                                title: {
+                                    display: true,
+                                    text: 'Distance (m)'
+                                }
+                            },
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: 'Path Loss (dB)'
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+    
+            const color = colors[currentColorIndex];
+            window.chartInstance.data.datasets.push({
+                label: `Plot ${window.chartInstance.data.datasets.length + 1}`,
+                data: pathLosses,
+                borderColor: color,
+                backgroundColor: color.replace('0.8', '0.2'),
+                borderWidth: 2,
+                fill: true
+            });
+            window.chartInstance.update();
+            currentColorIndex = (currentColorIndex + 1) % colors.length;
+        }
+    
+        slider.addEventListener('input', updatePathLoss);
+        registerBtn.addEventListener('click', registerValues);
+        plotBtn.addEventListener('click', plotGraph);
+    
+        updatePathLoss();
     </script>    
 </body>
 </html>
