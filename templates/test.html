@@ -3,641 +3,140 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Path Loss Experiment</title>
+    <title>Dynamic Doppler Shift Simulation</title>
     <style>
-        :root {
-            --primary-color: #2563eb;
-            --background-color: #f8fafc;
-            --card-background: #ffffff;
-            --text-color: #1e293b;
-            --experiment-padding: 80px;
-        }
-
         body {
-            font-family: 'Inter', system-ui, -apple-system, sans-serif;
-            background-color: var(--background-color);
-            color: var(--text-color);
-            margin: 0;
-            padding: 0.5rem;
-            line-height: 1.6;
-            height: 100vh;
-            box-sizing: border-box;
-        }
-
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            display: grid;
-            grid-template-columns: 300px 1fr;
-            gap: 0.5rem;
-            height: 100%;
-        }
-
-        h1 {
-            grid-column: 1 / -1;
+            font-family: Arial, sans-serif;
             text-align: center;
-            color: var(--text-color);
-            font-size: 1.1rem;
-            margin: 0;
-            padding: 0.25rem 0;
-            height: 1.5rem;
-            line-height: 1.5rem;
         }
-
-        canvas {
-            max-width: 100%;
-            max-height: 300px; /* Adjust as needed */
+        #simulationCanvas {
+            border: 1px solid #000;
+            margin: 20px auto;
             display: block;
         }
-
-
-        .sidebar {
-            background: var(--card-background);
-            border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-            padding: 0.75rem;
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-            height: calc(100vh - 10rem);
-        }
-
-        .main-content {
-            background: var(--card-background);
-            border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-            padding: 0.75rem;
-            display: flex;
-            flex-direction: column;
-            height: calc(100vh - 10rem);
-        }
-
-        #experiment-area {
-            position: relative;
-            flex-grow: 1;
-            border-radius: 12px;
-            background: linear-gradient(180deg, #87CEEB 0%, #87CEEB 60%, #90EE90 60%, #90EE90 100%);
-            overflow: hidden; /* Prevent overflowing images */
-            box-sizing: border-box;
-            padding: 0 var(--experiment-padding);
-        }
-
-
-        .antenna {
-            position: absolute;
-            bottom: 40%;
-            text-align: center;
-            transition: all 0.3s ease;
-        }
-
-        .antenna img {
-            filter: drop-shadow(0 4px 3px rgb(0 0 0 / 0.07));
-            transition: height 0.3s ease, width 0.3s ease;
-            width: 60px;
-            height: auto;
-        }
-
-        #transmitter {
-            left: var(--experiment-padding);
-        }
-
-        #receiver {
-            cursor: pointer;
-        }
-
-        .input-group {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-
-        label {
-            font-weight: 500;
-            color: var(--text-color);
-            font-size: 0.9rem;
-        }
-
-        input[type="number"] {
-            padding: 0.5rem;
-            border: 1px solid #e2e8f0;
-            border-radius: 6px;
-            font-size: 1rem;
-        }
-
-        input[type="range"] {
-            width: 100%;
-            height: 8px;
-            background: #e2e8f0;
-            border-radius: 4px;
-            appearance: none;
-        }
-
-        input[type="range"]::-webkit-slider-thumb {
-            appearance: none;
-            width: 24px;
-            height: 24px;
-            background: var(--primary-color);
-            border-radius: 50%;
-            cursor: pointer;
-            transition: transform 0.1s ease;
-        }
-
-        input[type="range"]::-webkit-slider-thumb:hover {
-            transform: scale(1.1);
-        }
-
-        .metrics {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 0.75rem;
-        }
-
-        .metric-card {
-            background: var(--background-color);
-            padding: 0.75rem;
-            border-radius: 8px;
-            text-align: center;
-        }
-
-        .metric-value {
-            font-size: 1.5rem;
-            font-weight: 600;
-            color: var(--primary-color);
-        }
-
-        .metric-label {
-            font-size: 0.875rem;
-            color: #64748b;
-            margin-top: 0.25rem;
-        }
-
-        /* Button Styling */
-        .btn-primary {
-            background-color: var(--primary-color);
-            color: white;
-            border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 8px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background-color 0.2s ease;
-        }
-
-        .btn-primary:hover {
-            background-color: #174cbc;
-        }
-
-        /* Table Styling */
-        .table-container {
-            overflow-x: auto;
-            margin-top: 1rem;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-            background: var(--card-background);
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            text-align: center;
-            font-size: 0.9rem;
-            color: var(--text-color);
-        }
-
-        table th, table td {
-            padding: 0.75rem;
-            border: 1px solid #e2e8f0;
-        }
-
-        table thead th {
-            background-color: var(--primary-color);
-            color: white;
-            font-weight: 600;
-        }
-
-        table tbody tr:nth-child(even) {
-            background-color: #f1f5f9;
-        }
-
-        /* Plot Section */
-        .plot-section {
-            margin-top: 2rem;
-            padding: 1rem;
-            background: var(--card-background);
-            border-radius: 12px;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
-            width: 100%; /* Ensure it scales to fit the container */
-            height: 400px; /* Cap the height to prevent scrolling */
-            overflow: hidden; /* Prevent scrollbars */
-        }
-
-        .plot-section canvas {
-            display: block;
-            max-width: 100%;
-            height: auto;
-        }
-
-        .notification {
-            position: fixed;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            padding: 10px 20px;
-            border-radius: 5px;
-            font-size: 16px;
-            color: white;
-            background-color: #4caf50; /* Default green for success */
-            z-index: 1000;
-            display: none; /* Hidden by default */
-            animation: fadein 0.5s, fadeout 0.5s 2.5s; /* Fade effect */
-        }
-
-        .notification.error {
-            background-color: #ffa07a; /* Light red */
-            color: #800000; /* Dark red text for better contrast */
-        }
-
-        @keyframes fadein {
-            from {
-                opacity: 0;
-                top: 0;
-            }
-            to {
-                opacity: 1;
-                top: 20px;
-            }
-        }
-
-        @keyframes fadeout {
-            from {
-                opacity: 1;
-                top: 20px;
-            }
-            to {
-                opacity: 0;
-                top: 0;
-            }
+        #results {
+            margin-top: 20px;
+            font-size: 1.2em;
+            font-weight: bold;
         }
     </style>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-    <div id="notification" class="notification"></div>
-
-    <div class="container">
-        <h1>Path Loss Experiment</h1>
-
-        <div class="sidebar">
-            <div class="input-group">
-                <label for="tx-height">Transmitter Height (meters)</label>
-                <input type="number" id="tx-height" min="1" max="150" value="10" step="1">
-            </div>
-            <div class="input-group">
-                <label for="rx-height">Receiver Height (meters)</label>
-                <input type="number" id="rx-height" min="1" max="150" value="10" step="1">
-            </div>
-            <div class="metrics">
-                <div class="metric-card">
-                    <div class="metric-value"><span id="distance">0</span> m</div>
-                    <div class="metric-label">Distance</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-value"><span id="path-loss">0</span> dB</div>
-                    <div class="metric-label">Path Loss</div>
-                </div>
-                <!-- <div class="input-group">
-                    <button id="register-btn">Register</button>
-                    <button id="plot-btn" disabled>Plot Graph</button> -->
-                    <!-- <button id="resetBtn">Reset</button>
-                </div> -->
-            </div>
-        </div>
-
-        <div class="main-content">
-            <div id="experiment-area">
-                <div id="transmitter" class="antenna">
-                    <img src="static/images/antenna-small.svg" alt="Transmitter antenna" draggable="false">
-                </div>
-                <div id="receiver" class="antenna">
-                    <img src="static/images/antenna-small.svg" alt="Receiver antenna" draggable="false">
-                </div>
-            </div>
-            <div class="input-group">
-                <label for="distance-slider">Adjust Receiver Position</label>
-                <input type="range" id="distance-slider" min="0" max="100" value="0" step="1">
-                <div id="button-container" style="margin-top: 10px; display: flex; justify-content: center;">
-                    <button id="register-btn" style="margin-right: 10px;">Register</button>
-                    <button id="resetBtn">Reset</button>
-                </div>
-            </div>            
-        </div>
-
-        <!-- Table Section -->
-        <div class="input-group">
-            <h2>Registered Values</h2>
-            <table id="values-table" border="1" style="width: 100%; border-collapse: collapse;">
-                <thead>
-                    <tr>
-                        <th>Distance (m)</th>
-                        <th>Path Loss (dB)</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <!-- Values will be dynamically added here -->
-                </tbody>
-            </table>
-        </div>
-
-        <!-- Graph Section -->
-        <canvas id="pathloss-chart" style="max-height: 450px;"></canvas>
+    <h1>Scenario 1: Instantaneous Doppler Shift Simulation</h1>
+    <div>
+        <label for="frequency">Frequency (MHz):</label>
+        <input id="frequency" type="number" value="100"><br>
+        <label for="velocity">Receiver Velocity (m/s):</label>
+        <input id="velocity" type="number" value="10"><br>
+        <label for="initialDistance">Initial Distance (m):</label>
+        <input id="initialDistance" type="number" value="300"><br>
+        <button onclick="startScenario1()">Start</button>
+        <button onclick="resetScenario1()">Reset</button>
     </div>
+    <canvas id="simulationCanvas" width="800" height="400"></canvas>
+    <div id="results">Instantaneous Doppler Shift: - Hz</div>
 
     <script>
-        const slider = document.getElementById('distance-slider');
-        const transmitter = document.getElementById('transmitter');
-        const receiver = document.getElementById('receiver');
-        const txHeightInput = document.getElementById('tx-height');
-        const rxHeightInput = document.getElementById('rx-height');
-        const distanceDisplay = document.getElementById('distance');
-        const pathLossDisplay = document.getElementById('path-loss');
-        const registerBtn = document.getElementById('register-btn');
-        const plotBtn = document.getElementById('plot-btn');
-        const resetBtn = document.getElementById('resetBtn');
-        const chartCanvas = document.getElementById('pathloss-chart');
-        const valuesTableBody = document.querySelector('#values-table tbody');
-        const sliderDisplay = document.getElementById('sliderDisplay');
+        const canvas = document.getElementById('simulationCanvas');
+        const ctx = canvas.getContext('2d');
+        const resultsDiv = document.getElementById('results');
 
-        const frequency = 900; // MHz
-        const maxDistance = 100; // Maximum distance in meters
+        const transmitter = { x: 100, y: 200, img: new Image() };
+        const receiver = { x: 400, y: 200, velocity: 0, img: new Image(), direction: 1, initialDistance: 300 };
 
-        // Modified data structure to store multiple curves
-        let curves = [];
+        let animationFrame;
+        let frequency = 100e6; // Default frequency in Hz (100 MHz)
 
-        slider.max = maxDistance;
-
-        resetBtn.addEventListener('click', () => {
-            // Clear all curves
-            curves = [];
-            
-            // Clear the table
-            valuesTableBody.innerHTML = '';
-            
-            // Reset the chart
-            if (Chart.getChart(chartCanvas)) {
-                Chart.getChart(chartCanvas).destroy();
+        transmitter.img.onload = () => {
+            if (transmitter.img.complete && receiver.img.complete) {
+                draw();
             }
-            
-            slider.value = slider.min;
-            sliderDisplay.textContent = slider.value;
-            
-            const txHeight = parseInt(slider.min);
-            const rxHeight = parseInt(slider.min);
-            
-            updateAntennaImage(txHeight, transmitter.querySelector('img'));
-            updateAntennaImage(rxHeight, receiver.querySelector('img'));
-            
-            showNotification("All curves and data have been reset!");
-        });
+        };
 
-        function calculatePathLoss(distance, frequency, txHeight, rxHeight) {
-            return (
-                20 * Math.log10(distance || 1) +
-                20 * Math.log10(frequency) -
-                20 * Math.log10(txHeight) -
-                20 * Math.log10(rxHeight) -
-                147.55
-            ).toFixed(2);
+        receiver.img.onload = () => {
+            if (transmitter.img.complete && receiver.img.complete) {
+                draw();
+            }
+        };
+
+        transmitter.img.src = './static/images/antenna-svgrepo-com.svg';
+        receiver.img.src = './static/images/car.svg';
+
+        function calculateInstantaneousDopplerShift() {
+            const c = 3e8; // Speed of light (m/s)
+            const dx = receiver.x - transmitter.x; // Horizontal distance
+            const dy = receiver.y - transmitter.y; // Vertical distance (remains constant in this case)
+            const instantaneousDistance = Math.sqrt(dx ** 2 + dy ** 2); // Pythagoras theorem
+            const relativeVelocity = receiver.velocity * receiver.direction; // Velocity component along the direction of movement
+            const instantaneousDopplerShift = -(frequency * relativeVelocity) / instantaneousDistance;
+            return instantaneousDopplerShift;
         }
 
-        function updateAntennaImage(height, imgElement) {
-            if (!imgElement) {
-                console.error("Image element is invalid or not found.");
-                return;
+        function startScenario1() {
+            frequency = parseFloat(document.getElementById('frequency').value) * 1e6; // Frequency in Hz
+            receiver.velocity = parseFloat(document.getElementById('velocity').value); // Receiver velocity
+            receiver.initialDistance = parseFloat(document.getElementById('initialDistance').value); // Initial distance
+            receiver.x = transmitter.x + receiver.initialDistance; // Set receiver's starting position based on initial distance
+            receiver.direction = 1; // Start moving to the right
+            animateScenario1();
+        }
+
+        function animateScenario1() {
+            const margin = 50; // Margin from the canvas edges
+
+            // Update receiver position
+            receiver.x += receiver.velocity * receiver.direction * 0.1; // Velocity scaled for animation
+
+            // Reverse direction if the receiver hits canvas edges
+            if (receiver.x < margin) {
+                receiver.x = margin;
+                receiver.direction *= -1;
+            }
+            if (receiver.x > canvas.width - margin) {
+                receiver.x = canvas.width - margin;
+                receiver.direction *= -1;
             }
 
-            if (height <= 50) {
-                imgElement.src = 'static/images/antenna-small.svg';
-                imgElement.style.width = `${height + 30}px`;
-            } else if (height <= 100) {
-                imgElement.src = 'static/images/antenna-medium.svg';
-                imgElement.style.width = '80px';
-            } else {
-                imgElement.src = 'static/images/antenna-large.svg';
-                imgElement.style.width = '100px';
-            }
+            // Calculate instantaneous Doppler shift
+            const dopplerShift = calculateInstantaneousDopplerShift();
+            resultsDiv.innerHTML = `Instantaneous Doppler Shift: ${dopplerShift.toFixed(2)} Hz`;
 
-            imgElement.style.height = 'auto';
+            // Draw updated frame
+            draw();
+
+            // Request next animation frame
+            animationFrame = requestAnimationFrame(animateScenario1);
         }
 
-        function updateAntennaHeights() {
-            const txHeight = Math.min(parseInt(txHeightInput.value || "0", 10), 150);
-            const rxHeight = Math.min(parseInt(rxHeightInput.value || "0", 10), 150);
-            
-            updateAntennaImage(txHeight, transmitter.querySelector('img'));
-            updateAntennaImage(rxHeight, receiver.querySelector('img'));
-            
-            updatePathLoss();
+        function resetScenario1() {
+            cancelAnimationFrame(animationFrame); // Stop animation
+            receiver.x = transmitter.x + receiver.initialDistance; // Reset position
+            receiver.velocity = 0; // Reset velocity
+            resultsDiv.innerHTML = 'Instantaneous Doppler Shift: - Hz'; // Clear results
+            draw(); // Redraw static frame
         }
 
-        function updateReceiverPosition() {
-            const distance = parseInt(slider.value);
-            const experimentPadding = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--experiment-padding'));
-            const experimentWidth = document.getElementById('experiment-area').offsetWidth;
-            
-            const receiverWidth = receiver.offsetWidth / 2;
-            const receiverX = Math.min(
-                experimentWidth - experimentPadding - receiverWidth,
-                Math.max(
-                    experimentPadding - receiverWidth,
-                    experimentPadding + (distance / maxDistance) * (experimentWidth - 2 * experimentPadding)
-                )
-            );
-            
-            receiver.style.left = `${receiverX}px`;
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw transmitter
+            ctx.drawImage(transmitter.img, transmitter.x - 40, transmitter.y - 40, 80, 80);
+            ctx.fillText("Transmitter", transmitter.x - 40, transmitter.y - 50);
+
+            // Draw receiver
+            ctx.drawImage(receiver.img, receiver.x - 30, receiver.y - 30, 60, 60);
+            ctx.fillText("Receiver", receiver.x - 30, receiver.y - 50);
+
+            // Draw signal line
+            ctx.strokeStyle = 'orange';
+            ctx.beginPath();
+            ctx.moveTo(transmitter.x, transmitter.y);
+            ctx.lineTo(receiver.x, receiver.y);
+            ctx.stroke();
         }
 
-        function updatePathLoss() {
-            const distance = parseInt(slider.value);
-            const txHeight = parseInt(txHeightInput.value) || 1;
-            const rxHeight = parseInt(rxHeightInput.value) || 1;
-            
-            distanceDisplay.textContent = distance;
-            pathLossDisplay.textContent = calculatePathLoss(distance, frequency, txHeight, rxHeight);
-            
-            updateReceiverPosition();
-        }
-
-        function showNotification(message, isError = false) {
-            const notification = document.getElementById('notification');
-            notification.textContent = message;
-            notification.className = isError ? 'notification error' : 'notification';
-            notification.style.display = 'block';
-            
-            setTimeout(() => {
-                notification.style.display = 'none';
-            }, 3000);
-        }
-
-        function registerValues() {
-            const distance = parseInt(slider.value);
-            const txHeight = parseInt(txHeightInput.value) || 1;
-            const rxHeight = parseInt(rxHeightInput.value) || 1;
-            const pathLoss = parseFloat(pathLossDisplay.textContent);
-            
-            // Find existing curve for current height configuration
-            let curveIndex = curves.findIndex(curve => 
-                curve.txHeight === txHeight && curve.rxHeight === rxHeight
-            );
-            
-            if (curveIndex === -1) {
-                // Create new curve if height configuration doesn't exist
-                if (curves.length >= 5) {
-                    showNotification("Maximum of 5 different height configurations reached!", true);
-                    return;
-                }
-                
-                curves.push({
-                    txHeight,
-                    rxHeight,
-                    dataPoints: [],
-                    color: `hsl(${curves.length * 60}, 70%, 50%)`  // Different color for each curve
-                });
-                curveIndex = curves.length - 1;
-            }
-            
-            let curve = curves[curveIndex];
-            
-            // Check if we already have a measurement at this distance for this curve
-            const existingPointIndex = curve.dataPoints.findIndex(point => point.distance === distance);
-            if (existingPointIndex !== -1) {
-                showNotification("A measurement at this distance already exists for these heights!", true);
-                return;
-            }
-            
-            // Add new point and sort by distance
-            curve.dataPoints.push({ distance, pathLoss });
-            curve.dataPoints.sort((a, b) => a.distance - b.distance);
-            
-            // Update table
-            updateTable();
-            
-            showNotification(`Registered: Distance=${distance}m, Path Loss=${pathLoss}dB (Tx=${txHeight}m, Rx=${rxHeight}m)`);
-            
-            // Update plot
-            plotGraph();
-        }
-
-        function updateTable() {
-            valuesTableBody.innerHTML = '';
-            curves.forEach((curve, index) => {
-                const headerRow = document.createElement('tr');
-                headerRow.innerHTML = `
-                    <td colspan="3" style="background-color: ${curve.color}20">
-                        Tx Height: ${curve.txHeight}m, Rx Height: ${curve.rxHeight}m
-                    </td>
-                `;
-                valuesTableBody.appendChild(headerRow);
-                
-                curve.dataPoints.forEach(point => {
-                    const row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td>${point.distance}</td>
-                        <td>${point.pathLoss}</td>
-                    `;
-                    valuesTableBody.appendChild(row);
-                });
-            });
-        }
-
-        function plotGraph() {
-            if (curves.length === 0) {
-                showNotification("No data to plot. Please register values first!", true);
-                return;
-            }
-            
-            if (Chart.getChart(chartCanvas)) {
-                Chart.getChart(chartCanvas).destroy();
-            }
-            
-            const datasets = curves.map(curve => ({
-                label: `Tx=${curve.txHeight}m, Rx=${curve.rxHeight}m`,
-                data: curve.dataPoints.map(point => ({
-                    x: point.distance,
-                    y: point.pathLoss
-                })),
-                borderColor: curve.color,
-                backgroundColor: `${curve.color}20`,
-                borderWidth: 2,
-                fill: true
-            }));
-            
-            new Chart(chartCanvas, {
-                type: 'line',
-                data: { datasets },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        x: {
-                            type: 'linear',
-                            title: {
-                                display: true,
-                                text: 'Distance (m)',
-                                color: '#333'
-                            },
-                            grid: {
-                                color: 'rgba(0, 0, 0, 0.1)'
-                            },
-                            ticks: {
-                                color: '#333'
-                            }
-                        },
-                        y: {
-                            title: {
-                                display: true,
-                                text: 'Path Loss (dB)',
-                                color: '#333'
-                            },
-                            grid: {
-                                color: 'rgba(0, 0, 0, 0.1)'
-                            },
-                            ticks: {
-                                color: '#333'
-                            }
-                        }
-                    },
-                    plugins: {
-                        legend: {
-                            labels: {
-                                color: '#333',
-                                usePointStyle: true,
-                                padding: 20
-                            }
-                        }
-                    },
-                    backgroundColor: 'white',
-                    layout: {
-                        padding: {
-                            top: 10,
-                            right: 20,
-                            bottom: 10,
-                            left: 10
-                        }
-                    }
-                }
-            });
-        }
-
-        // Event Listeners
-        slider.addEventListener('input', updatePathLoss);
-        txHeightInput.addEventListener('input', updateAntennaHeights);
-        rxHeightInput.addEventListener('input', updateAntennaHeights);
-        registerBtn.addEventListener('click', registerValues);
-        plotBtn.addEventListener('click', plotGraph);
-
-        // Initial Setup
-        updatePathLoss();
-</script>
+        // Initial draw
+        draw();
+    </script>
 </body>
 </html>
