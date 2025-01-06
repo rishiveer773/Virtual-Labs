@@ -29,7 +29,7 @@
         }
 
         .simulation-section {
-            flex: 3; /* Increase space even further */
+            flex: 3;
             padding: 20px;
             box-sizing: border-box; 
             text-align: center;
@@ -37,7 +37,7 @@
 
         .output-section {
             flex: 1;
-            padding: 10px; /* Reduce padding for smaller width */
+            padding: 10px;
             box-sizing: border-box; 
             text-align: center;
         }
@@ -60,7 +60,7 @@
             padding: 10px; 
             border-radius: 5px;
             overflow-y: auto;
-            max-height: 250px; /* Reduce maximum height */
+            max-height: 250px;
         }
 
         .transmitter-image, .receiver-image {
@@ -68,7 +68,6 @@
             max-height: 100px;
         }
 
-        /* CSS transitions for smoother receiver movement */
         .receiver {
             transition: transform 0.2s ease-in-out;
         }
@@ -85,27 +84,41 @@
             <div class="controls">
                 <h3>Select Scenario:</h3>
                 <input type="radio" id="scenario1" name="scenario" value="1" checked>
-                <label for="scenario1">Scenario 1: Free Space</label><br>
+                <label for="scenario1">Scenario 1: Moving Receiver</label><br>
                 <input type="radio" id="scenario2" name="scenario" value="2">
-                <label for="scenario2">Scenario 2: Reflection</label><br><br>
+                <label for="scenario2">Scenario 2: Wall Reflection</label><br>
+                <input type="radio" id="scenario3" name="scenario" value="3">
+                <label for="scenario3">Scenario 3: Moving Receiver with Wall</label><br><br>
 
-                <label for="distance">Distance (r) in meters:</label>
-                <input type="number" id="distance" value="100" step="1" min="1" required> 
-                <br>
+                <div id="scenario1-inputs">
+                    <label for="distance">Distance (d) in meters:</label>
+                    <input type="number" id="distance" value="100" step="1" min="1" required><br>
 
-                <div id="scenario1-inputs"> 
                     <label for="velocity">Receiver Velocity (v) in m/s:</label>
-                    <input type="number" id="velocity" value="0" step="1" required>
+                    <input type="number" id="velocity" value="10" step="1" required><br>
                 </div>
 
                 <div id="scenario2-inputs" style="display: none;">
-                    <label for="obstacleDistance">Obstacle Distance (d) in meters:</label>
-                    <input type="number" id="obstacleDistance" value="150" step="1" min="1" required>
+                    <label for="antennaDistance">Antenna Distance (r) in meters:</label>
+                    <input type="number" id="antennaDistance" value="200" step="1" min="1" required><br>
+
+                    <label for="wallDistance">Wall Distance (d) in meters:</label>
+                    <input type="number" id="wallDistance" value="150" step="1" min="1" required><br>
+                </div>
+
+                <div id="scenario3-inputs" style="display: none;">
+                    <label for="distance3">Distance (d) in meters:</label>
+                    <input type="number" id="distance3" value="100" step="1" min="1" required><br>
+
+                    <label for="velocity3">Receiver Velocity (v) in m/s:</label>
+                    <input type="number" id="velocity3" value="10" step="1" required><br>
+
+                    <label for="wallDistance3">Wall Distance (d) in meters:</label>
+                    <input type="number" id="wallDistance3" value="150" step="1" min="1" required><br>
                 </div>
 
                 <label for="frequency">Frequency (f) in MHz:</label>
-                <input type="number" id="frequency" value="100" step="1" min="1" required>
-                <br>
+                <input type="number" id="frequency" value="100" step="1" min="1" required><br><br>
 
                 <button onclick="calculateResults()">Calculate</button>
                 <button onclick="resetSimulation()">Reset</button>
@@ -127,136 +140,100 @@
         const canvas = document.getElementById('simulationCanvas');
         const ctx = canvas.getContext('2d');
         const resultsDiv = document.getElementById('results');
-        const distanceInput = document.getElementById('distance');
-        const velocityInput = document.getElementById('velocity');
-        const obstacleDistanceInput = document.getElementById('obstacleDistance');
-        const scenario1Inputs = document.getElementById('scenario1-inputs');
-        const scenario2Inputs = document.getElementById('scenario2-inputs');
-        const scenario1Radio = document.getElementById('scenario1');
-        const scenario2Radio = document.getElementById('scenario2');
-
-        let scenario = 1; 
-        let time = 0;
-        let animationFrame;
-
+    
         const transmitter = { x: 100, y: 200, img: new Image() };
-        const receiver = { x: 400, y: 200, velocity: 0, img: new Image() }; 
+        const receiver = { x: 400, y: 200, velocity: 0, img: new Image() };
         const wall = { x: 600, y: 100, width: 20, height: 200 };
-
+    
         transmitter.img.onload = () => {
-            if (transmitter.img.complete && receiver.img.complete) { 
-                draw(); 
+            if (transmitter.img.complete && receiver.img.complete) {
+                draw();
             }
         };
-
+    
         receiver.img.onload = () => {
-            if (transmitter.img.complete && receiver.img.complete) { 
-                draw(); 
+            if (transmitter.img.complete && receiver.img.complete) {
+                draw();
             }
         };
-
-        transmitter.img.src = './static/images/antenna-svgrepo-com.svg'; 
+    
+        transmitter.img.src = './static/images/antenna-svgrepo-com.svg';
         receiver.img.src = './static/images/car.svg';
-
-        function setScenario(selectedScenario) {
-            scenario = selectedScenario;
-            if (scenario === 2) {
-                obstacleDistanceInput.style.display = 'inline';
-                obstacleDistanceLabel.style.display = 'inline';
-                document.getElementById('velocity').style.display = 'none';
-                document.getElementById('velocityLabel').style.display = 'none';
-            } else {
-                obstacleDistanceInput.style.display = 'none';
-                obstacleDistanceLabel.style.display = 'none';
-                document.getElementById('velocity').style.display = 'inline';
-                document.getElementById('velocityLabel').style.display = 'inline';
-            }
-            resetSimulation();
-        }
-
-        function flipImageHorizontally(img, x, y, width, height) {
-            ctx.save();
-            ctx.scale(-1, 1);
-            ctx.drawImage(img, -x - width, y, width, height);
-            ctx.restore();
-        }
-
+    
+        document.querySelectorAll('input[name="scenario"]').forEach((radio) => {
+            radio.addEventListener('change', () => {
+                const selectedScenario = parseInt(radio.value);
+                document.getElementById('scenario1-inputs').style.display = selectedScenario === 1 ? 'block' : 'none';
+                document.getElementById('scenario2-inputs').style.display = selectedScenario === 2 ? 'block' : 'none';
+                document.getElementById('scenario3-inputs').style.display = selectedScenario === 3 ? 'block' : 'none';
+                resetSimulation();
+            });
+        });
+    
         function calculateResults() {
-            const r = parseFloat(document.getElementById('distance').value) || 100;
-            const v = parseFloat(document.getElementById('velocity').value) || 0;
-            const f = parseFloat(document.getElementById('frequency').value) || 100;
-            const d = parseFloat(obstacleDistanceInput.value) || 150;
-
-            receiver.velocity = v; // Set the receiver's velocity
-
+            const frequency = parseFloat(document.getElementById('frequency').value) * 1e6;
             let output = '';
-
-            if (scenario === 1) {
-                const dopplerShift = -(f * 1e6 * v) / 3e8; // Doppler shift formula
-                const coherenceTime = 1 / Math.abs(dopplerShift); // Coherence time (approximate)
+    
+            if (document.getElementById('scenario1').checked) {
+                const distance = parseFloat(document.getElementById('distance').value);
+                const velocity = parseFloat(document.getElementById('velocity').value);
+                const dopplerShift = -(frequency * velocity) / 3e8; // Doppler shift formula
+                const coherenceTime = 1 / Math.abs(dopplerShift);
+    
                 output = `Doppler Shift: ${dopplerShift.toFixed(2)} Hz<br>Coherence Time: ${coherenceTime.toFixed(2)} s`;
-            } else if (scenario === 2) {
-                const delaySpread = Math.abs((2 * d - r) / 3e8 - r / 3e8); // Delay spread formula
-                const coherenceBandwidth = 1 / (2 * delaySpread); // Coherence bandwidth
-                output = `Delay Spread: ${delaySpread.toFixed(8)} s<br>Coherence Bandwidth: ${coherenceBandwidth.toFixed(2)} Hz`;
+    
+            } else if (document.getElementById('scenario2').checked) {
+                const antennaDistance = parseFloat(document.getElementById('antennaDistance').value);
+                const wallDistance = parseFloat(document.getElementById('wallDistance').value);
+    
+                const delaySpread = Math.abs((2 * wallDistance - antennaDistance) / 3e8);
+                const coherenceBandwidth = 1 / (2 * delaySpread);
+    
+                output = `Delay Spread: ${delaySpread.toExponential(2)} s<br>Coherence Bandwidth: ${coherenceBandwidth.toFixed(2)} Hz`;
+    
+            } else if (document.getElementById('scenario3').checked) {
+                const distance3 = parseFloat(document.getElementById('distance3').value);
+                const velocity3 = parseFloat(document.getElementById('velocity3').value);
+                const wallDistance3 = parseFloat(document.getElementById('wallDistance3').value);
+    
+                const dopplerShift = -(frequency * velocity3) / 3e8; // Doppler shift formula
+                const coherenceTime = 1 / Math.abs(dopplerShift);
+    
+                const delaySpread = Math.abs((2 * wallDistance3 - distance3) / 3e8);
+                const coherenceBandwidth = 1 / (2 * delaySpread);
+    
+                output = `Doppler Shift: ${dopplerShift.toFixed(2)} Hz<br>Coherence Time: ${coherenceTime.toFixed(2)} s<br>
+                          Delay Spread: ${delaySpread.toExponential(2)} s<br>Coherence Bandwidth: ${coherenceBandwidth.toFixed(2)} Hz`;
             }
-
+    
             resultsDiv.innerHTML = output;
-            startSimulation();
         }
-
+    
         function resetSimulation() {
+            resultsDiv.innerHTML = '';
             receiver.x = 400;
             receiver.y = 200;
             receiver.velocity = 0;
-            document.getElementById('distance').value = 100;
-            document.getElementById('velocity').value = 0;
-            document.getElementById('frequency').value = 100;
-            document.getElementById('obstacleDistance').value = 150;
-            time = 0;
-            cancelAnimationFrame(animationFrame);
-            resultsDiv.innerHTML = '';
             draw();
         }
-
-        function startSimulation() {
-            cancelAnimationFrame(animationFrame);
-            updateSimulation();
-        }
-
-        function updateSimulation() {
-            if (scenario === 1 || scenario === 2) {
-                receiver.x += receiver.velocity * 0.1; // Update receiver position
-                // Ensure receiver stays within canvas boundaries with a margin
-                const margin = 50; // Margin from the canvas edges
-                if (receiver.x < margin) receiver.x = margin;
-                if (receiver.x > canvas.width - margin) receiver.x = canvas.width - margin;
-            }
-            draw();
-            animationFrame = requestAnimationFrame(updateSimulation);
-        }
-
+    
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-
+    
             // Draw transmitter
             ctx.drawImage(transmitter.img, transmitter.x - 40, transmitter.y - 40, 80, 80);
             ctx.fillText("Transmitter", transmitter.x - 40, transmitter.y - 40);
-
+    
             // Draw receiver
-            if (receiver.velocity < 0) {
-                flipImageHorizontally(receiver.img, receiver.x - 30, receiver.y - 30, 60, 60);
-            } else {
-                ctx.drawImage(receiver.img, receiver.x - 30, receiver.y - 30, 60, 60);
-            }
+            ctx.drawImage(receiver.img, receiver.x - 30, receiver.y - 30, 60, 60);
             ctx.fillText("Receiver", receiver.x - 30, receiver.y - 40);
-
-            // Draw wall for Scenario 2
-            if (scenario === 2) {
+    
+            // Draw wall for Scenario 2 and 3
+            if (document.getElementById('scenario2').checked || document.getElementById('scenario3').checked) {
                 ctx.fillStyle = 'gray';
                 ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
                 ctx.fillText("Wall", wall.x - 10, wall.y - 10);
-
+    
                 // Draw reflected signal
                 ctx.strokeStyle = 'red';
                 ctx.beginPath();
@@ -265,7 +242,7 @@
                 ctx.lineTo(receiver.x, receiver.y);
                 ctx.stroke();
             }
-
+    
             // Draw direct signal
             ctx.strokeStyle = 'orange';
             ctx.beginPath();
@@ -273,9 +250,10 @@
             ctx.lineTo(receiver.x, receiver.y);
             ctx.stroke();
         }
-
+    
         // Initial draw
         draw();
     </script>
+    
 </body>
 </html>
