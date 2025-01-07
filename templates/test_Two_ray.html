@@ -46,6 +46,7 @@
 
         let animationFrame;
         let frequency = 100e6; // Default frequency in Hz (100 MHz)
+        const c = 3e8; // Speed of light (m/s)
 
         transmitter.img.onload = () => {
             if (transmitter.img.complete && receiver.img.complete) {
@@ -63,31 +64,41 @@
         receiver.img.src = './static/images/car.svg';
 
         function calculateInstantaneousDopplerShift() {
-            const c = 3e8; // Speed of light (m/s)
-            const dx = receiver.x - transmitter.x; // Horizontal distance
-            const dy = receiver.y - transmitter.y; // Vertical distance (remains constant in this case)
-            const instantaneousDistance = Math.sqrt(dx ** 2 + dy ** 2); // Pythagoras theorem
-            const relativeVelocity = receiver.velocity * receiver.direction; // Velocity component along the direction of movement
-            const instantaneousDopplerShift = -(frequency * relativeVelocity) / instantaneousDistance;
-            return instantaneousDopplerShift;
+            const dx = receiver.x - transmitter.x;
+            const dy = receiver.y - transmitter.y;
+            const distance = Math.sqrt(dx ** 2 + dy ** 2);
+            
+            // Calculate the angle between velocity vector and line of sight
+            const cosTheta = dx / distance;
+            
+            // Calculate radial velocity (velocity component along line of sight)
+            const radialVelocity = receiver.velocity * receiver.direction * cosTheta;
+            
+            // Implement classical Doppler shift formula
+            // For radio waves: Δf = f * (v/c) * cos(θ)
+            // where f is transmitter frequency, v is relative velocity, 
+            // c is speed of light, and θ is angle between velocity and line of sight
+            const dopplerShift = frequency * (radialVelocity / c);
+            
+            // Ensure the shift doesn't exceed maximum possible shift (100 Hz in this case)
+            const maxShift = 100; // Maximum allowed shift in Hz
+            return Math.max(Math.min(dopplerShift, maxShift), -maxShift);
         }
 
         function startScenario1() {
             frequency = parseFloat(document.getElementById('frequency').value) * 1e6; // Frequency in Hz
             receiver.velocity = parseFloat(document.getElementById('velocity').value); // Receiver velocity
             receiver.initialDistance = parseFloat(document.getElementById('initialDistance').value); // Initial distance
-            receiver.x = transmitter.x + receiver.initialDistance; // Set receiver's starting position based on initial distance
-            receiver.direction = 1; // Start moving to the right
+            receiver.x = transmitter.x + receiver.initialDistance;
+            receiver.direction = 1;
             animateScenario1();
         }
 
         function animateScenario1() {
-            const margin = 50; // Margin from the canvas edges
+            const margin = 50;
 
-            // Update receiver position
-            receiver.x += receiver.velocity * receiver.direction * 0.1; // Velocity scaled for animation
+            receiver.x += receiver.velocity * receiver.direction * 0.1;
 
-            // Reverse direction if the receiver hits canvas edges
             if (receiver.x < margin) {
                 receiver.x = margin;
                 receiver.direction *= -1;
@@ -97,23 +108,24 @@
                 receiver.direction *= -1;
             }
 
-            // Calculate instantaneous Doppler shift
             const dopplerShift = calculateInstantaneousDopplerShift();
-            resultsDiv.innerHTML = `Instantaneous Doppler Shift: ${dopplerShift.toFixed(2)} Hz`;
+            const instantaneousFrequency = (frequency - dopplerShift);
+            
+            resultsDiv.innerHTML = `
+                Maximum Doppler Shift: ${dopplerShift.toFixed(2)} Hz<br>
+                Instantaneous Frequency: ${instantaneousFrequency} Hz
+            `;
 
-            // Draw updated frame
             draw();
-
-            // Request next animation frame
             animationFrame = requestAnimationFrame(animateScenario1);
         }
 
         function resetScenario1() {
-            cancelAnimationFrame(animationFrame); // Stop animation
-            receiver.x = transmitter.x + receiver.initialDistance; // Reset position
-            receiver.velocity = 0; // Reset velocity
-            resultsDiv.innerHTML = 'Instantaneous Doppler Shift: - Hz'; // Clear results
-            draw(); // Redraw static frame
+            cancelAnimationFrame(animationFrame);
+            receiver.x = transmitter.x + receiver.initialDistance;
+            receiver.velocity = 0;
+            resultsDiv.innerHTML = 'Maximum Doppler Shift: - Hz<br>Instantaneous Frequency: - MHz';
+            draw();
         }
 
         function draw() {
@@ -135,7 +147,6 @@
             ctx.stroke();
         }
 
-        // Initial draw
         draw();
     </script>
 </body>
