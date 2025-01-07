@@ -3,256 +3,140 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Two-Ray Model Simulation</title>
+    <title>Dynamic Doppler Shift Simulation</title>
     <style>
         body {
             font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .header {
-            text-align: center;
-            margin-bottom: 20px;
-        }
-
-        .container {
-            display: flex;
-        }
-
-        .input-section {
-            flex: 1;
-            padding: 20px;
-            box-sizing: border-box; 
-        }
-
-        .simulation-section {
-            flex: 3;
-            padding: 20px;
-            box-sizing: border-box; 
             text-align: center;
         }
-
-        .output-section {
-            flex: 1;
-            padding: 10px;
-            box-sizing: border-box; 
-            text-align: center;
-        }
-
-        canvas {
-            border: 1px solid #ccc;
+        #simulationCanvas {
+            border: 1px solid #000;
+            margin: 20px auto;
             display: block;
-            margin: 0 auto;
-            background-color: #fff;
         }
-
-        .controls {
-            background-color: #e0e0e0;
-            padding: 15px;
-            border-radius: 5px;
-        }
-
-        .results {
-            background-color: #e0e0e0;
-            padding: 10px; 
-            border-radius: 5px;
-            overflow-y: auto;
-            max-height: 250px;
-        }
-
-        .transmitter-image, .receiver-image {
-            max-width: 100px;
-            max-height: 100px;
-        }
-
-        .receiver {
-            transition: transform 0.2s ease-in-out;
+        #results {
+            margin-top: 20px;
+            font-size: 1.2em;
+            font-weight: bold;
         }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>Two-Ray Model Simulation</h1> 
+    <h1>Scenario 1: Instantaneous Doppler Shift Simulation</h1>
+    <div>
+        <label for="frequency">Frequency (MHz):</label>
+        <input id="frequency" type="number" value="100"><br>
+        <label for="velocity">Receiver Velocity (m/s):</label>
+        <input id="velocity" type="number" value="10"><br>
+        <label for="initialDistance">Initial Distance (m):</label>
+        <input id="initialDistance" type="number" value="300"><br>
+        <button onclick="startScenario1()">Start</button>
+        <button onclick="resetScenario1()">Reset</button>
     </div>
-
-    <div class="container">
-        <div class="input-section">
-            <h2>Inputs</h2> 
-            <div class="controls">
-                <h3>Select Scenario:</h3>
-                <input type="radio" id="scenario1" name="scenario" value="1" checked>
-                <label for="scenario1">Scenario 1: Moving Receiver</label><br>
-                <input type="radio" id="scenario2" name="scenario" value="2">
-                <label for="scenario2">Scenario 2: Wall Reflection</label><br>
-                <input type="radio" id="scenario3" name="scenario" value="3">
-                <label for="scenario3">Scenario 3: Moving Receiver with Wall</label><br><br>
-
-                <div id="scenario1-inputs">
-                    <label for="distance">Distance (d) in meters:</label>
-                    <input type="number" id="distance" value="100" step="1" min="1" required><br>
-
-                    <label for="velocity">Receiver Velocity (v) in m/s:</label>
-                    <input type="number" id="velocity" value="10" step="1" required><br>
-                </div>
-
-                <div id="scenario2-inputs" style="display: none;">
-                    <label for="antennaDistance">Antenna Distance (r) in meters:</label>
-                    <input type="number" id="antennaDistance" value="200" step="1" min="1" required><br>
-
-                    <label for="wallDistance">Wall Distance (d) in meters:</label>
-                    <input type="number" id="wallDistance" value="150" step="1" min="1" required><br>
-                </div>
-
-                <div id="scenario3-inputs" style="display: none;">
-                    <label for="distance3">Distance (d) in meters:</label>
-                    <input type="number" id="distance3" value="100" step="1" min="1" required><br>
-
-                    <label for="velocity3">Receiver Velocity (v) in m/s:</label>
-                    <input type="number" id="velocity3" value="10" step="1" required><br>
-
-                    <label for="wallDistance3">Wall Distance (d) in meters:</label>
-                    <input type="number" id="wallDistance3" value="150" step="1" min="1" required><br>
-                </div>
-
-                <label for="frequency">Frequency (f) in MHz:</label>
-                <input type="number" id="frequency" value="100" step="1" min="1" required><br><br>
-
-                <button onclick="calculateResults()">Calculate</button>
-                <button onclick="resetSimulation()">Reset</button>
-            </div>
-        </div>
-
-        <div class="simulation-section"> 
-            <h2>Simulation</h2> 
-            <canvas id="simulationCanvas" width="800" height="400"></canvas>
-        </div>
-
-        <div class="output-section">
-            <h2>Outputs</h2>
-            <div class="results" id="results"></div>
-        </div>
-    </div>
+    <canvas id="simulationCanvas" width="800" height="400"></canvas>
+    <div id="results">Instantaneous Doppler Shift: - Hz</div>
 
     <script>
         const canvas = document.getElementById('simulationCanvas');
         const ctx = canvas.getContext('2d');
         const resultsDiv = document.getElementById('results');
-    
+
         const transmitter = { x: 100, y: 200, img: new Image() };
-        const receiver = { x: 400, y: 200, velocity: 0, img: new Image() };
-        const wall = { x: 600, y: 100, width: 20, height: 200 };
-    
+        const receiver = { x: 400, y: 200, velocity: 0, img: new Image(), direction: 1, initialDistance: 300 };
+
+        let animationFrame;
+        let frequency = 100e6; // Default frequency in Hz (100 MHz)
+
         transmitter.img.onload = () => {
             if (transmitter.img.complete && receiver.img.complete) {
                 draw();
             }
         };
-    
+
         receiver.img.onload = () => {
             if (transmitter.img.complete && receiver.img.complete) {
                 draw();
             }
         };
-    
+
         transmitter.img.src = './static/images/antenna-svgrepo-com.svg';
         receiver.img.src = './static/images/car.svg';
-    
-        document.querySelectorAll('input[name="scenario"]').forEach((radio) => {
-            radio.addEventListener('change', () => {
-                const selectedScenario = parseInt(radio.value);
-                document.getElementById('scenario1-inputs').style.display = selectedScenario === 1 ? 'block' : 'none';
-                document.getElementById('scenario2-inputs').style.display = selectedScenario === 2 ? 'block' : 'none';
-                document.getElementById('scenario3-inputs').style.display = selectedScenario === 3 ? 'block' : 'none';
-                resetSimulation();
-            });
-        });
-    
-        function calculateResults() {
-            const frequency = parseFloat(document.getElementById('frequency').value) * 1e6;
-            let output = '';
-    
-            if (document.getElementById('scenario1').checked) {
-                const distance = parseFloat(document.getElementById('distance').value);
-                const velocity = parseFloat(document.getElementById('velocity').value);
-                const dopplerShift = -(frequency * velocity) / 3e8; // Doppler shift formula
-                const coherenceTime = 1 / Math.abs(dopplerShift);
-    
-                output = `Doppler Shift: ${dopplerShift.toFixed(2)} Hz<br>Coherence Time: ${coherenceTime.toFixed(2)} s`;
-    
-            } else if (document.getElementById('scenario2').checked) {
-                const antennaDistance = parseFloat(document.getElementById('antennaDistance').value);
-                const wallDistance = parseFloat(document.getElementById('wallDistance').value);
-    
-                const delaySpread = Math.abs((2 * wallDistance - antennaDistance) / 3e8);
-                const coherenceBandwidth = 1 / (2 * delaySpread);
-    
-                output = `Delay Spread: ${delaySpread.toExponential(2)} s<br>Coherence Bandwidth: ${coherenceBandwidth.toFixed(2)} Hz`;
-    
-            } else if (document.getElementById('scenario3').checked) {
-                const distance3 = parseFloat(document.getElementById('distance3').value);
-                const velocity3 = parseFloat(document.getElementById('velocity3').value);
-                const wallDistance3 = parseFloat(document.getElementById('wallDistance3').value);
-    
-                const dopplerShift = -(frequency * velocity3) / 3e8; // Doppler shift formula
-                const coherenceTime = 1 / Math.abs(dopplerShift);
-    
-                const delaySpread = Math.abs((2 * wallDistance3 - distance3) / 3e8);
-                const coherenceBandwidth = 1 / (2 * delaySpread);
-    
-                output = `Doppler Shift: ${dopplerShift.toFixed(2)} Hz<br>Coherence Time: ${coherenceTime.toFixed(2)} s<br>
-                          Delay Spread: ${delaySpread.toExponential(2)} s<br>Coherence Bandwidth: ${coherenceBandwidth.toFixed(2)} Hz`;
+
+        function calculateInstantaneousDopplerShift() {
+            const c = 3e8; // Speed of light (m/s)
+            const dx = receiver.x - transmitter.x; // Horizontal distance
+            const dy = receiver.y - transmitter.y; // Vertical distance (remains constant in this case)
+            const instantaneousDistance = Math.sqrt(dx ** 2 + dy ** 2); // Pythagoras theorem
+            const relativeVelocity = receiver.velocity * receiver.direction; // Velocity component along the direction of movement
+            const instantaneousDopplerShift = -(frequency * relativeVelocity) / instantaneousDistance;
+            return instantaneousDopplerShift;
+        }
+
+        function startScenario1() {
+            frequency = parseFloat(document.getElementById('frequency').value) * 1e6; // Frequency in Hz
+            receiver.velocity = parseFloat(document.getElementById('velocity').value); // Receiver velocity
+            receiver.initialDistance = parseFloat(document.getElementById('initialDistance').value); // Initial distance
+            receiver.x = transmitter.x + receiver.initialDistance; // Set receiver's starting position based on initial distance
+            receiver.direction = 1; // Start moving to the right
+            animateScenario1();
+        }
+
+        function animateScenario1() {
+            const margin = 50; // Margin from the canvas edges
+
+            // Update receiver position
+            receiver.x += receiver.velocity * receiver.direction * 0.1; // Velocity scaled for animation
+
+            // Reverse direction if the receiver hits canvas edges
+            if (receiver.x < margin) {
+                receiver.x = margin;
+                receiver.direction *= -1;
             }
-    
-            resultsDiv.innerHTML = output;
-        }
-    
-        function resetSimulation() {
-            resultsDiv.innerHTML = '';
-            receiver.x = 400;
-            receiver.y = 200;
-            receiver.velocity = 0;
+            if (receiver.x > canvas.width - margin) {
+                receiver.x = canvas.width - margin;
+                receiver.direction *= -1;
+            }
+
+            // Calculate instantaneous Doppler shift
+            const dopplerShift = calculateInstantaneousDopplerShift();
+            resultsDiv.innerHTML = `Instantaneous Doppler Shift: ${dopplerShift.toFixed(2)} Hz`;
+
+            // Draw updated frame
             draw();
+
+            // Request next animation frame
+            animationFrame = requestAnimationFrame(animateScenario1);
         }
-    
+
+        function resetScenario1() {
+            cancelAnimationFrame(animationFrame); // Stop animation
+            receiver.x = transmitter.x + receiver.initialDistance; // Reset position
+            receiver.velocity = 0; // Reset velocity
+            resultsDiv.innerHTML = 'Instantaneous Doppler Shift: - Hz'; // Clear results
+            draw(); // Redraw static frame
+        }
+
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
+
             // Draw transmitter
             ctx.drawImage(transmitter.img, transmitter.x - 40, transmitter.y - 40, 80, 80);
-            ctx.fillText("Transmitter", transmitter.x - 40, transmitter.y - 40);
-    
+            ctx.fillText("Transmitter", transmitter.x - 40, transmitter.y - 50);
+
             // Draw receiver
             ctx.drawImage(receiver.img, receiver.x - 30, receiver.y - 30, 60, 60);
-            ctx.fillText("Receiver", receiver.x - 30, receiver.y - 40);
-    
-            // Draw wall for Scenario 2 and 3
-            if (document.getElementById('scenario2').checked || document.getElementById('scenario3').checked) {
-                ctx.fillStyle = 'gray';
-                ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
-                ctx.fillText("Wall", wall.x - 10, wall.y - 10);
-    
-                // Draw reflected signal
-                ctx.strokeStyle = 'red';
-                ctx.beginPath();
-                ctx.moveTo(transmitter.x, transmitter.y);
-                ctx.lineTo(wall.x, wall.y + wall.height / 2);
-                ctx.lineTo(receiver.x, receiver.y);
-                ctx.stroke();
-            }
-    
-            // Draw direct signal
+            ctx.fillText("Receiver", receiver.x - 30, receiver.y - 50);
+
+            // Draw signal line
             ctx.strokeStyle = 'orange';
             ctx.beginPath();
             ctx.moveTo(transmitter.x, transmitter.y);
             ctx.lineTo(receiver.x, receiver.y);
             ctx.stroke();
         }
-    
+
         // Initial draw
         draw();
-    </script>    
+    </script>
 </body>
 </html>
