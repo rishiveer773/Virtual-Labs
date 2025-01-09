@@ -71,22 +71,16 @@
         }
 
         function calculateInstantaneousDopplerShift() {
-            const margin = 50;
-            const maxDistance = (canvas.width - 2 * margin) / 2; // Maximum distance from center
+            const dx = receiver.x - transmitter.x; // Horizontal distance (x-axis)
+            const dy = receiver.y - transmitter.y; // Perpendicular height difference (y-axis)
             
-            // Calculate current distance from transmitter
-            const distance = Math.abs(receiver.x - transmitter.x);
-            
-            // Normalize distance (0 = at transmitter, 1 = at max distance)
-            const normalizedDistance = distance / maxDistance;
-            
-            // Calculate direction relative to transmitter (1 when moving towards, -1 when moving away)
-            const relativeDirection = Math.sign(transmitter.x - receiver.x) * receiver.direction;
-            
-            // Doppler shift is maximum when close to transmitter and decreases with distance
-            const shift = maxDopplerShift * (1 - normalizedDistance) * relativeDirection;
-            
-            return shift;
+            // Calculate the instantaneous cosine value
+            const cosine = dx / Math.sqrt(dx ** 2 + dy ** 2);
+
+            // Doppler shift is proportional to the cosine value
+            const dopplerShift = maxDopplerShift * cosine * receiver.direction;
+
+            return dopplerShift;
         }
 
         function startScenario1() {
@@ -102,6 +96,19 @@
             receiver.x = transmitter.x + receiver.initialDistance;
             receiver.direction = 1;
             animateScenario1();
+        }
+
+        function calculateInstantaneousDopplerShift() {
+            const dx = receiver.x - transmitter.x; // Horizontal distance (x-axis)
+            const dy = receiver.y - transmitter.y; // Perpendicular height difference (y-axis)
+            
+            // Calculate the instantaneous cosine value
+            const cosine = dx / Math.sqrt(dx ** 2 + dy ** 2);
+
+            // Doppler shift is proportional to the cosine value
+            const dopplerShift = maxDopplerShift * cosine * receiver.direction;
+
+            return dopplerShift;
         }
 
         function animateScenario1() {
@@ -122,10 +129,12 @@
 
             // Calculate Doppler shift and instantaneous frequency
             const dopplerShift = calculateInstantaneousDopplerShift();
-            const instantaneousFrequency = (frequency - dopplerShift) / 1e6; // Convert to MHz
+            const instantaneousFrequency = (frequency + dopplerShift) / 1e6; // Convert to MHz
             
-            // Update display with distance from transmitter and maximum possible shift
-            const distance = Math.abs(receiver.x - transmitter.x);
+            // Update display with relevant data
+            const dx = receiver.x - transmitter.x;
+            const dy = receiver.y - transmitter.y;
+            const distance = Math.sqrt(dx ** 2 + dy ** 2);
             resultsDiv.innerHTML = `
                 Distance from Transmitter: ${distance.toFixed(1)} pixels<br>
                 Maximum Possible Doppler Shift: ${maxDopplerShift.toFixed(2)} Hz<br>
