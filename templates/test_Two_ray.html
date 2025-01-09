@@ -154,7 +154,7 @@
             if (receiver.direction < 0) {
                 ctx.translate(receiver.x + 30, receiver.y - 30); // Move to receiver position
                 ctx.scale(-1, 1); // Flip horizontally
-                ctx.drawImage(receiver.img, -25, 0, 60, 60); // Draw flipped image
+                ctx.drawImage(receiver.img, 0, 0, 60, 60); // Draw flipped image
             } else {
                 ctx.drawImage(receiver.img, receiver.x - 30, receiver.y - 30, 60, 60); // Draw normally
             }
