@@ -151,7 +151,7 @@
             receiver.x = transmitter.x + receiver.initialDistance;
             receiver.velocity = 0;
             maxDopplerShift = 0;
-            resultsDiv.innerHTML = 'Instantaneous Doppler Shift: - Hz<br>Instantaneous Frequency: - MHz';
+            resultsDiv.innerHTML = 'Instantaneous Doppler Shift: Hz<br>Instantaneous Frequency: MHz';
             draw();
         }
 
@@ -160,11 +160,11 @@
 
             // Draw transmitter in center
             ctx.drawImage(transmitter.img, transmitter.x - 40, transmitter.y - 40, 80, 80);
-            ctx.fillText("Transmitter", transmitter.x - 40, transmitter.y - 50);
+            ctx.fillText("Transmitter", transmitter.x - 25, transmitter.y - 50);
 
             // Draw receiver
             ctx.drawImage(receiver.img, receiver.x - 30, receiver.y - 30, 60, 60);
-            ctx.fillText("Receiver", receiver.x - 30, receiver.y - 50);
+            ctx.fillText("Receiver", receiver.x - 20, receiver.y - -50);
 
             // Draw signal line
             ctx.strokeStyle = 'orange';
