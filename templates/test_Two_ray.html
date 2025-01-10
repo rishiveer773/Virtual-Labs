@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Two-Ray Model Simulation</title>
+    <title>Dynamic Doppler Shift Simulation</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -76,30 +76,30 @@
 </head>
 <body>
     <div class="header">
-        <h1>Two-Ray Model Simulation</h1> 
+        <h1>Two-Ray Model Simulation</h1>
     </div>
 
     <div class="container">
         <div class="input-section">
-            <h2>Inputs</h2> 
+            <h2>Inputs</h2>
             <div class="controls">
                 <h3>Select Scenario:</h3>
-                <input type="radio" id="scenario1" name="scenario" value="1" checked>
+                <input type="radio" id="scenario1" name="scenario" value="1" checked onchange="setScenario(1)">
                 <label for="scenario1">Scenario 1: Free Space</label><br>
-                <input type="radio" id="scenario2" name="scenario" value="2">
+                <input type="radio" id="scenario2" name="scenario" value="2" onchange="setScenario(2)">
                 <label for="scenario2">Scenario 2: Reflection</label><br><br>
 
                 <label for="distance">Distance (r) in meters:</label>
-                <input type="number" id="distance" value="100" step="1" min="1" required> 
+                <input type="number" id="distance" value="100" step="1" min="1" required>
                 <br>
 
-                <div id="scenario1-inputs"> 
-                    <label for="velocity">Receiver Velocity (v) in m/s:</label>
-                    <input type="number" id="velocity" value="0" step="1" required>
+                <div id="scenario1-inputs">
+                    <label for="velocity" id="velocityLabel">Receiver Velocity (v) in m/s:</label>
+                    <input type="number" id="velocity" value="0" step="1" min="0" required>
                 </div>
 
                 <div id="scenario2-inputs" style="display: none;">
-                    <label for="obstacleDistance">Obstacle Distance (d) in meters:</label>
+                    <label for="obstacleDistance" id="obstacleDistanceLabel">Obstacle Distance (d) in meters:</label>
                     <input type="number" id="obstacleDistance" value="150" step="1" min="1" required>
                 </div>
 
@@ -107,13 +107,13 @@
                 <input type="number" id="frequency" value="100" step="1" min="1" required>
                 <br>
 
-                <button onclick="calculateResults()">Calculate</button>
+                <button onclick="startCalculation()">Calculate</button>
                 <button onclick="resetSimulation()">Reset</button>
             </div>
         </div>
 
-        <div class="simulation-section"> 
-            <h2>Simulation</h2> 
+        <div class="simulation-section">
+            <h2>Simulation</h2>
             <canvas id="simulationCanvas" width="800" height="400"></canvas>
         </div>
 
@@ -127,113 +127,127 @@
         const canvas = document.getElementById('simulationCanvas');
         const ctx = canvas.getContext('2d');
         const resultsDiv = document.getElementById('results');
-        const distanceInput = document.getElementById('distance');
-        const velocityInput = document.getElementById('velocity');
-        const obstacleDistanceInput = document.getElementById('obstacleDistance');
-        const scenario1Inputs = document.getElementById('scenario1-inputs');
-        const scenario2Inputs = document.getElementById('scenario2-inputs');
-        const scenario1Radio = document.getElementById('scenario1');
-        const scenario2Radio = document.getElementById('scenario2');
-
-        let scenario = 1; 
-        let time = 0;
-        let animationFrame;
-
-        const transmitter = { x: 100, y: 200, img: new Image() };
-        const receiver = { x: 400, y: 200, velocity: 0, img: new Image() }; 
+        const scenario2ResultsDiv = document.getElementById('scenario2Results');
+    
+        const transmitter = { x: canvas.width / 2, y: 80, img: new Image() };
+        const receiver = { x: 400, y: 200, velocity: 0, img: new Image(), direction: 1, initialDistance: 300 };
         const wall = { x: 600, y: 100, width: 20, height: 200 };
-
-        transmitter.img.onload = () => {
-            if (transmitter.img.complete && receiver.img.complete) { 
-                draw(); 
-            }
-        };
-
-        receiver.img.onload = () => {
-            if (transmitter.img.complete && receiver.img.complete) { 
-                draw(); 
-            }
-        };
-
-        transmitter.img.src = './static/images/antenna-svgrepo-com.svg'; 
+    
+        let animationFrame;
+        let frequency = 100e6; // Default frequency in Hz (100 MHz)
+        const c = 3e8; // Speed of light (m/s)
+        let maxDopplerShift; // To be calculated
+        let scenario = 1; // Current scenario
+    
+        // Preload images
+        transmitter.img.src = './static/images/antenna-svgrepo-com.svg';
         receiver.img.src = './static/images/car.svg';
-
-        function setScenario(selectedScenario) {
-            scenario = selectedScenario;
-            if (scenario === 2) {
-                obstacleDistanceInput.style.display = 'inline';
-                obstacleDistanceLabel.style.display = 'inline';
-                document.getElementById('velocity').style.display = 'none';
-                document.getElementById('velocityLabel').style.display = 'none';
-            } else {
-                obstacleDistanceInput.style.display = 'none';
-                obstacleDistanceLabel.style.display = 'none';
-                document.getElementById('velocity').style.display = 'inline';
-                document.getElementById('velocityLabel').style.display = 'inline';
+    
+        transmitter.img.onload = receiver.img.onload = () => {
+            if (transmitter.img.complete && receiver.img.complete) {
+                draw();
             }
-            resetSimulation();
+        };
+    
+        function calculateMaxDopplerShift(freq, vel) {
+            return freq * (vel / c);
         }
-
-        function flipImageHorizontally(img, x, y, width, height) {
-            ctx.save();
-            ctx.scale(-1, 1);
-            ctx.drawImage(img, -x - width, y, width, height);
-            ctx.restore();
+    
+        function calculateInstantaneousDopplerShift() {
+            const dx = receiver.x - transmitter.x;
+            const dy = receiver.y - transmitter.y;
+            const cosine = dx / Math.sqrt(dx ** 2 + dy ** 2);
+            return maxDopplerShift * cosine * receiver.direction;
         }
-
-        function calculateResults() {
-            const r = parseFloat(document.getElementById('distance').value) || 100;
-            const v = parseFloat(document.getElementById('velocity').value) || 0;
-            const f = parseFloat(document.getElementById('frequency').value) || 100;
-            const d = parseFloat(obstacleDistanceInput.value) || 150;
-
-            receiver.velocity = v; // Set the receiver's velocity
-
-            let output = '';
-
-            if (scenario === 1) {
-                const dopplerShift = -(f * 1e6 * v) / 3e8; // Doppler shift formula
-                const coherenceTime = 1 / Math.abs(dopplerShift); // Coherence time (approximate)
-                output = `Doppler Shift: ${dopplerShift.toFixed(2)} Hz<br>Coherence Time: ${coherenceTime.toFixed(2)} s`;
-            } else if (scenario === 2) {
-                const delaySpread = Math.abs((2 * d - r) / 3e8 - r / 3e8); // Delay spread formula
-                const coherenceBandwidth = 1 / (2 * delaySpread); // Coherence bandwidth
-                output = `Delay Spread: ${delaySpread.toFixed(8)} s<br>Coherence Bandwidth: ${coherenceBandwidth.toFixed(2)} Hz`;
+    
+        function startScenario1() {
+            // Get inputs
+            frequency = parseFloat(document.getElementById('frequency').value) * 1e6; // Hz
+            receiver.velocity = parseFloat(document.getElementById('velocity').value); // m/s
+            receiver.initialDistance = parseFloat(document.getElementById('initialDistance').value); // m
+    
+            // Calculate max Doppler shift
+            maxDopplerShift = calculateMaxDopplerShift(frequency, receiver.velocity);
+    
+            // Initialize receiver position and start animation
+            receiver.x = transmitter.x + receiver.initialDistance;
+            receiver.direction = 1;
+            animateScenario1();
+        }
+    
+        function animateScenario1() {
+            const margin = 50;
+    
+            // Update receiver position
+            receiver.x += receiver.velocity * receiver.direction * 0.1;
+    
+            // Reverse direction at canvas edges
+            if (receiver.x < margin) {
+                receiver.x = margin;
+                receiver.direction *= -1;
             }
-
-            resultsDiv.innerHTML = output;
-            startSimulation();
+            if (receiver.x > canvas.width - margin) {
+                receiver.x = canvas.width - margin;
+                receiver.direction *= -1;
+            }
+    
+            // Calculate results
+            const dopplerShift = calculateInstantaneousDopplerShift();
+            const instantaneousFrequency = (frequency + dopplerShift) / 1e6;
+    
+            const dx = receiver.x - transmitter.x;
+            const dy = receiver.y - transmitter.y;
+            const distance = Math.sqrt(dx ** 2 + dy ** 2);
+    
+            resultsDiv.innerHTML = `
+                Distance from Transmitter: ${distance.toFixed(1)} m<br>
+                Maximum Possible Doppler Shift: ${maxDopplerShift.toFixed(2)} Hz<br>
+                Instantaneous Doppler Shift: ${dopplerShift.toFixed(2)} Hz<br>
+                Instantaneous Frequency: ${instantaneousFrequency.toFixed(6)} MHz
+            `;
+    
+            draw();
+            animationFrame = requestAnimationFrame(animateScenario1);
         }
-
-        function resetSimulation() {
-            receiver.x = 400;
-            receiver.y = 200;
+    
+        function resetScenario1() {
+            cancelAnimationFrame(animationFrame);
+            receiver.x = transmitter.x + receiver.initialDistance;
             receiver.velocity = 0;
-            document.getElementById('distance').value = 100;
-            document.getElementById('velocity').value = 0;
-            document.getElementById('frequency').value = 100;
-            document.getElementById('obstacleDistance').value = 150;
-            time = 0;
-            cancelAnimationFrame(animationFrame);
-            resultsDiv.innerHTML = '';
+            maxDopplerShift = 0;
+            resultsDiv.innerHTML = 'Instantaneous Doppler Shift: Hz<br>Instantaneous Frequency: MHz';
             draw();
         }
-
-        function startSimulation() {
-            cancelAnimationFrame(animationFrame);
-            updateSimulation();
-        }
-
-        function updateSimulation() {
-            if (scenario === 1 || scenario === 2) {
-                receiver.x += receiver.velocity * 0.1; // Update receiver position
-                // Ensure receiver stays within canvas boundaries with a margin
-                const margin = 50; // Margin from the canvas edges
-                if (receiver.x < margin) receiver.x = margin;
-                if (receiver.x > canvas.width - margin) receiver.x = canvas.width - margin;
+    
+        function startScenario2() {
+            if (!isScenario1Complete) {
+                alert("Please complete Scenario 1 first.");
+                return;
             }
-            draw();
-            animationFrame = requestAnimationFrame(updateSimulation);
+
+            // Get inputs
+            const distance = parseFloat(document.getElementById('distance').value);
+            const wallDistance = parseFloat(document.getElementById('wallDistance').value);
+            const signalFrequency = parseFloat(document.getElementById('signalFrequency').value) * 1e6;
+
+            // Static positions
+            receiver.x = transmitter.x + distance; // Receiver placed at specified distance
+            wall.x = transmitter.x + wallDistance; // Wall placed at specified distance
+
+            // Calculate delay spread and coherence bandwidth
+            const directPathDistance = distance;
+            const reflectedPathDistance = 2 * wallDistance - distance;
+            const delaySpread = Math.abs((reflectedPathDistance / c) - (directPathDistance / c));
+            const coherenceBandwidth = 1 / (2 * delaySpread);
+
+            scenario2ResultsDiv.innerHTML = `
+                Direct Path Distance: ${directPathDistance.toFixed(1)} m<br>
+                Reflected Path Distance: ${reflectedPathDistance.toFixed(1)} m<br>
+                Delay Spread: ${(delaySpread * 1e9).toFixed(2)} ns<br>
+                Coherence Bandwidth: ${(coherenceBandwidth / 1e6).toFixed(2)} MHz
+            `;
+
+            draw(); // Redraw the canvas with Scenario 2 elements
         }
 
         function draw() {
@@ -241,22 +255,73 @@
 
             // Draw transmitter
             ctx.drawImage(transmitter.img, transmitter.x - 40, transmitter.y - 40, 80, 80);
-            ctx.fillText("Transmitter", transmitter.x - 40, transmitter.y - 40);
+            ctx.fillStyle = '#1e293b';
+            ctx.font = '14px Inter';
+            ctx.textAlign = 'center';
+            ctx.fillText("Transmitter", transmitter.x, transmitter.y - 50);
 
             // Draw receiver
-            if (receiver.velocity < 0) {
-                flipImageHorizontally(receiver.img, receiver.x - 30, receiver.y - 30, 60, 60);
+            ctx.drawImage(receiver.img, receiver.x - 30, receiver.y - 30, 60, 60);
+            ctx.fillText("Receiver", receiver.x, receiver.y - 50);
+
+            if (currentScenario === 1) {
+                // Draw direct path
+                ctx.strokeStyle = '#3b82f6';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.moveTo(transmitter.x, transmitter.y);
+                ctx.lineTo(receiver.x, receiver.y);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            } else {
+                // Draw wall
+                ctx.fillStyle = '#64748b';
+                ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
+                ctx.fillText("Wall", wall.x + wall.width / 2, wall.y - 10);
+
+                // Draw direct path
+                ctx.strokeStyle = '#3b82f6';
+                ctx.beginPath();
+                ctx.moveTo(transmitter.x, transmitter.y);
+                ctx.lineTo(receiver.x, receiver.y);
+                ctx.stroke();
+
+                // Draw reflected path
+                ctx.strokeStyle = '#ef4444';
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.moveTo(transmitter.x, transmitter.y);
+                ctx.lineTo(wall.x + wall.width / 2, wall.y + wall.height / 2);
+                ctx.lineTo(receiver.x, receiver.y);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+        }
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+            // Draw transmitter
+            ctx.drawImage(transmitter.img, transmitter.x - 40, transmitter.y - 40, 80, 80);
+            ctx.fillText("Transmitter", transmitter.x - 25, transmitter.y - 50);
+    
+            // Draw receiver
+            ctx.save();
+            if (receiver.direction < 0) {
+                ctx.translate(receiver.x + 30, receiver.y - 30);
+                ctx.scale(-1, 1);
+                ctx.drawImage(receiver.img, 0, 0, 60, 60);
             } else {
                 ctx.drawImage(receiver.img, receiver.x - 30, receiver.y - 30, 60, 60);
             }
-            ctx.fillText("Receiver", receiver.x - 30, receiver.y - 40);
-
-            // Draw wall for Scenario 2
+            ctx.restore();
+            ctx.fillText("Receiver", receiver.x - 20, receiver.y - 50);
+    
             if (scenario === 2) {
+                // Draw wall
                 ctx.fillStyle = 'gray';
                 ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
                 ctx.fillText("Wall", wall.x - 10, wall.y - 10);
-
+    
                 // Draw reflected signal
                 ctx.strokeStyle = 'red';
                 ctx.beginPath();
@@ -265,17 +330,151 @@
                 ctx.lineTo(receiver.x, receiver.y);
                 ctx.stroke();
             }
-
+    
             // Draw direct signal
             ctx.strokeStyle = 'orange';
             ctx.beginPath();
             ctx.moveTo(transmitter.x, transmitter.y);
             ctx.lineTo(receiver.x, receiver.y);
             ctx.stroke();
+        
+    
+        // Track Scenario 1 completion
+        function completeScenario1() {
+            isScenario1Complete = true;
+            document.getElementById('scenario2').style.display = 'block';
+            alert("Scenario 1 complete! You can now proceed to Scenario 2.");
         }
 
-        // Initial draw
-        draw();
-    </script>
+        let isScenario1Complete = false;
+        let currentScenario = 1;
+
+        function setScenario(num) {
+            if (num === 2 && !isScenario1Complete) {
+                alert("Please complete Scenario 1 first");
+                document.getElementById('scenario1').checked = true;
+                return;
+            }
+            
+            currentScenario = num;
+            document.getElementById('scenario1-inputs').style.display = num === 1 ? 'block' : 'none';
+            document.getElementById('scenario2-inputs').style.display = num === 2 ? 'block' : 'none';
+        }
+
+        function startCalculation() {
+            const frequency = parseFloat(document.getElementById('frequency').value) * 1e6;
+            const distance = parseFloat(document.getElementById('distance').value);
+
+            if (currentScenario === 1) {
+                const velocity = parseFloat(document.getElementById('velocity').value);
+                
+                // Scenario 1 calculations
+                maxDopplerShift = calculateMaxDopplerShift(frequency, velocity);
+                receiver.velocity = velocity;
+                receiver.x = transmitter.x + distance;
+                receiver.direction = 1;
+                
+                // Mark scenario 1 as complete after animation
+                setTimeout(() => {
+                    isScenario1Complete = true;
+                    alert("Scenario 1 complete! You can now proceed to Scenario 2.");
+                }, 5000); // Wait 5 seconds to show completion
+                
+                animateScenario1();
+            } else {
+                const obstacleDistance = parseFloat(document.getElementById('obstacleDistance').value);
+                
+                // Scenario 2 calculations
+                const delaySpread = Math.abs((2 * obstacleDistance - distance) / c - distance / c);
+                const coherenceBandwidth = 1 / (2 * delaySpread);
+                
+                // Position objects for scenario 2
+                receiver.x = transmitter.x + distance;
+                wall.x = transmitter.x + obstacleDistance;
+                
+                resultsDiv.innerHTML = `
+                    Direct Path Distance: ${distance.toFixed(1)} m<br>
+                    Reflected Path Distance: ${(2 * obstacleDistance).toFixed(1)} m<br>
+                    Delay Spread: ${(delaySpread * 1e9).toFixed(2)} ns<br>
+                    Coherence Bandwidth: ${(coherenceBandwidth / 1e6).toFixed(2)} MHz
+                `;
+                
+                draw();
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw transmitter
+            ctx.drawImage(transmitter.img, transmitter.x - 40, transmitter.y - 40, 80, 80);
+            ctx.fillStyle = '#1e293b';
+            ctx.font = '14px Inter';
+            ctx.textAlign = 'center';
+            ctx.fillText("Transmitter", transmitter.x, transmitter.y - 50);
+
+            // Draw receiver
+            ctx.drawImage(receiver.img, receiver.x - 30, receiver.y - 30, 60, 60);
+            ctx.fillText("Receiver", receiver.x, receiver.y - 50);
+
+            if (currentScenario === 1) {
+                // Draw direct path
+                ctx.strokeStyle = '#3b82f6';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.moveTo(transmitter.x, transmitter.y);
+                ctx.lineTo(receiver.x, receiver.y);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            } else {
+                // Draw wall
+                ctx.fillStyle = '#64748b';
+                ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
+                ctx.fillText("Wall", wall.x + wall.width/2, wall.y - 10);
+
+                // Draw direct path
+                ctx.strokeStyle = '#3b82f6';
+                ctx.beginPath();
+                ctx.moveTo(transmitter.x, transmitter.y);
+                ctx.lineTo(receiver.x, receiver.y);
+                ctx.stroke();
+
+                // Draw reflected path
+                ctx.strokeStyle = '#ef4444';
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.moveTo(transmitter.x, transmitter.y);
+                ctx.lineTo(wall.x + wall.width/2, wall.y + wall.height/2);
+                ctx.lineTo(receiver.x, receiver.y);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            }
+        }
+
+        function resetSimulation() {
+            cancelAnimationFrame(animationFrame);
+            currentScenario = 1;
+            isScenario1Complete = false;
+            
+            // Reset inputs
+            document.getElementById('scenario1').checked = true;
+            document.getElementById('distance').value = '100';
+            document.getElementById('frequency').value = '100';
+            document.getElementById('velocity').value = '0';
+            document.getElementById('obstacleDistance').value = '150';
+            
+            // Reset simulation state
+            receiver.x = transmitter.x + 300;
+            receiver.velocity = 0;
+            receiver.direction = 1;
+            maxDopplerShift = 0;
+            
+            // Reset display
+            setScenario(1);
+            resultsDiv.innerHTML = '';
+            draw();
+        }
+    </script>        
 </body>
 </html>
