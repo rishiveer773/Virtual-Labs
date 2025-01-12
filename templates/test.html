@@ -75,53 +75,64 @@
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>Two-Ray Model Simulation</h1>
-    </div>
-
-    <div class="container">
-        <div class="input-section">
-            <h2>Inputs</h2>
-            <div class="controls">
-                <h3>Select Scenario:</h3>
-                <input type="radio" id="scenario1" name="scenario" value="1" checked onchange="setScenario(1)">
-                <label for="scenario1">Scenario 1: Free Space</label><br>
-                <input type="radio" id="scenario2" name="scenario" value="2" onchange="setScenario(2)">
-                <label for="scenario2">Scenario 2: Reflection</label><br><br>
-
-                <label for="distance">Distance (r) in meters:</label>
-                <input type="number" id="distance" value="100" step="1" min="1" required>
-                <br>
-
-                <div id="scenario1-inputs">
-                    <label for="velocity" id="velocityLabel">Receiver Velocity (v) in m/s:</label>
-                    <input type="number" id="velocity" value="0" step="1" min="0" required>
+    <body>
+        <div class="header">
+            <h1>Two-Ray Model Simulation</h1>
+        </div>
+    
+        <div class="container">
+            <!-- Message display area -->
+            <div id="message" style="color: red; font-weight: bold; margin-top: 10px;"></div>
+    
+            <!-- Input Section -->
+            <div class="input-section">
+                <h2>Inputs</h2>
+                <div class="controls">
+                    <h3>Select Scenario:</h3>
+                    <input type="radio" id="scenario1" name="scenario" value="1" checked onchange="setScenario(1)">
+                    <label for="scenario1">Scenario 1: Free Space</label><br>
+                    <input type="radio" id="scenario2" name="scenario" value="2" onchange="setScenario(2)">
+                    <label for="scenario2">Scenario 2: Reflection</label><br><br>
+    
+                    <label for="distance">Distance (r) in meters:</label>
+                    <input type="number" id="distance" value="100" step="1" min="1" required>
+                    <br>
+    
+                    <!-- Scenario 1 Inputs -->
+                    <div id="scenario1-inputs">
+                        <label for="velocity">Receiver Velocity (v) in m/s:</label>
+                        <input type="number" id="velocity" value="0" step="1" min="0" required>
+                    </div>
+    
+                    <!-- Scenario 2 Inputs -->
+                    <div id="scenario2-inputs" style="display: none;">
+                        <label for="obstacleDistance">Obstacle Distance (d) in meters:</label>
+                        <input type="number" id="obstacleDistance" value="150" step="1" min="1" required>
+                    </div>
+    
+                    <label for="frequency">Frequency (f) in MHz:</label>
+                    <input type="number" id="frequency" value="100" step="1" min="1" required>
+                    <br>
+    
+                    <!-- Buttons -->
+                    <button onclick="startCalculation()">Calculate</button>
+                    <button onclick="resetSimulation()">Reset</button>
                 </div>
-
-                <div id="scenario2-inputs" style="display: none;">
-                    <label for="obstacleDistance" id="obstacleDistanceLabel">Obstacle Distance (d) in meters:</label>
-                    <input type="number" id="obstacleDistance" value="150" step="1" min="1" required>
-                </div>
-
-                <label for="frequency">Frequency (f) in MHz:</label>
-                <input type="number" id="frequency" value="100" step="1" min="1" required>
-                <br>
-
-                <button onclick="startCalculation()">Calculate</button>
-                <button onclick="resetSimulation()">Reset</button>
+            </div>
+    
+            <!-- Simulation Section -->
+            <div class="simulation-section">
+                <h2>Simulation</h2>
+                <canvas id="simulationCanvas" width="800" height="400"></canvas>
+            </div>
+    
+            <!-- Output Section -->
+            <div class="output-section">
+                <h2>Outputs</h2>
+                <div class="results" id="results"></div>
             </div>
         </div>
-
-        <div class="simulation-section">
-            <h2>Simulation</h2>
-            <canvas id="simulationCanvas" width="800" height="400"></canvas>
-        </div>
-
-        <div class="output-section">
-            <h2>Outputs</h2>
-            <div class="results" id="results"></div>
-        </div>
-    </div>
+    </body>    
 
     <script>
         const canvas = document.getElementById('simulationCanvas');
@@ -137,7 +148,8 @@
         let frequency = 100e6; // Default frequency in Hz (100 MHz)
         const c = 3e8; // Speed of light (m/s)
         let maxDopplerShift; // To be calculated
-        let scenario = 1; // Current scenario
+        let isScenario1Complete = false;
+        let currentScenario = 1; // Track the current scenario
     
         // Preload images
         transmitter.img.src = './static/images/antenna-svgrepo-com.svg';
@@ -158,6 +170,15 @@
             const dy = receiver.y - transmitter.y;
             const cosine = dx / Math.sqrt(dx ** 2 + dy ** 2);
             return maxDopplerShift * cosine * receiver.direction;
+        }
+    
+        function showMessage(message, duration = 3000) {
+            const messageDiv = document.getElementById('message');
+            messageDiv.innerText = message;
+    
+            setTimeout(() => {
+                messageDiv.innerText = '';
+            }, duration);
         }
     
         function startScenario1() {
@@ -210,60 +231,83 @@
             animationFrame = requestAnimationFrame(animateScenario1);
         }
     
-        function resetScenario1() {
-            cancelAnimationFrame(animationFrame);
-            receiver.x = transmitter.x + receiver.initialDistance;
-            receiver.velocity = 0;
-            maxDopplerShift = 0;
-            resultsDiv.innerHTML = 'Instantaneous Doppler Shift: Hz<br>Instantaneous Frequency: MHz';
-            draw();
-        }
-    
         function startScenario2() {
             if (!isScenario1Complete) {
-                alert("Please complete Scenario 1 first.");
+                showMessage("Please complete Scenario 1 first.");
                 return;
             }
-
+    
             // Get inputs
-            // const distance = parseFloat(document.getElementById('distance').value);
             const wallDistance = parseFloat(document.getElementById('wallDistance').value);
-            // const signalFrequency = parseFloat(document.getElementById('signalFrequency').value) * 1e6;
-
+    
             // Static positions
             receiver.x = transmitter.x + 200; // Receiver placed at specified distance
             wall.x = transmitter.x + wallDistance; // Wall placed at specified distance
-
+    
             // Calculate delay spread and coherence bandwidth
-            const directPathDistance = distance;
-            const reflectedPathDistance = 2 * wallDistance - distance;
+            const directPathDistance = wallDistance;
+            const reflectedPathDistance = 2 * wallDistance - directPathDistance;
             const delaySpread = Math.abs((reflectedPathDistance / c) - (directPathDistance / c));
             const coherenceBandwidth = 1 / (2 * delaySpread);
-
+    
             scenario2ResultsDiv.innerHTML = `
                 Direct Path Distance: ${directPathDistance.toFixed(1)} m<br>
                 Reflected Path Distance: ${reflectedPathDistance.toFixed(1)} m<br>
                 Delay Spread: ${(delaySpread * 1e9).toFixed(2)} ns<br>
                 Coherence Bandwidth: ${(coherenceBandwidth / 1e6).toFixed(2)} MHz
             `;
-
+    
             draw(); // Redraw the canvas with Scenario 2 elements
         }
-
+    
+        function setScenario(num) {
+            if (num === 2 && !isScenario1Complete) {
+                showMessage("Please complete Scenario 1 first.");
+                document.getElementById('scenario1').checked = true;
+                return;
+            }
+    
+            currentScenario = num;
+            document.getElementById('scenario1-inputs').style.display = num === 1 ? 'block' : 'none';
+            document.getElementById('scenario2-inputs').style.display = num === 2 ? 'block' : 'none';
+        }
+    
+        function resetSimulation() {
+            cancelAnimationFrame(animationFrame);
+            currentScenario = 1;
+            isScenario1Complete = false;
+    
+            // Reset inputs
+            document.getElementById('scenario1').checked = true;
+            document.getElementById('frequency').value = '100';
+            document.getElementById('velocity').value = '0';
+            document.getElementById('wallDistance').value = '200';
+    
+            // Reset receiver state
+            receiver.x = transmitter.x + 300;
+            receiver.velocity = 0;
+            receiver.direction = 1;
+            maxDopplerShift = 0;
+    
+            resultsDiv.innerHTML = '';
+            scenario2ResultsDiv.innerHTML = '';
+            draw();
+        }
+    
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-
+    
             // Draw transmitter
             ctx.drawImage(transmitter.img, transmitter.x - 40, transmitter.y - 40, 80, 80);
             ctx.fillStyle = '#1e293b';
             ctx.font = '14px Inter';
             ctx.textAlign = 'center';
             ctx.fillText("Transmitter", transmitter.x, transmitter.y - 50);
-
+    
             // Draw receiver
             ctx.drawImage(receiver.img, receiver.x - 30, receiver.y - 30, 60, 60);
             ctx.fillText("Receiver", receiver.x, receiver.y - 50);
-
+    
             if (currentScenario === 1) {
                 // Draw direct path
                 ctx.strokeStyle = '#3b82f6';
@@ -279,14 +323,14 @@
                 ctx.fillStyle = '#64748b';
                 ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
                 ctx.fillText("Wall", wall.x + wall.width / 2, wall.y - 10);
-
+    
                 // Draw direct path
                 ctx.strokeStyle = '#3b82f6';
                 ctx.beginPath();
                 ctx.moveTo(transmitter.x, transmitter.y);
                 ctx.lineTo(receiver.x, receiver.y);
                 ctx.stroke();
-
+    
                 // Draw reflected path
                 ctx.strokeStyle = '#ef4444';
                 ctx.setLineDash([5, 5]);
@@ -298,196 +342,7 @@
                 ctx.setLineDash([]);
             }
         }
-
-        function updateWallPosition(value) {
-            wall.x = transmitter.x + parseFloat(value);
-            draw();
-        }
-
-        const sliderContainer = document.createElement('div'); 
-        sliderContainer.innerHTML = `
-            <label for="wallSlider">Wall Position:</label>
-            <input type="range" id="wallSlider" min="0" max="500" value="250" oninput="updateWallPosition(this.value)">
-            `;
-        document.body.appendChild
+    </script>
             
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-            // Draw transmitter
-            ctx.drawImage(transmitter.img, transmitter.x - 40, transmitter.y - 40, 80, 80);
-            ctx.fillText("Transmitter", transmitter.x - 25, transmitter.y - 50);
-    
-            // Draw receiver
-            ctx.save();
-            if (receiver.direction < 0) {
-                ctx.translate(receiver.x + 30, receiver.y - 30);
-                ctx.scale(-1, 1);
-                ctx.drawImage(receiver.img, 0, 0, 60, 60);
-            } else {
-                ctx.drawImage(receiver.img, receiver.x - 30, receiver.y - 30, 60, 60);
-            }
-            ctx.restore();
-            ctx.fillText("Receiver", receiver.x - 20, receiver.y - 50);
-    
-            if (scenario === 2) {
-                // Draw wall
-                ctx.fillStyle = 'gray';
-                ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
-                ctx.fillText("Wall", wall.x - 10, wall.y - 10);
-    
-                // Draw reflected signal
-                ctx.strokeStyle = 'red';
-                ctx.beginPath();
-                ctx.moveTo(transmitter.x, transmitter.y);
-                ctx.lineTo(wall.x, wall.y + wall.height / 2);
-                ctx.lineTo(receiver.x, receiver.y);
-                ctx.stroke();
-            }
-    
-            // Draw direct signal
-            ctx.strokeStyle = 'orange';
-            ctx.beginPath();
-            ctx.moveTo(transmitter.x, transmitter.y);
-            ctx.lineTo(receiver.x, receiver.y);
-            ctx.stroke();
-        
-    
-        // Track Scenario 1 completion
-        function completeScenario1() {
-            isScenario1Complete = true;
-            document.getElementById('scenario2').style.display = 'block';
-            alert("Scenario 1 complete! You can now proceed to Scenario 2.");
-        }
-
-        let isScenario1Complete = false;
-        let currentScenario = 1;
-
-        function setScenario(num) {
-            if (num === 2 && !isScenario1Complete) {
-                alert("Please complete Scenario 1 first");
-                document.getElementById('scenario1').checked = true;
-                return;
-            }
-            
-            currentScenario = num;
-            document.getElementById('scenario1-inputs').style.display = num === 1 ? 'block' : 'none';
-            document.getElementById('scenario2-inputs').style.display = num === 2 ? 'block' : 'none';
-        }
-
-        function startCalculation() {
-            const frequency = parseFloat(document.getElementById('frequency').value) * 1e6;
-            const distance = parseFloat(document.getElementById('distance').value);
-
-            if (currentScenario === 1) {
-                const velocity = parseFloat(document.getElementById('velocity').value);
-                
-                // Scenario 1 calculations
-                maxDopplerShift = calculateMaxDopplerShift(frequency, velocity);
-                receiver.velocity = velocity;
-                receiver.x = transmitter.x + distance;
-                receiver.direction = 1;
-                
-                // Mark scenario 1 as complete after animation
-                setTimeout(() => {
-                    isScenario1Complete = true;
-                    alert("Scenario 1 complete! You can now proceed to Scenario 2.");
-                }, 5000); // Wait 5 seconds to show completion
-                
-                animateScenario1();
-            } else {
-                const obstacleDistance = parseFloat(document.getElementById('obstacleDistance').value);
-                
-                // Scenario 2 calculations
-                const delaySpread = Math.abs((2 * obstacleDistance - distance) / c - distance / c);
-                const coherenceBandwidth = 1 / (2 * delaySpread);
-                
-                // Position objects for scenario 2
-                receiver.x = transmitter.x + distance;
-                wall.x = transmitter.x + obstacleDistance;
-                
-                resultsDiv.innerHTML = `
-                    Direct Path Distance: ${distance.toFixed(1)} m<br>
-                    Reflected Path Distance: ${(2 * obstacleDistance).toFixed(1)} m<br>
-                    Delay Spread: ${(delaySpread * 1e9).toFixed(2)} ns<br>
-                    Coherence Bandwidth: ${(coherenceBandwidth / 1e6).toFixed(2)} MHz
-                `;
-                
-                draw();
-            }
-        }
-
-        function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // Draw transmitter
-            ctx.drawImage(transmitter.img, transmitter.x - 40, transmitter.y - 40, 80, 80);
-            ctx.fillStyle = '#1e293b';
-            ctx.font = '14px Inter';
-            ctx.textAlign = 'center';
-            ctx.fillText("Transmitter", transmitter.x, transmitter.y - 50);
-
-            // Draw receiver
-            ctx.drawImage(receiver.img, receiver.x - 30, receiver.y - 30, 60, 60);
-            ctx.fillText("Receiver", receiver.x, receiver.y - 50);
-
-            if (currentScenario === 1) {
-                // Draw direct path
-                ctx.strokeStyle = '#3b82f6';
-                ctx.lineWidth = 2;
-                ctx.setLineDash([5, 5]);
-                ctx.beginPath();
-                ctx.moveTo(transmitter.x, transmitter.y);
-                ctx.lineTo(receiver.x, receiver.y);
-                ctx.stroke();
-                ctx.setLineDash([]);
-            } else {
-                // Draw wall
-                ctx.fillStyle = '#64748b';
-                ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
-                ctx.fillText("Wall", wall.x + wall.width/2, wall.y - 10);
-
-                // Draw direct path
-                ctx.strokeStyle = '#3b82f6';
-                ctx.beginPath();
-                ctx.moveTo(transmitter.x, transmitter.y);
-                ctx.lineTo(receiver.x, receiver.y);
-                ctx.stroke();
-
-                // Draw reflected path
-                ctx.strokeStyle = '#ef4444';
-                ctx.setLineDash([5, 5]);
-                ctx.beginPath();
-                ctx.moveTo(transmitter.x, transmitter.y);
-                ctx.lineTo(wall.x + wall.width/2, wall.y + wall.height/2);
-                ctx.lineTo(receiver.x, receiver.y);
-                ctx.stroke();
-                ctx.setLineDash([]);
-            }
-        }
-
-        function resetSimulation() {
-            cancelAnimationFrame(animationFrame);
-            currentScenario = 1;
-            isScenario1Complete = false;
-            
-            // Reset inputs
-            document.getElementById('scenario1').checked = true;
-            document.getElementById('distance').value = '100';
-            document.getElementById('frequency').value = '100';
-            document.getElementById('velocity').value = '0';
-            document.getElementById('obstacleDistance').value = '150';
-            
-            // Reset simulation state
-            receiver.x = transmitter.x + 300;
-            receiver.velocity = 0;
-            receiver.direction = 1;
-            maxDopplerShift = 0;
-            
-            // Reset display
-            setScenario(1);
-            resultsDiv.innerHTML = '';
-            draw();
-        }
-    </script>        
 </body>
 </html>
