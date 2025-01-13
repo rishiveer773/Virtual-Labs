@@ -106,16 +106,10 @@
     
                     <!-- Scenario 2 Inputs -->
                     <div id="scenario2-inputs" style="display: none;">
-                        <label for="obstacleDistance">Obstacle Distance (d) in meters:</label>
-                        <input type="number" id="obstacleDistance" value="150" step="1" min="1" required>
-                    
-                        <div class="input-group" style="margin-top: 20px;">
-                            <label for="distance-slider">Adjust Wall Position (d):</label>
-                            <input type="range" id="distance-slider" min="0" max="500" value="150" step="1" 
-                                   oninput="updateWallPosition(this.value)">
-                            <div id="slider-value" style="text-align: center; margin-top: 10px;">Position: 150 meters</div>
-                        </div>
-                    </div>                                        
+                        <label for="wallSlider">Adjust Wall Position (m):</label>
+                        <input type="range" id="wallSlider" value="0" min="-350" max="350" step="1">
+                        <div id="wallPositionDisplay" style="margin-top: 10px;">Current Wall Position: 0 m</div>
+                    </div>                                                            
     
                     <label for="frequency">Frequency (f) in MHz:</label>
                     <input type="number" id="frequency" value="100" step="1" min="1" required>
@@ -244,6 +238,22 @@
                 animationFrame = requestAnimationFrame(animateScenario1); 
             }
         }
+
+        // Define wall movement limits
+        const WALL_MIN = -350;
+        const WALL_MAX = 350;
+
+        // Update wall position when slider changes
+        wallSlider.addEventListener('input', () => {
+            const value = parseFloat(wallSlider.value);
+            updateWallPosition(value);
+        });
+
+        function updateWallPosition(value) {
+            wall.x = transmitter.x + value;
+            wallPositionDisplay.textContent = `Current Wall Position: ${value} m`;
+            draw(); // Redraw canvas with updated wall position
+        }
     
         function startScenario2() {
             if (!isScenario1Complete) {
@@ -251,27 +261,33 @@
                 return;
             }
     
-            // Get inputs
-            const wallDistance = parseFloat(document.getElementById('wallDistance').value);
-    
+            // Get wall position from the slider
+            const wallDistance = parseFloat(wallSlider.value);
+
             // Static positions
-            receiver.x = transmitter.x + 200; // Receiver placed at specified distance
-            wall.x = transmitter.x + wallDistance; // Wall placed at specified distance
-    
+            receiver.x = transmitter.x + 200; // Receiver fixed position
+            wall.x = transmitter.x + wallDistance; // Wall dynamic position
+
+            // Calculate distances
+            const directPathDistance = Math.abs(receiver.x - transmitter.x);
+            const reflectedPathDistance = directPathDistance + 2 * wallDistance;
+
             // Calculate delay spread and coherence bandwidth
-            const directPathDistance = wallDistance;
-            const reflectedPathDistance = 2 * wallDistance - directPathDistance;
             const delaySpread = Math.abs((reflectedPathDistance / c) - (directPathDistance / c));
             const coherenceBandwidth = 1 / (2 * delaySpread);
-    
-            scenario2ResultsDiv.innerHTML = `
+
+            // Update output
+            const resultsDiv = document.getElementById("results");
+            resultsDiv.innerHTML = `
+                <h3>Scenario 2 Outputs:</h3>
                 Direct Path Distance: ${directPathDistance.toFixed(1)} m<br>
                 Reflected Path Distance: ${reflectedPathDistance.toFixed(1)} m<br>
                 Delay Spread: ${(delaySpread * 1e9).toFixed(2)} ns<br>
                 Coherence Bandwidth: ${(coherenceBandwidth / 1e6).toFixed(2)} MHz
             `;
-    
-            draw(); // Redraw the canvas with Scenario 2 elements
+
+            // Redraw canvas
+            draw();
 
             console.log("Wall Distance:", wallDistance);
             console.log("Direct Path Distance:", directPathDistance);
@@ -304,24 +320,6 @@
             }
         }
 
-        // Define wall movement limits
-        const WALL_MIN = -350;
-        const WALL_MAX = 350;
-
-        function updateWallPosition(position) {
-            // Restrict wall position within the range [-350, 350]
-            const restrictedPosition = Math.max(WALL_MIN, Math.min(position, WALL_MAX));
-
-            // Update wall position
-            wall.x = transmitter.x + restrictedPosition;
-
-            // Update displayed slider value
-            document.getElementById('slider-value').textContent = `Wall Position: ${restrictedPosition} meters`;
-
-            // Redraw the canvas
-            draw();
-        }
-
         function resetSimulation() {
             document.getElementById('distance-slider').value = 150;
             document.getElementById('slider-value').textContent = `Position: 150 meters`;
@@ -352,12 +350,13 @@
         }
         
         function startCalculation() { 
-            const frequency = parseFloat(document.getElementById('frequency').value) * 1e6;
-            const distance = parseFloat(document.getElementById('distance').value);
+            const frequency = parseFloat(document.getElementById('frequency').value) * 1e6; // Convert MHz to Hz
+            const distance = parseFloat(document.getElementById('distance').value); // Receiver distance
 
+            // Check the current scenario
             if (currentScenario === 1) {
                 const velocity = parseFloat(document.getElementById('velocity').value);
-                
+
                 // Scenario 1 calculations
                 maxDopplerShift = calculateMaxDopplerShift(frequency, velocity);
                 receiver.velocity = velocity;
@@ -372,7 +371,8 @@
 
                 animateScenario1();
             } else if (currentScenario === 2) {
-                const obstacleDistance = parseFloat(document.getElementById('obstacleDistance').value);
+                // Retrieve wall position from the slider
+                const obstacleDistance = parseFloat(document.getElementById('wallSlider').value);
 
                 // Scenario 2 calculations
                 const directPathDistance = distance;
@@ -381,10 +381,19 @@
                 const coherenceBandwidth = 1 / (2 * delaySpread);
 
                 // Position objects for scenario 2
-                receiver.x = transmitter.x + distance;
-                wall.x = transmitter.x + obstacleDistance;
+                receiver.x = transmitter.x + distance; // Receiver fixed position
+                wall.x = transmitter.x + obstacleDistance; // Wall position based on slider
 
-                // Update results
+                // Debugging: Log values to ensure they are correct
+                console.log("Scenario 2:", {
+                    directPathDistance,
+                    reflectedPathDistance,
+                    delaySpread,
+                    coherenceBandwidth,
+                });
+
+                // Update results for Scenario 2
+                const resultsDiv = document.getElementById("results");
                 resultsDiv.innerHTML = `
                     <h3>Scenario 2 Outputs:</h3>
                     Direct Path Distance: ${directPathDistance.toFixed(1)} m<br>
@@ -393,7 +402,7 @@
                     Coherence Bandwidth: ${(coherenceBandwidth / 1e6).toFixed(2)} MHz
                 `;
 
-                draw();
+                draw(); // Redraw canvas with updated wall and receiver positions
             }
         }
 

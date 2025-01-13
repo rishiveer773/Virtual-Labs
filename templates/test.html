@@ -298,17 +298,17 @@
     
         function setScenario(num) {
             currentScenario = num;
-
             if (num === 2) {
                 // Show the slider for wall position
                 document.getElementById('scenario2-inputs').style.display = 'block';
 
                 // Initialize slider settings
                 const distanceSlider = document.getElementById('distance-slider');
+                const WALL_MIN = -350; // Fixed position of the transmitter
                 distanceSlider.min = WALL_MIN;
                 distanceSlider.max = WALL_MAX;
-                distanceSlider.value = 0; // Start at the center position
-                updateWallPosition(0); // Place the wall at the initial position
+                distanceSlider.value = WALL_MIN; // Start at the fixed position of the transmitter
+                updateWallPosition(WALL_MIN); // Place the wall at the initial position
 
                 receiver.velocity = 0; // Receiver remains stationary in Scenario 2
                 receiver.x = transmitter.x + 400; // Set receiver position for Scenario 2
@@ -409,12 +409,15 @@
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+            // Fix transmitter position for Scenario 2
+            const transmitterX = currentScenario === 2 ? -350 : transmitter.x; 
+
             // Draw transmitter
-            ctx.drawImage(transmitter.img, transmitter.x - 40, transmitter.y - 40, 80, 80);
+            ctx.drawImage(transmitter.img, transmitterX - 40, transmitter.y - 40, 80, 80);
             ctx.fillStyle = '#1e293b';
             ctx.font = '14px Inter';
             ctx.textAlign = 'center';
-            ctx.fillText("Transmitter", transmitter.x, transmitter.y - 50);
+            ctx.fillText("Transmitter", transmitterX, transmitter.y - 50);
 
             // Draw receiver
             ctx.drawImage(receiver.img, receiver.x - 30, receiver.y - 30, 60, 60);
@@ -438,22 +441,28 @@
                 ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
                 ctx.fillText("Wall", wall.x + wall.width / 2, wall.y - 10);
 
-                // Direct path
-                ctx.strokeStyle = '#3b82f6';
-                ctx.beginPath();
-                ctx.moveTo(transmitter.x, transmitter.y);
-                ctx.lineTo(receiver.x, receiver.y);
-                ctx.stroke();
-
-                // Reflected path
-                ctx.strokeStyle = '#ef4444';
-                ctx.setLineDash([5, 5]);
-                ctx.beginPath();
-                ctx.moveTo(transmitter.x, transmitter.y);
-                ctx.lineTo(wall.x + wall.width / 2, wall.y + wall.height / 2);
-                ctx.lineTo(receiver.x, receiver.y);
-                ctx.stroke();
-                ctx.setLineDash([]);
+                // Ensure wall is between transmitter and receiver
+                if (wall.x < receiver.x && wall.x > transmitterX) {
+                    // Reflected path
+                    ctx.strokeStyle = '#ef4444';
+                    ctx.setLineDash([5, 5]);
+                    ctx.beginPath();
+                    ctx.moveTo(transmitterX, transmitter.y);
+                    ctx.lineTo(wall.x + wall.width / 2, wall.y + wall.height / 2);
+                    ctx.lineTo(receiver.x, receiver.y);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                } else {
+                    // Direct path (signal will not reach the receiver)
+                    ctx.strokeStyle = '#3b82f6';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([5, 5]);
+                    ctx.beginPath();
+                    ctx.moveTo(transmitterX, transmitter.y);
+                    ctx.lineTo(receiver.x, receiver.y);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
             }
         }
     </script>            
