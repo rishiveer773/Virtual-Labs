@@ -569,7 +569,7 @@
             const headLength = 20; // Length of the arrowhead 
             const angle = Math.atan2(toY - fromY, toX - fromX); 
             const midX = (fromX + toX) / 2; 
-            const midY = (fromY + toY) / 2; 
+            const midY = (fromY + toY) / 2;
             context.moveTo(midX, midY); 
             context.lineTo(midX - headLength * Math.cos(angle - Math.PI / 6), midY - headLength * Math.sin(angle - Math.PI / 6)); 
             context.moveTo(midX, midY); 
