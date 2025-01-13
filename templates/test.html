@@ -173,36 +173,32 @@
             return maxDopplerShift * cosine * receiver.direction;
         }
     
-        function showMessage(message, duration = 3000) {
-            const messageDiv = document.getElementById('message');
-            messageDiv.innerText = message;
-    
-            setTimeout(() => {
-                messageDiv.innerText = '';
-            }, duration);
-        }
-    
         function startScenario1() {
+            // Clear any existing animation
+            cancelAnimationFrame(animationFrame);
+            
             // Get inputs
             frequency = parseFloat(document.getElementById('frequency').value) * 1e6; // Hz
             receiver.velocity = parseFloat(document.getElementById('velocity').value); // m/s
             receiver.initialDistance = parseFloat(document.getElementById('initialDistance').value); // m
-    
+
             // Calculate max Doppler shift
             maxDopplerShift = calculateMaxDopplerShift(frequency, receiver.velocity);
-    
-            // Initialize receiver position and start animation
+
+            // Initialize receiver position
             receiver.x = transmitter.x + receiver.initialDistance;
             receiver.direction = 1;
+            
+            // Start the animation
             animateScenario1();
         }
     
         function animateScenario1() {
             const margin = 50;
-    
+
             // Update receiver position
-            receiver.x += receiver.velocity * receiver.direction * 0.1;
-    
+            receiver.x += receiver.velocity * receiver.direction * 0.2;
+
             // Reverse direction at canvas edges
             if (receiver.x < margin) {
                 receiver.x = margin;
@@ -212,31 +208,26 @@
                 receiver.x = canvas.width - margin;
                 receiver.direction *= -1;
             }
-    
+
             // Calculate results
             const dopplerShift = calculateInstantaneousDopplerShift();
             const instantaneousFrequency = (frequency + dopplerShift) / 1e6;
-    
+
             const dx = receiver.x - transmitter.x;
             const dy = receiver.y - transmitter.y;
             const distance = Math.sqrt(dx ** 2 + dy ** 2);
-    
+
             resultsDiv.innerHTML = `
                 Distance from Transmitter: ${distance.toFixed(1)} m<br>
                 Maximum Possible Doppler Shift: ${maxDopplerShift.toFixed(2)} Hz<br>
                 Instantaneous Doppler Shift: ${dopplerShift.toFixed(2)} Hz<br>
                 Instantaneous Frequency: ${instantaneousFrequency.toFixed(6)} MHz
             `;
-    
+
             draw();
 
-            // Complete Scenario 1 
-            if (!isScenario1Complete === false) { // Define your condition for completion 
-                isScenario1Complete = true; cancelAnimationFrame(animationFrame); // Stop animation for Scenario 1
-                showMessage("Scenario 1 is complete. You can start Scenario 2 now."); 
-            } else { 
-                animationFrame = requestAnimationFrame(animateScenario1); 
-            }
+            // Simplified animation loop
+            animationFrame = requestAnimationFrame(animateScenario1);
         }
 
         // Define wall movement limits
@@ -257,7 +248,7 @@
     
         function startScenario2() {
             if (!isScenario1Complete) {
-                showMessage("Please complete Scenario 1 first.");
+                alert("Please complete Scenario 1 first.");
                 return;
             }
     
@@ -363,12 +354,6 @@
                 receiver.x = transmitter.x + distance;
                 receiver.direction = 1;
 
-                // Mark scenario 1 as complete after animation
-                setTimeout(() => {
-                    isScenario1Complete = true;
-                    alert("Scenario 1 complete! You can now proceed to Scenario 2.");
-                }, 1000);
-
                 animateScenario1();
             } else if (currentScenario === 2) {
                 // Retrieve wall position from the slider
@@ -402,7 +387,7 @@
                     Coherence Bandwidth: ${(coherenceBandwidth / 1e6).toFixed(2)} MHz
                 `;
 
-                draw(); // Redraw canvas with updated wall and receiver positions
+                draw();
             }
         }
 
@@ -410,20 +395,21 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             // Fix transmitter position for Scenario 2
-            const transmitterX = currentScenario === 2 ? -350 : transmitter.x; 
-
-            // Draw transmitter
-            ctx.drawImage(transmitter.img, transmitterX - 40, transmitter.y - 40, 80, 80);
-            ctx.fillStyle = '#1e293b';
-            ctx.font = '14px Inter';
-            ctx.textAlign = 'center';
-            ctx.fillText("Transmitter", transmitterX, transmitter.y - 50);
-
-            // Draw receiver
-            ctx.drawImage(receiver.img, receiver.x - 30, receiver.y - 30, 60, 60);
-            ctx.fillText("Receiver", receiver.x, receiver.y - 50);
+            const transmitterX = currentScenario === 2 ? 50 : transmitter.x; 
+            const commonY = currentScenario === 2 ? receiver.y : transmitter.y; // Common y coordinate for Scenario 2
 
             if (currentScenario === 1) {
+                // Draw transmitter for Scenario 1
+                ctx.drawImage(transmitter.img, transmitter.x - 40, transmitter.y - 40, 80, 80);
+                ctx.fillStyle = '#1e293b';
+                ctx.font = '14px Inter';
+                ctx.textAlign = 'center';
+                ctx.fillText("Transmitter", transmitter.x, transmitter.y - 50);
+
+                // Draw receiver for Scenario 1
+                ctx.drawImage(receiver.img, receiver.x - 30, receiver.y - 30, 60, 60);
+                ctx.fillText("Receiver", receiver.x, receiver.y - 50);
+
                 // Scenario 1: Direct path
                 ctx.strokeStyle = '#3b82f6';
                 ctx.lineWidth = 2;
@@ -434,6 +420,17 @@
                 ctx.stroke();
                 ctx.setLineDash([]);
             } else if (currentScenario === 2) {
+                // Draw transmitter for Scenario 2
+                ctx.drawImage(transmitter.img, transmitterX - 40, commonY - 40, 80, 80);
+                ctx.fillStyle = '#1e293b';
+                ctx.font = '14px Inter';
+                ctx.textAlign = 'center';
+                ctx.fillText("Transmitter", transmitterX, commonY - 50);
+
+                // Draw receiver for Scenario 2
+                ctx.drawImage(receiver.img, receiver.x - 30, commonY - 30, 60, 60);
+                ctx.fillText("Receiver", receiver.x, commonY - 50);
+
                 // Scenario 2: Reflection path with wall
 
                 // Draw wall
@@ -447,9 +444,9 @@
                     ctx.strokeStyle = '#ef4444';
                     ctx.setLineDash([5, 5]);
                     ctx.beginPath();
-                    ctx.moveTo(transmitterX, transmitter.y);
+                    ctx.moveTo(transmitterX, commonY);
                     ctx.lineTo(wall.x + wall.width / 2, wall.y + wall.height / 2);
-                    ctx.lineTo(receiver.x, receiver.y);
+                    ctx.lineTo(receiver.x, commonY);
                     ctx.stroke();
                     ctx.setLineDash([]);
                 } else {
@@ -458,8 +455,8 @@
                     ctx.lineWidth = 2;
                     ctx.setLineDash([5, 5]);
                     ctx.beginPath();
-                    ctx.moveTo(transmitterX, transmitter.y);
-                    ctx.lineTo(receiver.x, receiver.y);
+                    ctx.moveTo(transmitterX, commonY);
+                    ctx.lineTo(receiver.x, commonY);
                     ctx.stroke();
                     ctx.setLineDash([]);
                 }
