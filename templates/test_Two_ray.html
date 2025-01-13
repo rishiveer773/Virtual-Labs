@@ -281,7 +281,6 @@
             // Update output
             const resultsDiv = document.getElementById("results");
             resultsDiv.innerHTML = `
-                <h3>Scenario 2 Outputs:</h3>
                 Direct Path Distance: ${directPathDistance.toFixed(1)} m<br>
                 Reflected Path Distance: ${reflectedPathDistance.toFixed(1)} m<br>
                 Delay Spread: ${(delaySpread * 1e9).toFixed(2)} ns<br>
@@ -299,29 +298,36 @@
         }
     
         function setScenario(num) {
-            // Cancel any ongoing animation first
-            cancelAnimationFrame(animationFrame);
-
             currentScenario = num;
-            if (num === 2) {
-                // Show the slider for wall position
-                document.getElementById('scenario2-inputs').style.display = 'block';
 
-                // Initialize slider settings
-                const distanceSlider = document.getElementById('distance-slider');
-                const WALL_MIN = -350; // Fixed position of the transmitter
+            if (num === 2) {
+                // Switch to Scenario 2
+                document.getElementById('scenario2-inputs').style.display = 'block';
+                document.getElementById('scenario1-inputs').style.display = 'none';
+
+                // Initialize the slider for wall position
+                const distanceSlider = document.getElementById('wallSlider');
+                const WALL_MIN = -350;
+                const WALL_MAX = 350;
                 distanceSlider.min = WALL_MIN;
                 distanceSlider.max = WALL_MAX;
-                distanceSlider.value = WALL_MIN; // Start at the fixed position of the transmitter
-                updateWallPosition(WALL_MIN); // Place the wall at the initial position
+                distanceSlider.value = 0; // Start at the initial position
 
-                receiver.velocity = 0; // Receiver remains stationary in Scenario 2
-                receiver.x = transmitter.x + 400; // Set receiver position for Scenario 2
+                // Update wall position and display
+                distanceSlider.oninput = function () {
+                    updateWallPosition(parseFloat(this.value));
+                };
+                updateWallPosition(0); // Place the wall at the initial position
+
+                // Ensure receiver is stationary in Scenario 2
+                receiver.velocity = 0; // Receiver does not move
+                receiver.x = transmitter.x + 400; // Fixed receiver position
                 draw(); // Redraw the canvas
             } else {
-                // Hide the slider and reset Scenario 1
+                // Switch to Scenario 1
                 document.getElementById('scenario2-inputs').style.display = 'none';
-                resetScenario1();
+                document.getElementById('scenario1-inputs').style.display = 'block';
+                resetScenario1(); // Reset Scenario 1 settings
             }
         }
 
