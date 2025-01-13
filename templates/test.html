@@ -439,7 +439,7 @@
                 ctx.fillText("Transmitter", transmitterX, commonY - 50);
 
                 // Draw receiver
-                ctx.drawImage(receiver.img, receiver.x - 30, commonY - 30, 60, 60);
+                ctx.drawImage(receiver.img, receiver.x - 30, commonY - 10, 60, 60);
                 ctx.fillText("Receiver", receiver.x, commonY - 50);
 
                 // Draw wall
@@ -476,7 +476,7 @@
                     const wallCenterX = wall.x + wall.width / 2;
                     const reflectionY = wall.y + wall.height / 3;
                     ctx.lineTo(wallCenterX, reflectionY);
-                    ctx.lineTo(receiver.x, commonY - 20);    // Changed from +20 to -20
+                    ctx.lineTo(receiver.x, commonY - -10);    // Changed from +20 to -20
                     
                     ctx.stroke();
                     ctx.setLineDash([]);
