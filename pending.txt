@@ -1,15 +1,15 @@
-1)  Make the plot look more organized          -                           
+1)  Make the plot look more organized          -         Not necessary anymore                  
 2)  Bring the register button closer to the slider   -   Done  
 3)  Add 'reset' button           -                       Done
 4)  Change the notification setting           -          Done
 5)  Try out the two-ray model              -             Done
 6)  In the pathloss experiment make 
-    changes so that the plots are of different   -       
+    changes so that the plots are of different   -       Done 
     colors for different heights of antennas
 7)  Make the antennas in the diversity experiment    -   Done
     linear from circular.
 8)  Check whether the Two-ray model is working
-    correctly or not (for scenario 2)          -          
+    correctly or not (for scenario 2)          -         
 9)  Add a background to the Two-ray model     -          
 10) Add signal plots to the Two-ray model      -         
 11) Change the multiantenna svg for the model     -      
