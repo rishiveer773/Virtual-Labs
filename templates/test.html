@@ -119,7 +119,7 @@
     
                     <label for="frequency">Frequency (f) in MHz:</label>
                     <input type="number" id="frequency" value="100" step="1" min="1" required>
-                    <br>
+                    <br><br>
     
                     <!-- Buttons -->
                     <button onclick="startCalculation()">Calculate</button>
@@ -265,30 +265,54 @@
             `;
     
             draw(); // Redraw the canvas with Scenario 2 elements
+
+            console.log("Wall Distance:", wallDistance);
+            console.log("Direct Path Distance:", directPathDistance);
+            console.log("Reflected Path Distance:", reflectedPathDistance);
+            console.log("Delay Spread:", delaySpread);
+            console.log("Coherence Bandwidth:", coherenceBandwidth);
         }
     
         function setScenario(num) {
             currentScenario = num;
 
-            // Toggle input visibility
-            document.getElementById('scenario1-inputs').style.display = num === 1 ? 'block' : 'none';
-            document.getElementById('scenario2-inputs').style.display = num === 2 ? 'block' : 'none';
-
-            // Set up Scenario 2
             if (num === 2) {
+                // Show the slider for wall position
+                document.getElementById('scenario2-inputs').style.display = 'block';
+
+                // Initialize slider settings
+                const distanceSlider = document.getElementById('distance-slider');
+                distanceSlider.min = WALL_MIN;
+                distanceSlider.max = WALL_MAX;
+                distanceSlider.value = 0; // Start at the center position
+                updateWallPosition(0); // Place the wall at the initial position
+
                 receiver.velocity = 0; // Receiver remains stationary in Scenario 2
-                receiver.x = transmitter.x + 200; // Receiver position for Scenario 2
-                wall.x = transmitter.x + parseFloat(document.getElementById('distance-slider').value); // Initialize wall position
-                draw(); // Redraw to include the wall
+                receiver.x = transmitter.x + 400; // Set receiver position for Scenario 2
+                draw(); // Redraw the canvas
             } else {
-                resetScenario1(); // Reset Scenario 1 properties
+                // Hide the slider and reset Scenario 1
+                document.getElementById('scenario2-inputs').style.display = 'none';
+                resetScenario1();
             }
         }
 
+        // Define wall movement limits
+        const WALL_MIN = -350;
+        const WALL_MAX = 350;
+
         function updateWallPosition(position) {
-            wall.x = transmitter.x + parseFloat(position); // Update wall position
-            document.getElementById('slider-value').textContent = `Position: ${position} meters`;
-            draw(); // Redraw the canvas to reflect the updated wall position
+            // Restrict wall position within the range [-350, 350]
+            const restrictedPosition = Math.max(WALL_MIN, Math.min(position, WALL_MAX));
+
+            // Update wall position
+            wall.x = transmitter.x + restrictedPosition;
+
+            // Update displayed slider value
+            document.getElementById('slider-value').textContent = `Wall Position: ${restrictedPosition} meters`;
+
+            // Redraw the canvas
+            draw();
         }
 
         function resetSimulation() {
@@ -320,7 +344,7 @@
             draw();
         }
         
-        function startCalculation() {
+        function startCalculation() { 
             const frequency = parseFloat(document.getElementById('frequency').value) * 1e6;
             const distance = parseFloat(document.getElementById('distance').value);
 
@@ -332,32 +356,36 @@
                 receiver.velocity = velocity;
                 receiver.x = transmitter.x + distance;
                 receiver.direction = 1;
-                
+
                 // Mark scenario 1 as complete after animation
                 setTimeout(() => {
                     isScenario1Complete = true;
                     alert("Scenario 1 complete! You can now proceed to Scenario 2.");
-                }, 1000); // Wait 5 seconds to show completion
-                
+                }, 1000);
+
                 animateScenario1();
-            } else {
+            } else if (currentScenario === 2) {
                 const obstacleDistance = parseFloat(document.getElementById('obstacleDistance').value);
-                
+
                 // Scenario 2 calculations
-                const delaySpread = Math.abs((2 * obstacleDistance - distance) / c - distance / c);
+                const directPathDistance = distance;
+                const reflectedPathDistance = 2 * obstacleDistance - directPathDistance;
+                const delaySpread = Math.abs((reflectedPathDistance / c) - (directPathDistance / c));
                 const coherenceBandwidth = 1 / (2 * delaySpread);
-                
+
                 // Position objects for scenario 2
                 receiver.x = transmitter.x + distance;
                 wall.x = transmitter.x + obstacleDistance;
-                
+
+                // Update results
                 resultsDiv.innerHTML = `
-                    Direct Path Distance: ${distance.toFixed(1)} m<br>
-                    Reflected Path Distance: ${(2 * obstacleDistance).toFixed(1)} m<br>
+                    <h3>Scenario 2 Outputs:</h3>
+                    Direct Path Distance: ${directPathDistance.toFixed(1)} m<br>
+                    Reflected Path Distance: ${reflectedPathDistance.toFixed(1)} m<br>
                     Delay Spread: ${(delaySpread * 1e9).toFixed(2)} ns<br>
                     Coherence Bandwidth: ${(coherenceBandwidth / 1e6).toFixed(2)} MHz
                 `;
-                
+
                 draw();
             }
         }
@@ -377,7 +405,7 @@
             ctx.fillText("Receiver", receiver.x, receiver.y - 50);
 
             if (currentScenario === 1) {
-                // Draw direct path
+                // Scenario 1: Direct path
                 ctx.strokeStyle = '#3b82f6';
                 ctx.lineWidth = 2;
                 ctx.setLineDash([5, 5]);
@@ -387,19 +415,21 @@
                 ctx.stroke();
                 ctx.setLineDash([]);
             } else if (currentScenario === 2) {
+                // Scenario 2: Reflection path with wall
+
                 // Draw wall
                 ctx.fillStyle = '#64748b';
                 ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
                 ctx.fillText("Wall", wall.x + wall.width / 2, wall.y - 10);
 
-                // Draw direct path
+                // Direct path
                 ctx.strokeStyle = '#3b82f6';
                 ctx.beginPath();
                 ctx.moveTo(transmitter.x, transmitter.y);
                 ctx.lineTo(receiver.x, receiver.y);
                 ctx.stroke();
 
-                // Draw reflected path
+                // Reflected path
                 ctx.strokeStyle = '#ef4444';
                 ctx.setLineDash([5, 5]);
                 ctx.beginPath();
