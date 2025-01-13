@@ -235,7 +235,14 @@
             `;
     
             draw();
-            animationFrame = requestAnimationFrame(animateScenario1);
+
+            // Complete Scenario 1 
+            if (!isScenario1Complete === false) { // Define your condition for completion 
+                isScenario1Complete = true; cancelAnimationFrame(animationFrame); // Stop animation for Scenario 1
+                showMessage("Scenario 1 is complete. You can start Scenario 2 now."); 
+            } else { 
+                animationFrame = requestAnimationFrame(animateScenario1); 
+            }
         }
     
         function startScenario2() {
