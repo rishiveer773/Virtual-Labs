@@ -108,7 +108,14 @@
                     <div id="scenario2-inputs" style="display: none;">
                         <label for="obstacleDistance">Obstacle Distance (d) in meters:</label>
                         <input type="number" id="obstacleDistance" value="150" step="1" min="1" required>
-                    </div>
+                    
+                        <div class="input-group" style="margin-top: 20px;">
+                            <label for="distance-slider">Adjust Wall Position (d):</label>
+                            <input type="range" id="distance-slider" min="0" max="500" value="150" step="1" 
+                                   oninput="updateWallPosition(this.value)">
+                            <div id="slider-value" style="text-align: center; margin-top: 10px;">Position: 150 meters</div>
+                        </div>
+                    </div>                                        
     
                     <label for="frequency">Frequency (f) in MHz:</label>
                     <input type="number" id="frequency" value="100" step="1" min="1" required>
@@ -261,15 +268,34 @@
         }
     
         function setScenario(num) {
-            if (num === 2 && !isScenario1Complete) {
-                showMessage("Please complete Scenario 1 first.");
-                document.getElementById('scenario1').checked = true;
-                return;
-            }
-    
             currentScenario = num;
+
+            // Toggle input visibility
             document.getElementById('scenario1-inputs').style.display = num === 1 ? 'block' : 'none';
             document.getElementById('scenario2-inputs').style.display = num === 2 ? 'block' : 'none';
+
+            // Set up Scenario 2
+            if (num === 2) {
+                receiver.velocity = 0; // Receiver remains stationary in Scenario 2
+                receiver.x = transmitter.x + 200; // Receiver position for Scenario 2
+                wall.x = transmitter.x + parseFloat(document.getElementById('distance-slider').value); // Initialize wall position
+                draw(); // Redraw to include the wall
+            } else {
+                resetScenario1(); // Reset Scenario 1 properties
+            }
+        }
+
+        function updateWallPosition(position) {
+            wall.x = transmitter.x + parseFloat(position); // Update wall position
+            document.getElementById('slider-value').textContent = `Position: ${position} meters`;
+            draw(); // Redraw the canvas to reflect the updated wall position
+        }
+
+        function resetSimulation() {
+            document.getElementById('distance-slider').value = 150;
+            document.getElementById('slider-value').textContent = `Position: 150 meters`;
+            document.getElementById('obstacleDistance').value = 150;
+            document.getElementById('message').textContent = '';
         }
     
         function resetSimulation() {
@@ -293,21 +319,63 @@
             scenario2ResultsDiv.innerHTML = '';
             draw();
         }
-    
+        
+        function startCalculation() {
+            const frequency = parseFloat(document.getElementById('frequency').value) * 1e6;
+            const distance = parseFloat(document.getElementById('distance').value);
+
+            if (currentScenario === 1) {
+                const velocity = parseFloat(document.getElementById('velocity').value);
+                
+                // Scenario 1 calculations
+                maxDopplerShift = calculateMaxDopplerShift(frequency, velocity);
+                receiver.velocity = velocity;
+                receiver.x = transmitter.x + distance;
+                receiver.direction = 1;
+                
+                // Mark scenario 1 as complete after animation
+                setTimeout(() => {
+                    isScenario1Complete = true;
+                    alert("Scenario 1 complete! You can now proceed to Scenario 2.");
+                }, 1000); // Wait 5 seconds to show completion
+                
+                animateScenario1();
+            } else {
+                const obstacleDistance = parseFloat(document.getElementById('obstacleDistance').value);
+                
+                // Scenario 2 calculations
+                const delaySpread = Math.abs((2 * obstacleDistance - distance) / c - distance / c);
+                const coherenceBandwidth = 1 / (2 * delaySpread);
+                
+                // Position objects for scenario 2
+                receiver.x = transmitter.x + distance;
+                wall.x = transmitter.x + obstacleDistance;
+                
+                resultsDiv.innerHTML = `
+                    Direct Path Distance: ${distance.toFixed(1)} m<br>
+                    Reflected Path Distance: ${(2 * obstacleDistance).toFixed(1)} m<br>
+                    Delay Spread: ${(delaySpread * 1e9).toFixed(2)} ns<br>
+                    Coherence Bandwidth: ${(coherenceBandwidth / 1e6).toFixed(2)} MHz
+                `;
+                
+                draw();
+            }
+        }
+
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
+
             // Draw transmitter
             ctx.drawImage(transmitter.img, transmitter.x - 40, transmitter.y - 40, 80, 80);
             ctx.fillStyle = '#1e293b';
             ctx.font = '14px Inter';
             ctx.textAlign = 'center';
             ctx.fillText("Transmitter", transmitter.x, transmitter.y - 50);
-    
+
             // Draw receiver
             ctx.drawImage(receiver.img, receiver.x - 30, receiver.y - 30, 60, 60);
             ctx.fillText("Receiver", receiver.x, receiver.y - 50);
-    
+
             if (currentScenario === 1) {
                 // Draw direct path
                 ctx.strokeStyle = '#3b82f6';
@@ -318,19 +386,19 @@
                 ctx.lineTo(receiver.x, receiver.y);
                 ctx.stroke();
                 ctx.setLineDash([]);
-            } else {
+            } else if (currentScenario === 2) {
                 // Draw wall
                 ctx.fillStyle = '#64748b';
                 ctx.fillRect(wall.x, wall.y, wall.width, wall.height);
                 ctx.fillText("Wall", wall.x + wall.width / 2, wall.y - 10);
-    
+
                 // Draw direct path
                 ctx.strokeStyle = '#3b82f6';
                 ctx.beginPath();
                 ctx.moveTo(transmitter.x, transmitter.y);
                 ctx.lineTo(receiver.x, receiver.y);
                 ctx.stroke();
-    
+
                 // Draw reflected path
                 ctx.strokeStyle = '#ef4444';
                 ctx.setLineDash([5, 5]);
@@ -342,7 +410,6 @@
                 ctx.setLineDash([]);
             }
         }
-    </script>
-            
+    </script>            
 </body>
 </html>
