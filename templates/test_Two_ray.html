@@ -214,6 +214,9 @@
 
             const margin = 50;
 
+            // Store the previous direction
+            const previousDirection = receiver.direction;
+
             // Update receiver position
             receiver.x += receiver.velocity * receiver.direction * 0.2;
 
@@ -225,6 +228,11 @@
             if (receiver.x > canvas.width - margin) {
                 receiver.x = canvas.width - margin;
                 receiver.direction *= -1;
+            }
+
+            // Check if direction has changed
+            if (previousDirection !== receiver.direction) {
+                receiver.isFlipped = receiver.direction === -1;
             }
 
             // Calculate results
@@ -411,23 +419,25 @@
                 const minPosition = transmitter.x - 350; // Left bound (350 units left of transmitter)
                 const maxPosition = wall.x - 30; // Right bound is wall position
 
-                // Update receiver position with smoother movement
+                // Update receiver position
                 receiver.x += receiver.velocity * receiver.direction * 0.2; // Reduced multiplier for smoother motion
 
-                // Reverse direction at boundaries
+                // Reverse direction at boundaries and update flipping state
                 if (receiver.x < minPosition) {
                     receiver.x = minPosition;
                     receiver.direction *= -1;
+                    receiver.isFlipped = receiver.direction === -1; // Update flipping state
                 }
                 if (receiver.x > maxPosition) {
                     receiver.x = maxPosition;
                     receiver.direction *= -1;
+                    receiver.isFlipped = receiver.direction === -1; // Update flipping state
                 }
 
                 // Calculate distances and path differences
                 const dx = receiver.x - transmitter.x;
                 const directPathDistance = Math.abs(dx);
-                
+
                 // Calculate reflected path
                 const reflectedPathDistance = wall.x > transmitter.x && wall.x < receiver.x 
                     ? Math.sqrt(Math.pow(wall.x - transmitter.x, 2)) + 
@@ -712,10 +722,22 @@
                 ctx.font = '14px Inter';
                 ctx.textAlign = 'center';
                 ctx.fillText("Transmitter", transmitter.x, transmitter.y - 50);
+                
+                // Draw receiver with flipping
+                ctx.save(); // Save the current context state
+                if (receiver.isFlipped) {
+                    ctx.translate(receiver.x, receiver.y);
+                    ctx.scale(-1, 1); // Flip horizontally
+                    ctx.drawImage(receiver.img, -30, -30, 60, 60); // Adjust for flipped coordinates
+                    ctx.translate(-receiver.x, -receiver.y); // Reset translation
+                } else {
+                    ctx.drawImage(receiver.img, receiver.x - 30, receiver.y - 30, 60, 60);
+                }
+                ctx.restore(); // Restore the context to its original state
 
-                ctx.drawImage(receiver.img, receiver.x - 30, receiver.y - 30, 60, 60);
                 ctx.fillText("Receiver", receiver.x, receiver.y - -50);
 
+                // Draw the signal
                 ctx.strokeStyle = '#3b82f6';
                 ctx.lineWidth = 2;
                 ctx.setLineDash([5, 5]);
@@ -780,6 +802,7 @@
                     ctx.arc(wallCenterX, reflectionY, 3, 0, Math.PI * 2);
                     ctx.fill();
                 }
+
             } else if (currentScenario === 3) {
                 // Set receiver.y if not already set
                 if (!receiver.y) {
@@ -794,19 +817,25 @@
                 ctx.textAlign = 'center';
                 ctx.fillText("Transmitter", transmitter.x, transmitter.y - 50);
 
-                // Move receiver (as in Scenario 1)
-                receiver.x += receiver.velocity * receiver.direction * 0.1;
-                if (receiver.x < 50) {
-                    receiver.x = 50;
-                    receiver.direction *= -1;
-                }
-                if (receiver.x > canvas.width - 50) {
-                    receiver.x = canvas.width - 50;
-                    receiver.direction *= -1;
+                // Update receiver's flipped state
+                if (receiver.direction === -1) {
+                    receiver.isFlipped = true;
+                } else {
+                    receiver.isFlipped = false;
                 }
 
-                // Draw receiver
-                ctx.drawImage(receiver.img, receiver.x - 30, receiver.y - 30, 60, 60);
+                // Draw receiver with flipping
+                ctx.save(); // Save the current context state
+                if (receiver.isFlipped) {
+                    // Translate to receiver position and flip horizontally
+                    ctx.translate(receiver.x - 30, receiver.y - 30); // Adjust to the receiver's position
+                    ctx.scale(-1, 1); // Flip horizontally
+                    ctx.drawImage(receiver.img, -60, 0, 60, 60); // Draw the flipped image
+                } else {
+                    ctx.drawImage(receiver.img, receiver.x - 30, receiver.y - 30, 60, 60); // Draw normally
+                }
+                ctx.restore(); // Restore the context to its original state
+
                 ctx.fillText("Receiver", receiver.x, receiver.y - -50);
 
                 // Draw wall (Scenario 2)
@@ -819,11 +848,12 @@
                 ctx.lineWidth = 2;
                 ctx.setLineDash([5, 5]);
                 ctx.beginPath();
-                ctx.moveTo(transmitter.x, transmitter.y); // Changed to start from transmitter center
+                ctx.moveTo(transmitter.x, transmitter.y); // Start from transmitter center
                 ctx.lineTo(receiver.x, commonY);
                 ctx.stroke();
                 drawArrowhead(ctx, transmitter.x, transmitter.y, receiver.x, commonY); // Add arrowhead
 
+                // Draw reflected path - Transmitter to wall
                 ctx.strokeStyle = '#ef4444';
                 ctx.beginPath();
                 const wallCenterX = wall.x + wall.width / 2;
