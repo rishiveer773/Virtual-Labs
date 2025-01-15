@@ -714,7 +714,7 @@
                 ctx.fillText("Transmitter", transmitter.x, transmitter.y - 50);
 
                 ctx.drawImage(receiver.img, receiver.x - 30, receiver.y - 30, 60, 60);
-                ctx.fillText("Receiver", receiver.x, receiver.y - -50);
+                ctx.fillText("Receiver", receiver.x, receiver.y - 50);
 
                 ctx.strokeStyle = '#3b82f6';
                 ctx.lineWidth = 2;
@@ -794,9 +794,20 @@
                 ctx.textAlign = 'center';
                 ctx.fillText("Transmitter", transmitter.x, transmitter.y - 50);
 
-                // Draw receiver (moving as in Scenario 1)
-                ctx.drawImage(receiver.img, receiver.x - 30, commonY - 10, 60, 60);
-                ctx.fillText("Receiver", receiver.x, commonY - 50);
+                // Move receiver (as in Scenario 1)
+                receiver.x += receiver.velocity * receiver.direction * 0.1;
+                if (receiver.x < 50) {
+                    receiver.x = 50;
+                    receiver.direction *= -1;
+                }
+                if (receiver.x > canvas.width - 50) {
+                    receiver.x = canvas.width - 50;
+                    receiver.direction *= -1;
+                }
+
+                // Draw receiver
+                ctx.drawImage(receiver.img, receiver.x - 30, receiver.y - 30, 60, 60);
+                ctx.fillText("Receiver", receiver.x, receiver.y - -50);
 
                 // Draw wall (Scenario 2)
                 ctx.fillStyle = '#64748b';
@@ -811,18 +822,23 @@
                 ctx.moveTo(transmitter.x, transmitter.y); // Changed to start from transmitter center
                 ctx.lineTo(receiver.x, commonY);
                 ctx.stroke();
+                drawArrowhead(ctx, transmitter.x, transmitter.y, receiver.x, commonY); // Add arrowhead
 
-                // Draw reflected path if wall is between transmitter and receiver
-                if (wall.x > transmitter.x && wall.x < receiver.x) {
-                    ctx.strokeStyle = '#ef4444';
-                    ctx.beginPath();
-                    const wallCenterX = wall.x + wall.width / 2;
-                    const reflectionY = wall.y + wall.height / 3;
-                    ctx.moveTo(transmitter.x, transmitter.y); // Start from transmitter
-                    ctx.lineTo(wallCenterX, reflectionY);
-                    ctx.lineTo(receiver.x, commonY);
-                    ctx.stroke();
-                }
+                ctx.strokeStyle = '#ef4444';
+                ctx.beginPath();
+                const wallCenterX = wall.x + wall.width / 2;
+                const reflectionY = wall.y + wall.height / 2;
+                ctx.moveTo(transmitter.x, transmitter.y); // Start from transmitter
+                ctx.lineTo(wallCenterX, reflectionY);
+                ctx.stroke();
+                drawArrowhead(ctx, transmitter.x, transmitter.y, wallCenterX, reflectionY); // Arrowhead from transmitter to wall
+
+                // Draw signal from wall to receiver
+                ctx.beginPath();
+                ctx.moveTo(wallCenterX, reflectionY);
+                ctx.lineTo(receiver.x, commonY);
+                ctx.stroke();
+                drawArrowhead(ctx, wallCenterX, reflectionY, receiver.x, commonY); // Arrowhead from wall to receiver
             }
         }
     </script>            
