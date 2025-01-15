@@ -123,8 +123,8 @@
                         <input type="number" id="velocity" value="0" step="1" min="0" required><br>
 
                         <label for="wallSlider">Adjust Wall Position (d) in meters:</label>
-                        <input type="range" id="wallSlider" value="0" min="-350" max="350" step="1">
-                        <div id="wallPositionDisplay" style="margin-top: 10px;">Current Wall Position: 0 m</div>
+                        <input type="range" id="wallSlider3" value="0" min="-350" max="350" step="1">
+                        <div id="wallPositionDisplay3" style="margin-top: 10px;">Current Wall Position: 0 m</div>
                     </div>
     
                     <!-- Buttons -->
@@ -318,7 +318,7 @@
         }
         
         // Add event listener for the wall slider in Scenario 3
-        document.getElementById('wallSlider').addEventListener('input', function() {
+        document.getElementById('wallSlider3').addEventListener('input', function() {
             const value = parseFloat(this.value);
             if (currentScenario === 3) {
                 updateWallPositionScenario3(value);
