@@ -381,7 +381,7 @@
 
                 // Initialize wall properties
                 wall.y = 50; // Set wall vertical position
-                wall.height = canvas.height - 50; // Set wall height
+                wall.height = canvas.height - 10; // Set wall height
                 wall.width = 10; // Set wall width
 
                 // Set current scenario
@@ -510,7 +510,7 @@
 
                 // Initialize the slider for wall position
                 const wallSlider = document.getElementById('wallSlider3');
-                wallSlider.min = -350;
+                wallSlider.min = 0;
                 wallSlider.max = 350;
                 wallSlider.value = 0;
 
@@ -530,7 +530,7 @@
 
                 // Initialize the slider for wall position
                 const wallSlider = document.getElementById('wallSlider');
-                const WALL_MIN = -350; // Minimum wall position
+                const WALL_MIN = -320; // Minimum wall position
                 const WALL_MAX = 350;  // Maximum wall position
                 wallSlider.min = WALL_MIN;
                 wallSlider.max = WALL_MAX;
