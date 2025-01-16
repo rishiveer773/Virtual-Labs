@@ -13,7 +13,7 @@
 9)  Add a background to the Two-ray model     -          
 10) Add signal plots to the Two-ray model      -         
 11) Change the multiantenna svg for the model     -      
-12)  
+12) 
 
 
 ---------------------------------------------------------------
