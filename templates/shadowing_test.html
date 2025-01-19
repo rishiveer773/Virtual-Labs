@@ -101,7 +101,125 @@
                 cell.style.backgroundColor = `rgb(${255 - intensity}, ${intensity}, ${intensity})`;
 
                 simulationArea.appendChild(cell);
-                cells[row][col] = { element: cell, pathloss, shadowCount: 0 }; // Store cell and its pathloss value
+                cells[row][col] = { 
+                    element: cell, 
+                    basePathloss: pathloss, 
+                    currentPathloss: pathloss,
+                    shadows: [] // Store individual shadow contributions
+                };
+            }
+        }
+
+        // Helper function to check if a point is shadowed by an obstacle
+        function isPointShadowed(x, y, obstacleX, obstacleY) {
+            // Vector from transmitter to obstacle
+            const vectToObstacle = {
+                x: obstacleX - transmitter.x,
+                y: obstacleY - transmitter.y
+            };
+            
+            // Vector from transmitter to point
+            const vectToPoint = {
+                x: x - transmitter.x,
+                y: y - transmitter.y
+            };
+            
+            // Distance from transmitter to obstacle and point
+            const distToObstacle = Math.sqrt(vectToObstacle.x ** 2 + vectToObstacle.y ** 2);
+            const distToPoint = Math.sqrt(vectToPoint.x ** 2 + vectToPoint.y ** 2);
+            
+            // If point is closer to transmitter than obstacle, it's not shadowed
+            if (distToPoint <= distToObstacle) {
+                return { isShadowed: false, strength: 0 };
+            }
+            
+            // Calculate dot product
+            const dotProduct = vectToObstacle.x * vectToPoint.x + vectToObstacle.y * vectToPoint.y;
+            const cosAngle = dotProduct / (distToObstacle * distToPoint);
+            
+            // Calculate shadow strength based on alignment
+            if (cosAngle > 0.95) { // About 18 degrees
+                const strength = (cosAngle - 0.95) / 0.05; // Normalize to 0-1
+                return { 
+                    isShadowed: true, 
+                    strength: strength,
+                    distance: distToPoint - distToObstacle // Distance traveled in shadow
+                };
+            }
+            
+            return { isShadowed: false, strength: 0 };
+        }
+
+        // Function to combine multiple shadow effects
+        function combineShadowEffects(shadows) {
+            if (shadows.length === 0) return 0;
+            
+            // Sort shadows by strength
+            shadows.sort((a, b) => b.strength - a.strength);
+            
+            // Primary shadow effect (strongest shadow)
+            let totalAttenuation = shadows[0].strength * 2;
+            
+            // Additional shadows contribute logarithmically less
+            for (let i = 1; i < shadows.length; i++) {
+                const additionalAttenuation = (shadows[i].strength * 2) / (i + 1);
+                totalAttenuation += additionalAttenuation;
+            }
+            
+            // Scale attenuation based on distance traveled in shadow
+            shadows.forEach(shadow => {
+                const distanceScale = Math.log10(shadow.distance + 1) / 2;
+                totalAttenuation *= (1 + distanceScale);
+            });
+            
+            return totalAttenuation;
+        }
+
+        // Function to update cell pathloss and return the new value
+        function updateCellPathloss(row, col, obstacles) {
+            const cell = cells[row][col];
+            
+            if (!cell.element.classList.contains("obstacle")) {
+                // Reset shadows array
+                cell.shadows = [];
+                
+                // Check shadows from all obstacles
+                for (const obstacle of obstacles) {
+                    const shadowInfo = isPointShadowed(col, row, obstacle.x, obstacle.y);
+                    if (shadowInfo.isShadowed) {
+                        cell.shadows.push(shadowInfo);
+                    }
+                }
+                
+                // Calculate combined shadow effect
+                const shadowAttenuation = combineShadowEffects(cell.shadows);
+                cell.currentPathloss = cell.basePathloss + shadowAttenuation;
+
+                // Update cell color based on new pathloss
+                const intensity = Math.min(255, Math.max(0, 255 - cell.currentPathloss * 5));
+                cell.element.style.backgroundColor = `rgb(${255 - intensity}, ${intensity}, ${intensity})`;
+            }
+            
+            return cell;
+        }
+
+        // Update pathloss values when obstacles are placed
+        function updatePathloss() {
+            // Find all obstacles
+            const obstacles = [];
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < cols; col++) {
+                    if (cells[row][col].element.classList.contains("obstacle")) {
+                        obstacles.push({ x: col, y: row });
+                    }
+                }
+            }
+
+            // Update all cells
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < cols; col++) {
+                    updateCellPathloss(row, col, obstacles);
+                }
             }
         }
 
@@ -109,19 +227,39 @@
         simulationArea.addEventListener("click", (e) => {
             const cell = e.target;
             if (cell && cell.classList.contains("cell")) {
-                cell.classList.toggle("obstacle"); // Mark as obstacle
+                cell.classList.toggle("obstacle");
                 updatePathloss();
+                
+                // Update tooltip immediately if it's visible
+                const hoveredCell = document.querySelector(".cell:hover");
+                if (hoveredCell) {
+                    updateTooltip(hoveredCell);
+                }
             }
         });
 
-        // Display pathloss near cursor on hover
+        // Function to update tooltip content
+        function updateTooltip(cell) {
+            const row = Math.floor(Array.from(simulationArea.children).indexOf(cell) / cols);
+            const col = Array.from(simulationArea.children).indexOf(cell) % cols;
+            const cellData = cells[row][col];
+            
+            let tooltipText = `Base Pathloss: ${cellData.basePathloss.toFixed(2)}`;
+            if (cellData.shadows && cellData.shadows.length > 0) {
+                tooltipText += `\nShadows: ${cellData.shadows.length}`;
+                tooltipText += `\nShadow Attenuation: ${(cellData.currentPathloss - cellData.basePathloss).toFixed(2)}`;
+            }
+            tooltipText += `\nTotal Pathloss: ${cellData.currentPathloss.toFixed(2)}`;
+            
+            tooltip.textContent = tooltipText;
+            tooltip.style.whiteSpace = "pre-line";
+        }
+
+        // Enhanced tooltip display with shadow information
         simulationArea.addEventListener("mousemove", (e) => {
             const cell = e.target;
             if (cell && cell.classList.contains("cell")) {
-                const row = Math.floor(Array.from(simulationArea.children).indexOf(cell) / cols);
-                const col = Array.from(simulationArea.children).indexOf(cell) % cols;
-                const pathloss = cells[row][col].pathloss.toFixed(2);
-                tooltip.textContent = `Pathloss: ${pathloss}`;
+                updateTooltip(cell);
                 tooltip.style.left = `${e.pageX}px`;
                 tooltip.style.top = `${e.pageY}px`;
                 tooltip.style.display = "block";
@@ -131,57 +269,6 @@
         simulationArea.addEventListener("mouseleave", () => {
             tooltip.style.display = "none";
         });
-
-        // Update pathloss values when obstacles are placed
-        function updatePathloss() {
-            let totalPathloss = 0;
-            let cellCount = 0;
-            const shadowAngle = Math.PI / 6; // 30-degree shadow cone
-
-            for (let row = 0; row < rows; row++) {
-                for (let col = 0; col < cols; col++) {
-                    const cell = cells[row][col];
-                    cell.shadowCount = 0; // Reset shadow count
-
-                    if (!cell.element.classList.contains("obstacle")) {
-                        // Recalculate pathloss (add extra attenuation if blocked by obstacles)
-                        cells.forEach((obstacleRow, r) => {
-                            obstacleRow.forEach((obstacleCell, c) => {
-                                if (obstacleCell.element.classList.contains("obstacle")) {
-                                    const dxObstacle = c - transmitter.x;
-                                    const dyObstacle = r - transmitter.y;
-                                    const angleObstacle = Math.atan2(dyObstacle, dxObstacle);
-
-                                    const dxCell = col - c;
-                                    const dyCell = row - r;
-                                    const angleCell = Math.atan2(dyCell, dxCell);
-
-                                    const angularDifference = Math.abs(angleCell - angleObstacle);
-                                    const weight = Math.max(0, 1 - angularDifference / shadowAngle);
-
-                                    if (angularDifference <= shadowAngle) {
-                                        cell.shadowCount += weight; // Increment shadow count based on weight
-                                    }
-                                }
-                            });
-                        });
-
-                        const attenuation = cell.shadowCount * 2; // 2 units per shadow count
-                        const adjustedPathloss = cell.pathloss + attenuation;
-                        totalPathloss += adjustedPathloss;
-                        cellCount++;
-
-                        // Update cell color based on new pathloss
-                        const intensity = Math.min(255, Math.max(0, 255 - adjustedPathloss * 5));
-                        cell.element.style.backgroundColor = `rgb(${255 - intensity}, ${intensity}, ${intensity})`;
-                    }
-                }
-            }
-
-            // Update average pathloss in outputs
-            const averagePathloss = (totalPathloss / cellCount).toFixed(2);
-            document.getElementById("output-info").textContent = `Average Pathloss: ${averagePathloss}`;
-        }
     </script>
 </body>
 </html>
