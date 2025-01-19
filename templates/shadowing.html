@@ -22,6 +22,7 @@
         #simulation {
             display: grid;
             position: relative;
+            margin: auto;
         }
 
         .cell {
@@ -100,7 +101,7 @@
                 cell.style.backgroundColor = `rgb(${255 - intensity}, ${intensity}, ${intensity})`;
 
                 simulationArea.appendChild(cell);
-                cells[row][col] = { element: cell, pathloss }; // Store cell and its pathloss value
+                cells[row][col] = { element: cell, pathloss, shadowCount: 0 }; // Store cell and its pathloss value
             }
         }
 
@@ -135,24 +136,37 @@
         function updatePathloss() {
             let totalPathloss = 0;
             let cellCount = 0;
+            const shadowAngle = Math.PI / 6; // 30-degree shadow cone
 
             for (let row = 0; row < rows; row++) {
                 for (let col = 0; col < cols; col++) {
                     const cell = cells[row][col];
+                    cell.shadowCount = 0; // Reset shadow count
 
                     if (!cell.element.classList.contains("obstacle")) {
                         // Recalculate pathloss (add extra attenuation if blocked by obstacles)
-                        let attenuation = 0;
+                        cells.forEach((obstacleRow, r) => {
+                            obstacleRow.forEach((obstacleCell, c) => {
+                                if (obstacleCell.element.classList.contains("obstacle")) {
+                                    const dxObstacle = c - transmitter.x;
+                                    const dyObstacle = r - transmitter.y;
+                                    const angleObstacle = Math.atan2(dyObstacle, dxObstacle);
 
-                        // Check for obstacles in the line of sight (simple example logic)
-                        for (let r = Math.min(row, transmitter.y); r <= Math.max(row, transmitter.y); r++) {
-                            for (let c = Math.min(col, transmitter.x); c <= Math.max(col, transmitter.x); c++) {
-                                if (cells[r] && cells[r][c] && cells[r][c].element.classList.contains("obstacle")) {
-                                    attenuation += 10; // Example extra attenuation per obstacle
+                                    const dxCell = col - c;
+                                    const dyCell = row - r;
+                                    const angleCell = Math.atan2(dyCell, dxCell);
+
+                                    const angularDifference = Math.abs(angleCell - angleObstacle);
+                                    const weight = Math.max(0, 1 - angularDifference / shadowAngle);
+
+                                    if (angularDifference <= shadowAngle) {
+                                        cell.shadowCount += weight; // Increment shadow count based on weight
+                                    }
                                 }
-                            }
-                        }
+                            });
+                        });
 
+                        const attenuation = cell.shadowCount * 2; // 2 units per shadow count
                         const adjustedPathloss = cell.pathloss + attenuation;
                         totalPathloss += adjustedPathloss;
                         cellCount++;
