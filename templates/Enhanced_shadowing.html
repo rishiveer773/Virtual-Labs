@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Advanced Radio Propagation Simulator</title>
+    <title>Enhanced Shadowing Experiment</title>
     <style>
         body {
             margin: 0;
@@ -11,418 +11,486 @@
             display: grid;
             grid-template-columns: 1fr 2fr 1fr;
             height: 100vh;
-            background-color: #f0f0f0;
+            background-color: #f5f5f5;
         }
 
         #inputs, #simulation, #outputs {
-            border: 1px solid #ccc;
+            border: 1px solid #ddd;
             padding: 20px;
             overflow: auto;
             background-color: white;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-            margin: 10px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
 
         #simulation {
             display: grid;
             position: relative;
+            margin: auto;
+            background-color: #fff;
+            border-radius: 4px;
         }
 
         .cell {
             width: 20px;
             height: 20px;
             box-sizing: border-box;
-            transition: background-color 0.3s ease;
+            border: none;
+            transition: background-color 0.2s ease;
+            cursor: pointer;
+        }
+
+        .cell:hover {
+            opacity: 0.8;
         }
 
         .obstacle {
-            background-color: black !important;
+            background-color: #2c3e50 !important;
         }
 
         .transmitter {
-            background-color: red !important;
-            border-radius: 50%;
+            position: relative;
         }
 
-        .input-group {
-            margin-bottom: 15px;
+        .transmitter::after {
+            content: "📡";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 14px;
+        }
+
+        .tooltip {
+            position: absolute;
+            background: rgba(44, 62, 80, 0.9);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+            white-space: nowrap;
+            transform: translate(-50%, -120%);
+            z-index: 1000;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .control-group {
+            margin-bottom: 20px;
         }
 
         label {
             display: block;
             margin-bottom: 5px;
+            color: #2c3e50;
         }
 
-        select, input {
+        select, button {
             width: 100%;
-            padding: 5px;
+            padding: 8px;
             margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
         }
 
         button {
-            width: 100%;
-            padding: 8px;
-            background-color: #4CAF50;
+            background-color: #3498db;
             color: white;
             border: none;
-            border-radius: 4px;
             cursor: pointer;
-            margin-bottom: 10px;
+            transition: background-color 0.2s;
         }
 
         button:hover {
-            background-color: #45a049;
+            background-color: #2980b9;
         }
 
-        .legend {
-            display: flex;
-            align-items: center;
-            margin-top: 10px;
-            padding: 10px;
-            background-color: #f8f8f8;
+        .stats {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
             border-radius: 4px;
         }
 
-        .legend-item {
+        .stat-item {
+            margin-bottom: 10px;
             display: flex;
-            align-items: center;
-            margin-right: 15px;
+            justify-content: space-between;
         }
 
-        .legend-color {
-            width: 20px;
+        .color-scale {
             height: 20px;
-            margin-right: 5px;
-            border: 1px solid #ccc;
+            margin: 10px 0;
+            background: linear-gradient(to right, rgb(255,255,255), rgb(0,0,255));
+            border-radius: 2px;
         }
 
-        #coverage-map {
-            width: 100%;
-            height: 100px;
-            margin-top: 10px;
-            border: 1px solid #ccc;
+        .scale-labels {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #666;
         }
     </style>
 </head>
 <body>
     <div id="inputs">
-        <h3>Simulation Parameters</h3>
+        <h3>Configuration</h3>
+        <div class="control-group">
+            <label for="setting">Environment:</label>
+            <select id="setting">
+                <option value="urban">Urban (Higher Attenuation)</option>
+                <option value="suburban">Suburban (Medium Attenuation)</option>
+                <option value="rural">Rural (Lower Attenuation)</option>
+            </select>
+        </div>
         
-        <div class="input-group">
-            <label for="environment">Environment Type:</label>
-            <select id="environment">
-                <option value="urban">Urban (Dense)</option>
-                <option value="suburban">Suburban</option>
-                <option value="rural">Rural (Open)</option>
-                <option value="indoor">Indoor</option>
+        <div class="control-group">
+            <label for="attenuation">Shadow Attenuation:</label>
+            <select id="attenuation">
+                <option value="1">Low (1 dB)</option>
+                <option value="2" selected>Medium (2 dB)</option>
+                <option value="3">High (3 dB)</option>
             </select>
         </div>
 
-        <div class="input-group">
-            <label for="frequency">Frequency (MHz):</label>
-            <input type="number" id="frequency" value="900" min="100" max="6000">
+        <button id="clearGrid">Clear Grid</button>
+        <button id="randomObstacles">Random Obstacles</button>
+        
+        <div class="control-group">
+            <h4>Legend</h4>
+            <div class="color-scale"></div>
+            <div class="scale-labels">
+                <span>Low Loss</span>
+                <span>High Loss</span>
+            </div>
         </div>
 
-        <div class="input-group">
-            <label for="txPower">Transmitter Power (dBm):</label>
-            <input type="number" id="txPower" value="30" min="0" max="50">
-        </div>
-
-        <div class="input-group">
-            <label for="weather">Weather Condition:</label>
-            <select id="weather">
-                <option value="clear">Clear</option>
-                <option value="rain">Rain</option>
-                <option value="snow">Snow</option>
-                <option value="fog">Fog</option>
-            </select>
-        </div>
-
-        <button onclick="clearObstacles()">Clear Obstacles</button>
-        <button onclick="randomizeObstacles()">Random Obstacles</button>
-        <button onclick="moveTransmitter()">Move Transmitter</button>
-
-        <div class="legend">
-            <div class="legend-item">
-                <div class="legend-color" style="background-color: rgb(0, 255, 0)"></div>
-                <span>Strong</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-color" style="background-color: rgb(255, 255, 0)"></div>
-                <span>Medium</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-color" style="background-color: rgb(255, 0, 0)"></div>
-                <span>Weak</span>
-            </div>
+        <div class="info">
+            <p>📡 - Transmitter</p>
+            <p>⬛ - Obstacle</p>
+            <p>Click to place/remove obstacles</p>
         </div>
     </div>
 
     <div id="simulation"></div>
 
     <div id="outputs">
-        <h3>Analysis Results</h3>
-        <div id="output-info">
-            <p>Average Pathloss: <span id="avg-pathloss">N/A</span> dB</p>
-            <p>Coverage Area: <span id="coverage">N/A</span>%</p>
-            <p>Shadow Zones: <span id="shadow-zones">N/A</span></p>
-            <p>Effective Range: <span id="effective-range">N/A</span> m</p>
+        <h3>Analysis</h3>
+        <div class="stats">
+            <div class="stat-item">
+                <span>Average Pathloss:</span>
+                <span id="avgPathloss">N/A</span>
+            </div>
+            <div class="stat-item">
+                <span>Max Pathloss:</span>
+                <span id="maxPathloss">N/A</span>
+            </div>
+            <div class="stat-item">
+                <span>Obstacles:</span>
+                <span id="obstacleCount">0</span>
+            </div>
+            <div class="stat-item">
+                <span>Shadowed Cells:</span>
+                <span id="shadowedCells">0</span>
+            </div>
         </div>
-        
-        <h4>Coverage Distribution</h4>
-        <canvas id="coverage-map"></canvas>
     </div>
 
     <script>
-        const gridSize = 20;
-        const rows = 30;
-        const cols = 30;
-        let transmitter = { x: 15, y: 15 };
-        let isMovingTransmitter = false;
-    
+        // Basic layout setup
+        const gridSize = 20; // Size of each grid cell in pixels
+        const rows = 31; // Number of rows in the grid
+        const cols = 31; // Number of columns in the grid
+        const transmitter = { x: 15, y: 15 }; // Transmitter position (grid coordinates)
+
         const simulationArea = document.getElementById("simulation");
         simulationArea.style.gridTemplateRows = `repeat(${rows}, ${gridSize}px)`;
         simulationArea.style.gridTemplateColumns = `repeat(${cols}, ${gridSize}px)`;
-    
-        const cells = [];
-        let environmentFactors = {
-            urban: { pathLossExp: 3.5, shadowingStdDev: 8 },
-            suburban: { pathLossExp: 3.0, shadowingStdDev: 6 },
-            rural: { pathLossExp: 2.6, shadowingStdDev: 4 },
-            indoor: { pathLossExp: 4.0, shadowingStdDev: 10 }
-        };
-    
-        let weatherFactors = {
-            clear: 0,
-            rain: 5,
-            snow: 8,
-            fog: 3
-        };
-    
-        // Initialize grid
-        function initializeGrid() {
-            simulationArea.innerHTML = '';
-            for (let row = 0; row < rows; row++) {
-                cells[row] = [];
-                for (let col = 0; col < cols; col++) {
-                    const cell = document.createElement("div");
-                    cell.classList.add("cell");
-                    
-                    if (row === transmitter.y && col === transmitter.x) {
-                        cell.classList.add("transmitter");
-                    }
-    
-                    simulationArea.appendChild(cell);
-                    cells[row][col] = { element: cell, pathloss: 0 };
-                }
+
+        const tooltip = document.createElement("div");
+        tooltip.className = "tooltip";
+        tooltip.style.display = "none";
+        document.body.appendChild(tooltip);
+
+        const cells = []; // Store cells for easy manipulation
+
+        // Generate grid with pathloss values
+        for (let row = 0; row < rows; row++) {
+            cells[row] = [];
+            for (let col = 0; col < cols; col++) {
+                const cell = document.createElement("div");
+                cell.classList.add("cell");
+
+                // Calculate distance from transmitter
+                const distance = Math.sqrt((col - transmitter.x) ** 2 + (row - transmitter.y) ** 2);
+
+                // Compute pathloss value (example formula)
+                const pathloss = 20 * Math.log10(distance + 1); // Adding 1 to avoid log(0)
+
+                // Set background color based on pathloss value (heatmap effect)
+                const intensity = Math.min(255, Math.max(0, 255 - pathloss * 5));
+                cell.style.backgroundColor = `rgb(${255 - intensity}, ${intensity}, ${intensity})`;
+
+                simulationArea.appendChild(cell);
+                cells[row][col] = { 
+                    element: cell, 
+                    basePathloss: pathloss, 
+                    currentPathloss: pathloss,
+                    shadows: [] // Store individual shadow contributions
+                };
             }
         }
-    
-        // Calculate pathloss
-        function calculatePathloss(row, col) {
-            const distance = Math.sqrt((col - transmitter.x) ** 2 + (row - transmitter.y) ** 2);
-            const environment = document.getElementById("environment").value;
-            const frequency = parseFloat(document.getElementById("frequency").value);
-            const txPower = parseFloat(document.getElementById("txPower").value);
-            const weather = document.getElementById("weather").value;
-    
-            // Basic free space path loss
-            let pathloss = 20 * Math.log10(distance + 1) + 20 * Math.log10(frequency);
-    
-            // Environment-specific factors
-            pathloss += distance * environmentFactors[environment].pathLossExp;
-    
-            // Weather attenuation
-            pathloss += weatherFactors[weather];
-    
-            // Shadow fading (log-normal distribution)
-            const shadowingStdDev = environmentFactors[environment].shadowingStdDev;
-            const shadowingFading = shadowingStdDev * (Math.random() * 2 - 1);
-            pathloss += shadowingFading;
-    
-            // Obstacle effects
-            let obstacleCount = countObstaclesInPath(row, col);
-            pathloss += obstacleCount * 15; // 15 dB per obstacle
-    
-            return Math.max(0, txPower - pathloss);
-        }
-    
-        // Count obstacles in path
-        function countObstaclesInPath(row, col) {
-            let count = 0;
-            const dx = col - transmitter.x;
-            const dy = row - transmitter.y;
-            const steps = Math.max(Math.abs(dx), Math.abs(dy));
+
+        // Helper function to check if a point is shadowed by an obstacle
+        function isPointShadowed(x, y, obstacleX, obstacleY) {
+            // Vector from transmitter to obstacle
+            const vectToObstacle = {
+                x: obstacleX - transmitter.x,
+                y: obstacleY - transmitter.y
+            };
             
-            if (steps === 0) return 0;
-    
-            for (let i = 0; i <= steps; i++) {
-                const x = Math.round(transmitter.x + (dx * i) / steps);
-                const y = Math.round(transmitter.y + (dy * i) / steps);
-                
-                if (cells[y] && cells[y][x] && cells[y][x].element.classList.contains("obstacle")) {
-                    count++;
-                }
+            // Vector from transmitter to point
+            const vectToPoint = {
+                x: x - transmitter.x,
+                y: y - transmitter.y
+            };
+            
+            // Distance from transmitter to obstacle and point
+            const distToObstacle = Math.sqrt(vectToObstacle.x ** 2 + vectToObstacle.y ** 2);
+            const distToPoint = Math.sqrt(vectToPoint.x ** 2 + vectToPoint.y ** 2);
+            
+            // If point is closer to transmitter than obstacle, it's not shadowed
+            if (distToPoint <= distToObstacle) {
+                return { isShadowed: false, strength: 0 };
             }
-            return count;
-        }
-    
-        // Update visualization
-        function updateVisualization() {
-            let totalPathloss = 0;
-            let coveredCells = 0;
-            let totalCells = 0;
-            let shadowZones = 0;
-    
-            const signalLevels = new Array(10).fill(0); // For histogram
-    
-            for (let row = 0; row < rows; row++) {
-                for (let col = 0; col < cols; col++) {
-                    if (!cells[row][col].element.classList.contains("obstacle")) {
-                        const receivedPower = calculatePathloss(row, col);
-                        totalPathloss += receivedPower;
-                        totalCells++;
-    
-                        // Coverage analysis
-                        if (receivedPower > -90) { // -90 dBm threshold
-                            coveredCells++;
-                        }
-                        if (receivedPower < -100) { // Shadow zone threshold
-                            shadowZones++;
-                        }
-    
-                        // Update cell color based on signal strength
-                        const normalizedPower = (receivedPower + 100) / 100; // Normalize to 0-1
-                        const signalLevel = Math.floor(normalizedPower * 10);
-                        signalLevels[Math.min(9, Math.max(0, signalLevel))]++;
-    
-                        const red = Math.min(255, Math.max(0, (1 - normalizedPower) * 255));
-                        const green = Math.min(255, Math.max(0, normalizedPower * 255));
-                        cells[row][col].element.style.backgroundColor = `rgb(${red}, ${green}, 0)`;
-                    }
-                }
+            
+            // Calculate dot product
+            const dotProduct = vectToObstacle.x * vectToPoint.x + vectToObstacle.y * vectToPoint.y;
+            const cosAngle = dotProduct / (distToObstacle * distToPoint);
+            
+            // Calculate shadow strength based on alignment
+            if (cosAngle > 0.95) { // About 18 degrees
+                const strength = (cosAngle - 0.95) / 0.05; // Normalize to 0-1
+                return { 
+                    isShadowed: true, 
+                    strength: strength,
+                    distance: distToPoint - distToObstacle // Distance traveled in shadow
+                };
             }
-    
-            // Update statistics
-            document.getElementById("avg-pathloss").textContent = 
-                (totalPathloss / totalCells).toFixed(2);
-            document.getElementById("coverage").textContent = 
-                ((coveredCells / totalCells) * 100).toFixed(1);
-            document.getElementById("shadow-zones").textContent = shadowZones;
-            document.getElementById("effective-range").textContent = 
-                calculateEffectiveRange().toFixed(1);
-    
-            // Update coverage distribution chart
-            updateCoverageChart(signalLevels);
+            
+            return { isShadowed: false, strength: 0 };
         }
-    
-        // Calculate effective range
-        function calculateEffectiveRange() {
-            const txPower = parseFloat(document.getElementById("txPower").value);
-            const environment = document.getElementById("environment").value;
-            return Math.sqrt(Math.pow(10, (txPower - 90) / 
-                (10 * environmentFactors[environment].pathLossExp)));
-        }
-    
-        // Update coverage chart
-        function updateCoverageChart(signalLevels) {
-            const canvas = document.getElementById("coverage-map");
-            const ctx = canvas.getContext("2d");
-            const width = canvas.width;
-            const height = canvas.height;
-    
-            ctx.clearRect(0, 0, width, height);
-            const maxLevel = Math.max(...signalLevels);
-    
-            ctx.fillStyle = "rgba(0, 128, 255, 0.5)";
-            const barWidth = width / signalLevels.length;
-    
-            signalLevels.forEach((level, i) => {
-                const barHeight = (level / maxLevel) * height;
-                ctx.fillRect(i * barWidth, height - barHeight, barWidth - 1, barHeight);
+
+        // Function to combine multiple shadow effects
+        function combineShadowEffects(shadows) {
+            if (shadows.length === 0) return 0;
+            
+            // Sort shadows by strength
+            shadows.sort((a, b) => b.strength - a.strength);
+            
+            // Primary shadow effect (strongest shadow)
+            let totalAttenuation = shadows[0].strength * 2;
+            
+            // Additional shadows contribute logarithmically less
+            for (let i = 1; i < shadows.length; i++) {
+                const additionalAttenuation = (shadows[i].strength * 2) / (i + 1);
+                totalAttenuation += additionalAttenuation;
+            }
+            
+            // Scale attenuation based on distance traveled in shadow
+            shadows.forEach(shadow => {
+                const distanceScale = Math.log10(shadow.distance + 1) / 2;
+                totalAttenuation *= (1 + distanceScale);
             });
+            
+            return totalAttenuation;
         }
-    
-        // Event handlers
-        function clearObstacles() {
-            for (let row = 0; row < rows; row++) {
-                for (let col = 0; col < cols; col++) {
-                    cells[row][col].element.classList.remove("obstacle");
+
+        // Function to update cell pathloss and return the new value
+        function updateCellPathloss(row, col, obstacles) {
+            const cell = cells[row][col];
+            
+            if (!cell.element.classList.contains("obstacle")) {
+                // Reset shadows array
+                cell.shadows = [];
+                
+                // Check shadows from all obstacles
+                for (const obstacle of obstacles) {
+                    const shadowInfo = isPointShadowed(col, row, obstacle.x, obstacle.y);
+                    if (shadowInfo.isShadowed) {
+                        cell.shadows.push(shadowInfo);
+                    }
                 }
+                
+                // Calculate combined shadow effect
+                const shadowAttenuation = combineShadowEffects(cell.shadows);
+                cell.currentPathloss = cell.basePathloss + shadowAttenuation;
+
+                // Update cell color based on new pathloss
+                const intensity = Math.min(255, Math.max(0, 255 - cell.currentPathloss * 5));
+                cell.element.style.backgroundColor = `rgb(${255 - intensity}, ${intensity}, ${intensity})`;
             }
-            updateVisualization();
+            
+            return cell;
         }
-    
-        function randomizeObstacles() {
-            clearObstacles();
-            const environment = document.getElementById("environment").value;
-            const obstacleDensity = {
-                urban: 0.2,
-                suburban: 0.1,
-                rural: 0.05,
-                indoor: 0.15
-            }[environment];
-    
+
+        // Update pathloss values when obstacles are placed
+        function updatePathloss() {
+            // Find all obstacles
+            const obstacles = [];
             for (let row = 0; row < rows; row++) {
                 for (let col = 0; col < cols; col++) {
-                    if (Math.random() < obstacleDensity && 
-                        !(row === transmitter.y && col === transmitter.x)) {
-                        cells[row][col].element.classList.add("obstacle");
+                    if (cells[row][col].element.classList.contains("obstacle")) {
+                        obstacles.push({ x: col, y: row });
                     }
                 }
             }
-            updateVisualization();
-        }
-    
-        function moveTransmitter() {
-            isMovingTransmitter = !isMovingTransmitter;
-            document.body.style.cursor = isMovingTransmitter ? 'crosshair' : 'default';
-        }
-    
-        // Event listeners
-        simulationArea.addEventListener("click", (e) => {
-            const rect = simulationArea.getBoundingClientRect();
-            const col = Math.floor((e.clientX - rect.left) / gridSize);
-            const row = Math.floor((e.clientY - rect.top) / gridSize);
-    
-            if (isMovingTransmitter) {
-                // Remove old transmitter
-                cells[transmitter.y][transmitter.x].element.classList.remove("transmitter");
-                
-                // Update transmitter position
-                transmitter = { x: col, y: row };
-                cells[row][col].element.classList.add("transmitter");
-                cells[row][col].element.classList.remove("obstacle");
-                
-                isMovingTransmitter = false;
-                document.body.style.cursor = 'default';
-            } else {
-                // Toggle obstacle
-                if (!(row === transmitter.y && col === transmitter.x)) {
-                    cells[row][col].element.classList.toggle("obstacle");
+
+            // Update all cells
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < cols; col++) {
+                    updateCellPathloss(row, col, obstacles);
                 }
             }
-            updateVisualization();
+        }
+
+        // Place obstacles
+        simulationArea.addEventListener("click", (e) => {
+            const cell = e.target;
+            if (cell && cell.classList.contains("cell")) {
+                cell.classList.toggle("obstacle");
+                updatePathloss();
+                
+                // Update tooltip immediately if it's visible
+                const hoveredCell = document.querySelector(".cell:hover");
+                if (hoveredCell) {
+                    updateTooltip(hoveredCell);
+                }
+            }
         });
-    
-        // Initialize and start simulation
-        initializeGrid();
-        updateVisualization();
-    
-        // Add event listeners for parameter changes
-        document.getElementById("environment").addEventListener("change", updateVisualization);
-        document.getElementById("frequency").addEventListener("change", updateVisualization);
-        document.getElementById("txPower").addEventListener("change", updateVisualization);
-        document.getElementById("weather").addEventListener("change", updateVisualization);
 
-        // Clear obstacles button
-        document.getElementById("clearObstaclesBtn").addEventListener("click", clearObstacles);
+        // Function to update tooltip content
+        function updateTooltip(cell) {
+            const row = Math.floor(Array.from(simulationArea.children).indexOf(cell) / cols);
+            const col = Array.from(simulationArea.children).indexOf(cell) % cols;
+            const cellData = cells[row][col];
+            
+            let tooltipText = `Base Pathloss: ${cellData.basePathloss.toFixed(2)}`;
+            if (cellData.shadows && cellData.shadows.length > 0) {
+                tooltipText += `\nShadows: ${cellData.shadows.length}`;
+                tooltipText += `\nShadow Attenuation: ${(cellData.currentPathloss - cellData.basePathloss).toFixed(2)}`;
+            }
+            tooltipText += `\nTotal Pathloss: ${cellData.currentPathloss.toFixed(2)}`;
+            
+            tooltip.textContent = tooltipText;
+            tooltip.style.whiteSpace = "pre-line";
+        }
 
-        // Randomize obstacles button
-        document.getElementById("randomizeObstaclesBtn").addEventListener("click", randomizeObstacles);
+        // Enhanced tooltip display with shadow information
+        simulationArea.addEventListener("mousemove", (e) => {
+            const cell = e.target;
+            if (cell && cell.classList.contains("cell")) {
+                updateTooltip(cell);
+                tooltip.style.left = `${e.pageX}px`;
+                tooltip.style.top = `${e.pageY}px`;
+                tooltip.style.display = "block";
+            }
+        });
 
-        // Move transmitter button
-        document.getElementById("moveTransmitterBtn").addEventListener("click", moveTransmitter);
-        </script>
-    </body>
+        simulationArea.addEventListener("mouseleave", () => {
+            tooltip.style.display = "none";
+        });
+        
+        // Environment coefficients
+        const environmentFactors = {
+            urban: { baseAttenuation: 3, distanceFactor: 1.2 },
+            suburban: { baseAttenuation: 2, distanceFactor: 1 },
+            rural: { baseAttenuation: 1, distanceFactor: 0.8 }
+        };
+
+        // Clear grid button
+        document.getElementById('clearGrid').addEventListener('click', () => {
+            cells.forEach(row => {
+                row.forEach(cell => {
+                    cell.element.classList.remove('obstacle');
+                });
+            });
+            updatePathloss();
+            updateStats();
+        });
+
+        // Random obstacles button
+        document.getElementById('randomObstacles').addEventListener('click', () => {
+            const obstacleCount = Math.floor(rows * cols * 0.1); // 10% of grid
+            cells.forEach(row => {
+                row.forEach(cell => {
+                    cell.element.classList.remove('obstacle');
+                });
+            });
+            
+            for (let i = 0; i < obstacleCount; i++) {
+                const row = Math.floor(Math.random() * rows);
+                const col = Math.floor(Math.random() * cols);
+                if (!cells[row][col].element.classList.contains('transmitter')) {
+                    cells[row][col].element.classList.add('obstacle');
+                }
+            }
+            updatePathloss();
+            updateStats();
+        });
+
+        // Mark transmitter cell
+        cells[transmitter.y][transmitter.x].element.classList.add('transmitter');
+
+        // Environment change handler
+        document.getElementById('setting').addEventListener('change', (e) => {
+            updatePathloss();
+            updateStats();
+        });
+
+        // Attenuation change handler
+        document.getElementById('attenuation').addEventListener('change', (e) => {
+            updatePathloss();
+            updateStats();
+        });
+
+        function updateStats() {
+            let totalPathloss = 0;
+            let maxPathloss = -Infinity;
+            let cellCount = 0;
+            let shadowedCount = 0;
+            let obstacleCount = 0;
+
+            cells.forEach(row => {
+                row.forEach(cell => {
+                    if (cell.element.classList.contains('obstacle')) {
+                        obstacleCount++;
+                    } else {
+                        totalPathloss += cell.currentPathloss;
+                        maxPathloss = Math.max(maxPathloss, cell.currentPathloss);
+                        cellCount++;
+                        if (cell.shadows.length > 0) shadowedCount++;
+                    }
+                });
+            });
+
+            document.getElementById('avgPathloss').textContent = 
+                `${(totalPathloss / cellCount).toFixed(2)} dB`;
+            document.getElementById('maxPathloss').textContent = 
+                `${maxPathloss.toFixed(2)} dB`;
+            document.getElementById('obstacleCount').textContent = obstacleCount;
+            document.getElementById('shadowedCells').textContent = shadowedCount;
+        }
+
+        // Update stats after each change
+        const originalUpdatePathloss = updatePathloss;
+        updatePathloss = function() {
+            originalUpdatePathloss();
+            updateStats();
+        };
+
+        // Initial stats update
+        updateStats();
+    </script>
+</body>
 </html>
