@@ -255,6 +255,37 @@
             tooltip.style.whiteSpace = "pre-line";
         }
 
+        function updatePathloss() {
+            // Find all obstacles
+            const obstacles = [];
+            let totalPathloss = 0;
+            let cellCount = 0;
+
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < cols; col++) {
+                    if (cells[row][col].element.classList.contains("obstacle")) {
+                        obstacles.push({ x: col, y: row });
+                    }
+                }
+            }
+
+            // Update all cells and calculate average pathloss
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < cols; col++) {
+                    const cell = updateCellPathloss(row, col, obstacles);
+                    
+                    if (!cell.element.classList.contains("obstacle")) {
+                        totalPathloss += cell.currentPathloss;
+                        cellCount++;
+                    }
+                }
+            }
+
+            // Update average pathloss in output section
+            const averagePathloss = totalPathloss / cellCount;
+            document.getElementById("output-info").textContent = `Average Pathloss: ${averagePathloss.toFixed(2)}`;
+        }
+
         // Enhanced tooltip display with shadow information
         simulationArea.addEventListener("mousemove", (e) => {
             const cell = e.target;
