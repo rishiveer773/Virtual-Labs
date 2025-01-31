@@ -558,38 +558,34 @@
         }
 
         function resetSimulation() {
-            // Reset the slider for Scenario 2
-            const distanceSlider = document.getElementById('distance-slider');
-            if (distanceSlider) {
-                distanceSlider.value = 150;
-                document.getElementById('slider-value').textContent = `Position: 150 meters`;
-                document.getElementById('obstacleDistance').value = 150;
-            }
-
-            // Clear messages
-            const messageElement = document.getElementById('message');
-            if (messageElement) {
-                messageElement.textContent = '';
-            }
-
             // Stop any ongoing animation
             cancelAnimationFrame(animationFrame);
 
-            // Reset common state variables
+            // Reset to Scenario 1
             currentScenario = 1;
             isScenario1Complete = false;
 
-            // Reset inputs
-            document.getElementById('scenario1').checked = true;
+            // Reset inputs to default values
             document.getElementById('frequency').value = '100';
             document.getElementById('velocity').value = '0';
-            document.getElementById('wallDistance').value = '200';
+            document.getElementById('initialDistance').value = '300';
+
+            // Hide Scenario 2 and 3 inputs, show Scenario 1 inputs
+            document.getElementById('scenario1-inputs').style.display = 'block';
+            document.getElementById('scenario2-inputs').style.display = 'none';
+            document.getElementById('scenario3-inputs').style.display = 'none';
 
             // Reset receiver state
-            receiver.x = transmitter.x + 300;
+            receiver.x = transmitter.x + receiver.initialDistance;
             receiver.velocity = 0;
             receiver.direction = 1;
-            maxDopplerShift = 0;
+            receiver.isFlipped = false;
+
+            // Reset wall position and hide it
+            wall.x = -1000; // Move the wall off-screen
+            wall.y = 100; // Reset wall y-position
+            wall.width = 20; // Reset wall width
+            wall.height = 200; // Reset wall height
 
             // Clear results
             if (resultsDiv) resultsDiv.innerHTML = '';
@@ -597,6 +593,9 @@
 
             // Redraw the simulation
             draw();
+
+            // Log reset for debugging
+            console.log("Simulation reset to Scenario 1");
         }
         
         function startCalculation() {
