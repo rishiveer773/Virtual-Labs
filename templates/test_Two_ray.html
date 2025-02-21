@@ -13,8 +13,9 @@
             flex-direction: column;
             background: linear-gradient(135deg, #f5f7fa, #c3cfe2);
             color: #333;
+            min-height: 100vh;
         }
-
+    
         .header {
             text-align: center;
             margin-bottom: 20px;
@@ -23,22 +24,25 @@
             color: white;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
-
+    
         .container {
             display: flex;
             flex-wrap: wrap;
             padding: 20px;
             gap: 20px;
+            justify-content: center;
         }
-
+    
         .input-section, .output-section {
             flex: 1;
             background: white;
             padding: 20px;
             border-radius: 10px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            max-width: 400px; /* Limit width for better readability */
+            box-sizing: border-box;
         }
-
+    
         .simulation-section {
             flex: 3;
             background: white;
@@ -46,36 +50,42 @@
             border-radius: 10px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             text-align: center;
+            box-sizing: border-box;
         }
-
+    
         canvas {
             border: 1px solid #ccc;
             display: block;
             margin: 0 auto;
             background-color: #fff;
         }
-
+    
         .controls, .results {
             background-color: #f9f9f9;
             padding: 15px;
             border-radius: 5px;
             margin-bottom: 20px;
+            box-sizing: border-box;
         }
-
+    
         .results {
             overflow-y: auto;
-            max-height: 250px;
+            max-height: 300px; /* Increased height to avoid scrollbars */
+            padding: 10px;
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 5px;
         }
-
+    
         .transmitter-image, .receiver-image {
             max-width: 100px;
             max-height: 100px;
         }
-
+    
         .receiver {
             transition: transform 0.2s ease-in-out;
         }
-
+    
         button {
             background-color: #4a90e2;
             color: white;
@@ -84,24 +94,76 @@
             border-radius: 5px;
             cursor: pointer;
             transition: background-color 0.3s ease;
+            width: 100%;
+            margin-top: 10px;
+            font-size: 14px;
         }
-
+    
         button:hover {
             background-color: #357abd;
         }
-
+    
         input[type="number"], input[type="range"] {
-            width: 100%;
+            width: calc(100% - 20px);
             padding: 10px;
             margin: 10px 0;
             border-radius: 5px;
             border: 1px solid #ccc;
+            box-sizing: border-box;
+            font-size: 14px;
         }
-
+    
+        input[type="range"] {
+            padding: 0;
+        }
+    
         label {
             font-weight: bold;
             margin-top: 10px;
             display: block;
+            color: #333;
+        }
+    
+        /* Radio button styling */
+        input[type="radio"] {
+            margin-right: 10px;
+        }
+    
+        input[type="radio"] + label {
+            display: inline-block;
+            margin-bottom: 10px;
+            font-weight: normal;
+            color: #555;
+        }
+    
+        /* Slider value display */
+        #wallPositionDisplay, #wallPositionDisplay3 {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #555;
+        }
+    
+        /* Output section styling */
+        .output-section h2 {
+            margin-top: 0;
+        }
+    
+        .results p {
+            margin: 5px 0;
+            font-size: 14px;
+            color: #333;
+        }
+    
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+                align-items: center;
+            }
+    
+            .input-section, .output-section, .simulation-section {
+                max-width: 100%;
+            }
         }
     </style>
 </head>
@@ -215,6 +277,9 @@
         }
 
         function startScenario1() {
+            isScenario1Complete = true; // Mark Scenario 1 as done
+            document.getElementById("scenario2").disabled = false; // Enable Scenario 2
+
             // Clear any existing animation
             cancelAnimationFrame(animationFrame);
             
@@ -226,6 +291,9 @@
             // Calculate max Doppler shift
             maxDopplerShift = calculateMaxDopplerShift(frequency, receiver.velocity);
 
+            isScenario1Complete = true;
+            document.getElementById("scenario2").disabled = false;
+
             // Initialize receiver position
             receiver.x = transmitter.x + receiver.initialDistance;
             receiver.direction = 1;
@@ -235,16 +303,12 @@
         }
 
         function animateScenario1() {
-            // Only continue animation if we're in scenario 1
             if (currentScenario !== 1) {
                 cancelAnimationFrame(animationFrame);
                 return;
             }
 
             const margin = 50;
-
-            // Store the previous direction
-            const previousDirection = receiver.direction;
 
             // Update receiver position
             receiver.x += receiver.velocity * receiver.direction * 0.2;
@@ -257,11 +321,6 @@
             if (receiver.x > canvas.width - margin) {
                 receiver.x = canvas.width - margin;
                 receiver.direction *= -1;
-            }
-
-            // Check if direction has changed
-            if (previousDirection !== receiver.direction) {
-                receiver.isFlipped = receiver.direction === -1;
             }
 
             // Calculate results
@@ -281,7 +340,7 @@
 
             draw();
 
-            // Simplified animation loop
+            // Request the next animation frame
             animationFrame = requestAnimationFrame(animateScenario1);
         }
 
@@ -302,6 +361,9 @@
         }
 
         function startScenario2() {
+            isScenario2Complete = true; // Mark Scenario 2 as done
+            document.getElementById("scenario3").disabled = false; // Enable Scenario 3
+
             // Cancel any existing animation from scenario 1
             cancelAnimationFrame(animationFrame);
 
@@ -543,71 +605,49 @@
             }
         }
 
+        let isScenario2Complete = false;
+
         function setScenario(num) {
+            if (num === 2 && !isScenario1Complete) {
+                alert("Please complete Scenario 1 first.");
+                return;
+            }
+            if (num === 3 && !isScenario2Complete) {
+                alert("Please complete Scenario 2 first.");
+                return;
+            }
+
             currentScenario = num;
 
-            if (num === 3) {
-                // Show Scenario 3 inputs
-                document.getElementById('scenario3-inputs').style.display = 'block';
-                document.getElementById('scenario1-inputs').style.display = 'none';
-                document.getElementById('scenario2-inputs').style.display = 'none';
+            // Show/hide inputs based on the selected scenario
+            document.getElementById('scenario1-inputs').style.display = num === 1 ? 'block' : 'none';
+            document.getElementById('scenario2-inputs').style.display = num === 2 ? 'block' : 'none';
+            document.getElementById('scenario3-inputs').style.display = num === 3 ? 'block' : 'none';
 
-                // Initialize the slider for wall position
-                const wallSlider = document.getElementById('wallSlider3');
-                wallSlider.min = 50;
-                wallSlider.max = 350;
-                wallSlider.value = 0;
-
-                wallSlider.oninput = function () {
-                    updateWallPositionScenario3(parseFloat(this.value));
-                };
-                updateWallPositionScenario3(0);
-
-                // Ensure receiver is not stationary
+            // Reset receiver and wall positions for the new scenario
+            if (num === 1) {
+                receiver.x = transmitter.x + receiver.initialDistance;
                 receiver.velocity = 0;
-                draw(); // Redraw the canvas for Scenario 3
+                wall.x = -1000; // Hide the wall
             } else if (num === 2) {
-                // Logic for Scenario 2
-                document.getElementById('scenario2-inputs').style.display = 'block';
-                document.getElementById('scenario1-inputs').style.display = 'none';
-                document.getElementById('scenario3-inputs').style.display = 'none';
-
-                // Initialize the slider for wall position
-                const wallSlider = document.getElementById('wallSlider');
-                const WALL_MIN = -320; // Minimum wall position
-                const WALL_MAX = 350;  // Maximum wall position
-                wallSlider.min = WALL_MIN;
-                wallSlider.max = WALL_MAX;
-                wallSlider.value = 0; // Reset to initial position
-
-                // Set up event listener for slider input
-                wallSlider.oninput = function () {
-                    updateWallPosition(parseFloat(this.value));
-                };
-                updateWallPosition(0); // Place the wall at the initial position
-
-                // Set receiver as stationary in Scenario 2
-                receiver.velocity = 0; // Receiver does not move
-                receiver.x = transmitter.x + 400; // Fixed receiver position
-                draw(); // Redraw the canvas with Scenario 2 setup
-            } else if (num === 1) {
-                // Logic for Scenario 1
-                document.getElementById('scenario1-inputs').style.display = 'block';
-                document.getElementById('scenario2-inputs').style.display = 'none';
-                document.getElementById('scenario3-inputs').style.display = 'none';
-
-                // Reset Scenario 1 settings
-                resetScenario1();
+                receiver.x = transmitter.x + 200; // Fixed receiver position
+                wall.x = transmitter.x + parseFloat(document.getElementById('wallSlider').value);
+            } else if (num === 3) {
+                receiver.x = transmitter.x + receiver.initialDistance;
+                wall.x = transmitter.x + parseFloat(document.getElementById('wallSlider3').value);
             }
+
+            draw(); // Redraw the canvas
         }
+
 
         function resetSimulation() {
             // Stop any ongoing animation
             cancelAnimationFrame(animationFrame);
 
-            // Reset to Scenario 1
-            currentScenario = 1;
+            // Reset scenario flags
             isScenario1Complete = false;
+            isScenario2Complete = false;
 
             // Reset inputs to default values
             document.getElementById('frequency').value = '100';
@@ -617,35 +657,30 @@
             document.getElementById('wallSlider').value = '0';
             document.getElementById('wallSlider3').value = '0';
 
-            // Hide Scenario 2 and 3 inputs, show Scenario 1 inputs
-            document.getElementById('scenario1-inputs').style.display = 'block';
-            document.getElementById('scenario2-inputs').style.display = 'none';
-            document.getElementById('scenario3-inputs').style.display = 'none';
-
             // Reset receiver state
             receiver.x = transmitter.x + receiver.initialDistance;
             receiver.velocity = 0;
             receiver.direction = 1;
             receiver.isFlipped = false;
 
-            // Reset wall position and hide it
+            // Reset wall position
             wall.x = -1000; // Move the wall off-screen
-            wall.y = 100; // Reset wall y-position
-            wall.width = 20; // Reset wall width
-            wall.height = 200; // Reset wall height
 
             // Clear results
-            if (resultsDiv) resultsDiv.innerHTML = '';
-            if (scenario2ResultsDiv) scenario2ResultsDiv.innerHTML = '';
+            resultsDiv.innerHTML = '';
 
             // Redraw the simulation
             draw();
 
             // Log reset for debugging
-            console.log("Simulation reset to Scenario 1");
+            console.log("Simulation reset to initial state");
         }
 
+
         function startCalculation() {
+            // Stop any ongoing animation
+            cancelAnimationFrame(animationFrame);
+
             const frequency = parseFloat(document.getElementById('frequency').value) * 1e6; // Convert MHz to Hz
             const distance = parseFloat(document.getElementById('distance').value); // Receiver distance
 
@@ -660,6 +695,7 @@
                 receiver.direction = 1;
 
                 animateScenario1();
+                isScenario1Complete = true
             } else if (currentScenario === 2) {
                 // Scenario 2: Reflection
                 const obstacleDistance = parseFloat(document.getElementById('wallSlider').value);
@@ -684,6 +720,7 @@
                 `;
 
                 draw();
+                isScenario2Complete = true;
             } else if (currentScenario === 3) {
                 // Scenario 3: Combination of Free Space and Reflection
                 const velocity = parseFloat(document.getElementById('velocity').value);
