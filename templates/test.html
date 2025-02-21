@@ -13,8 +13,9 @@
             flex-direction: column;
             background: linear-gradient(135deg, #f5f7fa, #c3cfe2);
             color: #333;
+            min-height: 100vh;
         }
-
+    
         .header {
             text-align: center;
             margin-bottom: 20px;
@@ -23,22 +24,25 @@
             color: white;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
-
+    
         .container {
             display: flex;
             flex-wrap: wrap;
             padding: 20px;
             gap: 20px;
+            justify-content: center;
         }
-
+    
         .input-section, .output-section {
             flex: 1;
             background: white;
             padding: 20px;
             border-radius: 10px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            max-width: 400px; /* Limit width for better readability */
+            box-sizing: border-box;
         }
-
+    
         .simulation-section {
             flex: 3;
             background: white;
@@ -46,36 +50,42 @@
             border-radius: 10px;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
             text-align: center;
+            box-sizing: border-box;
         }
-
+    
         canvas {
             border: 1px solid #ccc;
             display: block;
             margin: 0 auto;
             background-color: #fff;
         }
-
+    
         .controls, .results {
             background-color: #f9f9f9;
             padding: 15px;
             border-radius: 5px;
             margin-bottom: 20px;
+            box-sizing: border-box;
         }
-
+    
         .results {
             overflow-y: auto;
-            max-height: 250px;
+            max-height: 300px; /* Increased height to avoid scrollbars */
+            padding: 10px;
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 5px;
         }
-
+    
         .transmitter-image, .receiver-image {
             max-width: 100px;
             max-height: 100px;
         }
-
+    
         .receiver {
             transition: transform 0.2s ease-in-out;
         }
-
+    
         button {
             background-color: #4a90e2;
             color: white;
@@ -84,24 +94,76 @@
             border-radius: 5px;
             cursor: pointer;
             transition: background-color 0.3s ease;
+            width: 100%;
+            margin-top: 10px;
+            font-size: 14px;
         }
-
+    
         button:hover {
             background-color: #357abd;
         }
-
+    
         input[type="number"], input[type="range"] {
-            width: 100%;
+            width: calc(100% - 20px);
             padding: 10px;
             margin: 10px 0;
             border-radius: 5px;
             border: 1px solid #ccc;
+            box-sizing: border-box;
+            font-size: 14px;
         }
-
+    
+        input[type="range"] {
+            padding: 0;
+        }
+    
         label {
             font-weight: bold;
             margin-top: 10px;
             display: block;
+            color: #333;
+        }
+    
+        /* Radio button styling */
+        input[type="radio"] {
+            margin-right: 10px;
+        }
+    
+        input[type="radio"] + label {
+            display: inline-block;
+            margin-bottom: 10px;
+            font-weight: normal;
+            color: #555;
+        }
+    
+        /* Slider value display */
+        #wallPositionDisplay, #wallPositionDisplay3 {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #555;
+        }
+    
+        /* Output section styling */
+        .output-section h2 {
+            margin-top: 0;
+        }
+    
+        .results p {
+            margin: 5px 0;
+            font-size: 14px;
+            color: #333;
+        }
+    
+        /* Responsive design */
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+                align-items: center;
+            }
+    
+            .input-section, .output-section, .simulation-section {
+                max-width: 100%;
+            }
         }
     </style>
 </head>
@@ -424,17 +486,16 @@
                 coherenceTime = 0;
             }
 
-            // Update results
-            const resultsDiv = document.getElementById("results");
+            // Update results for Scenario 3
             resultsDiv.innerHTML = `
                 Direct Path Distance: ${directPathDistance.toFixed(1)} m<br>
-                Reflected Path Distance: ${reflectedPathDistance.toFixed(1)} m<br>
-                ${wallPosition > tx ? "Wall is in the path" : ""}<br>
-                Delay Spread: ${delaySpread > 0 ? (delaySpread * 1e9).toFixed(2) : '0'} ns<br>
-                Coherence Bandwidth: ${coherenceBandwidth > 0 ? (coherenceBandwidth / 1e6).toFixed(2) : '0'} MHz<br>
-                Doppler Spread: ${Math.abs(calculateMaxDopplerShift(frequency, velocity)).toFixed(2)} Hz<br>
-                Coherence Time: ${coherenceTime > 0 ? (coherenceTime * 1000).toFixed(2) : '0'} ms<br>
-                Instantaneous Frequency: ${((frequency + calculateInstantaneousDopplerShift()) / 1e6).toFixed(2)} MHz
+                Reflected Path Distance: ${reflectedPathDistance > 0 ? reflectedPathDistance.toFixed(1) : 'N/A'} m<br>
+                ${isWallBetween ? "Wall is between transmitter and receiver<br>" : ""}
+                Delay Spread: ${delaySpread > 0 ? (delaySpread * 1e9).toFixed(2) : '0.00'} ns<br>
+                Coherence Bandwidth: ${isFinite(coherenceBandwidth) ? (coherenceBandwidth / 1e6).toFixed(2) : 'N/A'} MHz<br>
+                Instantaneous Doppler Shift: ${dopplerShift.toFixed(2)} Hz<br>
+                Instantaneous Frequency: ${instantaneousFrequency.toFixed(2)} MHz<br>
+                Coherence Time: ${isFinite(coherenceTime) ? (coherenceTime * 1000).toFixed(2) : 'N/A'} ms
             `;
 
             // Continue with animation setup
@@ -448,7 +509,6 @@
         }
 
         function animateScenario3() {
-            // Only continue animation if we're in Scenario 3
             if (currentScenario !== 3) {
                 cancelAnimationFrame(animationFrame);
                 return;
@@ -482,10 +542,12 @@
                 const dx = receiver.x - transmitter.x;
                 const directPathDistance = Math.abs(dx);
 
-                // Calculate reflected path
-                const reflectedPathDistance = wall.x > transmitter.x && wall.x < receiver.x 
-                    ? Math.sqrt(Math.pow(wall.x - transmitter.x, 2)) + 
-                    Math.sqrt(Math.pow(receiver.x - wall.x, 2))
+                // Check if the wall is between the transmitter and receiver
+                const isWallBetween = wall.x > transmitter.x && wall.x < receiver.x;
+
+                // Calculate reflected path distance
+                const reflectedPathDistance = isWallBetween
+                    ? Math.sqrt(Math.pow(wall.x - transmitter.x, 2)) + Math.sqrt(Math.pow(receiver.x - wall.x, 2))
                     : 0;
 
                 // Calculate Doppler shift
@@ -493,12 +555,12 @@
                 const instantaneousFrequency = (frequency + dopplerShift) / 1e6;
 
                 // Calculate multipath parameters
-                const delaySpread = reflectedPathDistance > 0 
-                    ? Math.abs((reflectedPathDistance / c) - (directPathDistance / c)) 
+                const delaySpread = reflectedPathDistance > 0
+                    ? Math.abs((reflectedPathDistance / c) - (directPathDistance / c))
                     : 0;
-                    
-                const coherenceBandwidth = delaySpread > 0 
-                    ? 1 / (2 * delaySpread) 
+
+                const coherenceBandwidth = delaySpread > 0
+                    ? 1 / (2 * delaySpread)
                     : Infinity;
 
                 // Calculate coherence time
@@ -510,26 +572,13 @@
                 resultsDiv.innerHTML = `
                     Direct Path Distance: ${directPathDistance.toFixed(1)} m<br>
                     Reflected Path Distance: ${reflectedPathDistance > 0 ? reflectedPathDistance.toFixed(1) : 'N/A'} m<br>
-                    Delay Spread: ${(delaySpread * 1e9).toFixed(2)} ns<br>
+                    ${isWallBetween ? "Wall is between transmitter and receiver<br>" : ""}
+                    Delay Spread: ${delaySpread > 0 ? (delaySpread * 1e9).toFixed(2) : '0.00'} ns<br>
                     Coherence Bandwidth: ${isFinite(coherenceBandwidth) ? (coherenceBandwidth / 1e6).toFixed(2) : 'N/A'} MHz<br>
                     Instantaneous Doppler Shift: ${dopplerShift.toFixed(2)} Hz<br>
                     Instantaneous Frequency: ${instantaneousFrequency.toFixed(2)} MHz<br>
                     Coherence Time: ${isFinite(coherenceTime) ? (coherenceTime * 1000).toFixed(2) : 'N/A'} ms
                 `;
-
-                // Debug logging for movement bounds
-                console.log({
-                    minPosition,
-                    maxPosition,
-                    currentPosition: receiver.x,
-                    velocity: receiver.velocity,
-                    direction: receiver.direction,
-                    wallPosition: wall.x,
-                    dopplerShift,
-                    directPathDistance,
-                    reflectedPathDistance,
-                    delaySpread
-                });
 
                 // Redraw the canvas
                 draw();
@@ -542,8 +591,6 @@
                 cancelAnimationFrame(animationFrame);
             }
         }
-
-        let isScenario2Complete = false;
 
         function setScenario(num) {
             if (num === 2 && !isScenario1Complete) {
