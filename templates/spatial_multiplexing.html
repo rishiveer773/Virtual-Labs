@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spatial Multiplexing Simulation</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/numeric/1.2.6/numeric.min.js"></script>
+    <style>
+        body { text-align: center; font-family: Arial, sans-serif; }
+        .container { 
+            display: flex; 
+            justify-content: center; /* Center the columns instead of spacing them apart */
+            gap: 400px; /* Reduce the gap between columns */
+            margin-top: 20px; 
+            position: relative;
+            min-height: 450px; /* Ensure enough space for antennas */
+        }
+        .column { 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center;
+            justify-content: space-around;
+            min-height: 400px; /* Ensure antennas spread out */
+        }
+        .antenna { 
+            width: 65px; 
+            height: 65px; 
+            margin: 7.5px 0;
+            background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="50" cy="50" r="20" stroke="black" stroke-width="3" fill="none"/><circle cx="50" cy="50" r="12" stroke="black" stroke-width="2" fill="none"/><circle cx="50" cy="50" r="4" stroke="black" stroke-width="1" fill="black"/><rect x="45" y="70" width="10" height="15" fill="black"/></svg>');
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: contain;
+        }
+        canvas { 
+            position: absolute; 
+            top: 0; 
+            left: 0; 
+            z-index: 0; 
+            pointer-events: none; 
+            width: 100%;
+            height: 100%;
+        }
+        .matrix-container, .svd-container { 
+            margin-top: 20px; 
+            overflow-x: auto;
+        }
+        table.matrix { 
+            border-collapse: collapse; 
+            margin: auto; 
+        }
+        table.matrix td { 
+            border: 1px solid black; 
+            padding: 5px; 
+        }
+        .controls {
+            margin: 20px 0;
+        }
+        button {
+            margin: 0 10px;
+            padding: 8px 16px;
+            cursor: pointer;
+        }
+        input {
+            width: 50px;
+            margin: 0 10px;
+        }
+    </style>
+</head>
+<body>
+    <h2>Spatial Multiplexing Virtual Experiment</h2>
+    
+    <div class="controls">
+        <label>Transmit Antennas:</label>
+        <input type="number" id="txCount" value="4" min="1" max="6">
+        <label>Receive Antennas:</label>
+        <input type="number" id="rxCount" value="5" min="1" max="6">
+        <button onclick="simulate()">Simulate</button>
+    </div>
+    
+    <div class="matrix-container" id="matrixContainer"></div>
+    <button style="display: none;" id="svdPrecodingBtn" onclick="performSVD()">SVD Precoding</button>
+    <div class="svd-container" id="svdContainer"></div>
+    
+    <div class="container">
+        <div id="txColumn" class="column"></div>
+        <canvas id="signalCanvas"></canvas>
+        <div id="rxColumn" class="column"></div>
+    </div>
+    
+    <!-- Move the SVD Precoding button here -->
+    <button style="margin-top: 20px;" id="svdPrecodingBtn" onclick="performSVD()">SVD Precoding</button>
+    
+    <div class="matrix-container" id="matrixContainer"></div>
+    <div class="svd-container" id="svdContainer"></div>
+    
+    <h3 id="rankOutput"></h3>
+    <h3 id="capacityOutput"></h3>
+    
+    <script>
+        let matrixData = [];
+        let txElements = [], rxElements = [];
+
+        // Initialize the simulation when the page loads
+        window.onload = function() {
+            simulate();
+        };
+
+        function simulate() {
+            let txCount = parseInt(document.getElementById("txCount").value);
+            let rxCount = parseInt(document.getElementById("rxCount").value);
+            
+            // Limit to reasonable numbers
+            txCount = Math.min(Math.max(txCount, 1), 6);
+            rxCount = Math.min(Math.max(rxCount, 1), 6);
+            
+            document.getElementById("txCount").value = txCount;
+            document.getElementById("rxCount").value = rxCount;
+            
+            let txColumn = document.getElementById("txColumn");
+            let rxColumn = document.getElementById("rxColumn");
+            let canvas = document.getElementById("signalCanvas");
+            let ctx = canvas.getContext("2d");
+            
+            // Set canvas size to match container
+            const container = document.querySelector('.container');
+            canvas.width = container.offsetWidth;
+            canvas.height = container.offsetHeight;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            txColumn.innerHTML = "";
+            rxColumn.innerHTML = "";
+            txElements = [];
+            rxElements = [];
+            
+            // Create antenna elements
+            for (let i = 0; i < txCount; i++) {
+                let div = createAntenna();
+                txColumn.appendChild(div);
+                txElements.push(div);
+            }
+            
+            for (let i = 0; i < rxCount; i++) {
+                let div = createAntenna();
+                rxColumn.appendChild(div);
+                rxElements.push(div);
+            }
+            
+            // Wait for elements to be properly positioned in the DOM
+            setTimeout(() => {
+                // Draw random connections between antennas
+                drawRandomConnections(txElements, rxElements, ctx);
+                
+                // Generate the channel matrix
+                generateMatrix(rxCount, txCount);
+            }, 100);
+        }
+
+        function createAntenna() {
+            let div = document.createElement("div");
+            div.className = "antenna";
+            return div;
+        }
+
+        function drawRandomConnections(txElements, rxElements, ctx) {
+            ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+            ctx.strokeStyle = "gray";
+            ctx.setLineDash([5, 5]);
+            ctx.lineWidth = 1;
+
+            // Create a copy of rxElements to track which ones are connected
+            let availableRxs = [...rxElements];
+            let connectedRxIndexes = new Set();
+            let connectedTxIndexes = new Set();
+
+            // Ensure every transmitting antenna is connected to at least one receiving antenna
+            for (let i = 0; i < txElements.length; i++) {
+                // Connect this tx to a random rx
+                const rxIndex = Math.floor(Math.random() * rxElements.length);
+                drawLine(txElements[i], rxElements[rxIndex], ctx);
+                connectedTxIndexes.add(i);
+                connectedRxIndexes.add(rxIndex);
+            }
+
+            // Optionally, add additional random connections for realism
+            for (let i = 0; i < txElements.length; i++) {
+                if (Math.random() > 0.5) { // 50% chance to add an extra connection
+                    const rxIndex = Math.floor(Math.random() * rxElements.length);
+                    drawLine(txElements[i], rxElements[rxIndex], ctx);
+                    connectedRxIndexes.add(rxIndex);
+                }
+            }
+
+            // Ensure every receiving antenna is connected to at least one transmitting antenna
+            for (let i = 0; i < rxElements.length; i++) {
+                if (!connectedRxIndexes.has(i)) {
+                    // Connect this rx to a random tx
+                    const txIndex = Math.floor(Math.random() * txElements.length);
+                    drawLine(txElements[txIndex], rxElements[i], ctx);
+                    connectedRxIndexes.add(i);
+                }
+            }
+        }
+
+        function drawLine(tx, rx, ctx) {
+            let txRect = tx.getBoundingClientRect();
+            let rxRect = rx.getBoundingClientRect();
+            
+            // Calculate relative positions to the canvas
+            const canvasRect = ctx.canvas.getBoundingClientRect();
+            const txX = txRect.left + txRect.width/2 - canvasRect.left;
+            const txY = txRect.top + txRect.height/2 - canvasRect.top;
+            const rxX = rxRect.left + rxRect.width/2 - canvasRect.left;
+            const rxY = rxRect.top + rxRect.height/2 - canvasRect.top;
+            
+            ctx.beginPath();
+            ctx.moveTo(txX, txY);
+            ctx.lineTo(rxX, rxY);
+            ctx.stroke();
+        }
+
+        function generateMatrix(nr, nt) {
+            matrixData = [];
+            const matrixContainer = document.getElementById('matrixContainer');
+            matrixContainer.innerHTML = '<h3>Channel Matrix (H)</h3>';
+
+            const table = document.createElement('table');
+            table.classList.add('matrix');
+
+            for (let i = 0; i < nr; i++) {
+                const row = document.createElement('tr');
+                const rowData = [];
+                for (let j = 0; j < nt; j++) {
+                    const cell = document.createElement('td');
+                    const value = (Math.random() * 10).toFixed(2);
+                    cell.textContent = value;
+                    rowData.push(parseFloat(value));
+                    row.appendChild(cell);
+                }
+                matrixData.push(rowData);
+                table.appendChild(row);
+            }
+            matrixContainer.appendChild(table);
+            document.getElementById('svdPrecodingBtn').style.display = 'block';
+        }
+
+        function performSVD() {
+            if (matrixData.length === 0) {
+                alert('Please generate a matrix first.');
+                return;
+            }
+
+            const svdContainer = document.getElementById('svdContainer');
+            svdContainer.innerHTML = ''; // Clear previous SVD results
+            
+            try {
+                const svdResult = numeric.svd(matrixData);
+                const { U, S, V } = svdResult;
+                const nonZeroSingularValues = S.filter(val => Math.abs(val) > 1e-10);
+                const R = nonZeroSingularValues.length;
+                
+                document.getElementById("rankOutput").innerText = "Rank (R): " + R;
+                
+                displayMatrix("U", U, "svdContainer");
+                displayMatrix("Σ", numeric.diag(S), "svdContainer");
+                displayMatrix("Vᵀ", V, "svdContainer");
+                
+                setTimeout(() => updateSystem(R), 1000);
+            } catch (error) {
+                svdContainer.innerHTML = '<p style="color: red;">Error performing SVD: ' + error.message + '</p>';
+            }
+        }
+
+        function displayMatrix(label, matrix, containerId) {
+            const container = document.getElementById(containerId);
+            container.innerHTML += `<h3>${label}</h3>`;
+            const table = document.createElement('table');
+            table.classList.add('matrix');
+            for (let i = 0; i < matrix.length; i++) {
+                const row = document.createElement('tr');
+                for (let j = 0; j < matrix[i].length; j++) {
+                    const cell = document.createElement('td');
+                    cell.textContent = matrix[i][j].toFixed(2);
+                    row.appendChild(cell);
+                }
+                table.appendChild(row);
+            }
+            container.appendChild(table);
+        }
+
+        function updateSystem(R) {
+            let txColumn = document.getElementById("txColumn");
+            let rxColumn = document.getElementById("rxColumn");
+            let canvas = document.getElementById("signalCanvas");
+            let ctx = canvas.getContext("2d");
+            
+            txColumn.innerHTML = "";
+            rxColumn.innerHTML = "";
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            let newTx = [], newRx = [];
+            
+            for (let i = 0; i < R; i++) {
+                let tx = createAntenna();
+                let rx = createAntenna();
+                txColumn.appendChild(tx);
+                rxColumn.appendChild(rx);
+                newTx.push(tx);
+                newRx.push(rx);
+            }
+            
+            // Wait for DOM to update
+            setTimeout(() => {
+                // Draw optimized connections
+                ctx.strokeStyle = "red";
+                ctx.lineWidth = 2;
+                ctx.setLineDash([]); // Solid lines for optimized paths
+                
+                newTx.forEach((tx, i) => {
+                    drawLine(tx, newRx[i], ctx);
+                });
+                
+                const capacity = (R * Math.log2(1 + 10)).toFixed(2); // Assuming SNR of 10 dB
+                document.getElementById("capacityOutput").innerText = "Final Capacity: " + capacity + " bps/Hz";
+            }, 100);
+        }
+        
+        // Update canvas size when window is resized
+        window.addEventListener('resize', function() {
+            const container = document.querySelector('.container');
+            const canvas = document.getElementById("signalCanvas");
+            
+            if (container && canvas) {
+                canvas.width = container.offsetWidth;
+                canvas.height = container.offsetHeight;
+                
+                // Redraw connections
+                const ctx = canvas.getContext("2d");
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                
+                if (document.getElementById("rankOutput").innerText) {
+                    // If we've performed SVD, draw the optimized connections
+                    ctx.strokeStyle = "red";
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([]);
+                    
+                    const txs = document.querySelectorAll("#txColumn .antenna");
+                    const rxs = document.querySelectorAll("#rxColumn .antenna");
+                    
+                    for (let i = 0; i < txs.length; i++) {
+                        drawLine(txs[i], rxs[i], ctx);
+                    }
+                } else {
+                    // Otherwise draw the random connections
+                    ctx.strokeStyle = "gray";
+                    ctx.setLineDash([5, 5]);
+                    ctx.lineWidth = 1;
+                    
+                    const txs = document.querySelectorAll("#txColumn .antenna");
+                    const rxs = document.querySelectorAll("#rxColumn .antenna");
+                    
+                    txElements = Array.from(txs);
+                    rxElements = Array.from(rxs);
+                    
+                    drawRandomConnections(txElements, rxElements, ctx);
+                }
+            }
+        });
+    </script>
+</body>
+</html>
