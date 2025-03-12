@@ -332,7 +332,7 @@
         <div id="matrixContainer" class="matrix-container"></div>
         
         <div class="center-button">
-            <button id="svdPrecodingBtn" onclick="performSVD()" style="display: none;">Perform SVD Decomposition</button>
+            <button id="svdPrecodingBtn" onclick="performSVD()" style="display: none;">Perform SVD</button>
         </div>
         
         <div id="svdContainer">
@@ -690,7 +690,7 @@
 
         function visualizeEigenbeams() {
             if (!svdResult) {
-                showError('Please perform SVD decomposition first');
+                showError('Please perform SVD first');
                 return;
             }
             
