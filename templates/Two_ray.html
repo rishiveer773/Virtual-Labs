@@ -33,7 +33,7 @@
             justify-content: center;
         }
     
-        .input-section, .output-section {
+        .input-section {
             flex: 1;
             background: white;
             padding: 20px;
@@ -43,6 +43,17 @@
             box-sizing: border-box;
         }
     
+        .output-section {
+            flex: 1;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            max-width: 700px; /* Limit width for better readability */
+            text-align: center;
+            box-sizing: border-box;
+        }
+
         .simulation-section {
             flex: 3;
             background: white;
@@ -284,7 +295,7 @@
             cancelAnimationFrame(animationFrame);
             
             // Get inputs
-            frequency = parseFloat(document.getElementById('frequency').value) * 1e6; // Hz
+            frequency = parseFloat(document.getElementById('frequency').value); // Hz
             receiver.velocity = parseFloat(document.getElementById('velocity').value); // m/s
             receiver.initialDistance = parseFloat(document.getElementById('initialDistance').value); // m
 
@@ -338,6 +349,9 @@
                 Instantaneous Frequency: ${instantaneousFrequency.toFixed(6)} MHz
             `;
 
+            // Update and draw the signal graph
+            updateSignal(); 
+            
             draw();
 
             // Request the next animation frame
@@ -360,6 +374,7 @@
             draw(); // Redraw canvas with updated wall position
         }
 
+        // Modified startScenario2 to initialize and update the signal graph
         function startScenario2() {
             isScenario2Complete = true; // Mark Scenario 2 as done
             document.getElementById("scenario3").disabled = false; // Enable Scenario 3
@@ -397,6 +412,23 @@
                 Delay Spread: ${(delaySpread * 1e9).toFixed(2)} ns<br>
                 Coherence Bandwidth: ${(coherenceBandwidth / 1e6).toFixed(2)} MHz
             `;
+
+            // For scenario 2, show a static signal
+            // Clear any existing signal history
+            signalHistory.length = 0;
+            signalTime = 0;
+            
+            // Generate a static signal pattern
+            for (let i = 0; i < maxSignalPoints; i++) {
+                const x = (i / maxSignalPoints) * signalCanvas.width;
+                const phaseOffset = directPathDistance < reflectedPathDistance ? 
+                                    Math.PI * (reflectedPathDistance - directPathDistance) / 10 : 0;
+                const y = (signalCanvas.height / 2) * (1 - Math.sin(baseSignalFreq * x + phaseOffset));
+                signalHistory.push({ x, y });
+            }
+            
+            // Update the signal display
+            updateSignal();
 
             // Redraw canvas
             draw();
@@ -580,6 +612,9 @@
                     Coherence Time: ${isFinite(coherenceTime) ? (coherenceTime * 1000).toFixed(2) : 'N/A'} ms
                 `;
 
+                // Update and draw the signal graph
+                updateSignal();     
+
                 // Redraw the canvas
                 draw();
 
@@ -625,7 +660,7 @@
             draw(); // Redraw the canvas
         }
 
-
+        // Add initialization of the signal graph to the restSimulation function
         function resetSimulation() {
             // Stop any ongoing animation
             cancelAnimationFrame(animationFrame);
@@ -653,6 +688,11 @@
 
             // Clear results
             resultsDiv.innerHTML = '';
+
+            // Clear signal history
+            signalHistory.length = 0;
+            signalTime = 0;
+            updateSignal();
 
             // Redraw the simulation
             draw();
@@ -942,17 +982,19 @@
 
         // Add this code after your existing script, before the closing
 
-        // Create a canvas for the signal graph
+        // Create a canvas for the signal graph with improved dimensions
         const signalCanvas = document.createElement('canvas');
         signalCanvas.id = 'signalCanvas';
-        signalCanvas.width = 400;
-        signalCanvas.height = 150;
-        signalCanvas.style.border = '1px solid #ccc';
+        signalCanvas.width = 600; // Wider canvas for better visualization
+        signalCanvas.height = 200; // Taller canvas for better detail
+        signalCanvas.style.border = '1px solid #e2e8f0'; // Lighter border
+        signalCanvas.style.borderRadius = '8px'; // Rounded corners
         signalCanvas.style.marginTop = '20px';
+        signalCanvas.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1)'; // Subtle shadow
 
         // Add a heading and the canvas to the page right after results
         const graphContainer = document.createElement('div');
-        graphContainer.innerHTML = '<h3>Instantaneous Signal</h3>';
+        graphContainer.innerHTML = '<h3 style="font-family: Inter, sans-serif; color: #334155; margin-bottom: 10px;">Instantaneous Signal</h3>';
         graphContainer.appendChild(signalCanvas);
 
         // Insert after results div
@@ -964,7 +1006,7 @@
         // Variables for signal plotting
         let signalTime = 0;
         const signalHistory = [];
-        const maxSignalPoints = 200; // Number of points to display in history
+        const maxSignalPoints = 300; // Increased number of points for smoother curve
         let baseSignalFreq = 0.1; // Base frequency for visualization
         let lastSignalX = 0;
         let lastSignalY = 0;
@@ -974,24 +1016,66 @@
             // Clear the signal canvas
             signalCtx.clearRect(0, 0, signalCanvas.width, signalCanvas.height);
             
-            // Calculate current frequency ratio compared to base frequency
-            // This is based on the instantaneous Doppler shift
+            // Draw background
+            signalCtx.fillStyle = '#f8fafc';
+            signalCtx.fillRect(0, 0, signalCanvas.width, signalCanvas.height);
+            
+            // Calculate current frequency and amplitude modulation
             let currentFrequency = frequency;
-            if (currentScenario === 1 || currentScenario === 3) {
-                // For scenarios with Doppler effect
+            let amplitudeModulation = 1.0; // Default amplitude (no modulation)
+            
+            if (currentScenario === 1) {
+                // For scenario 1: Only frequency modulation (Doppler effect)
                 const dopplerShift = calculateInstantaneousDopplerShift();
                 currentFrequency = frequency + dopplerShift;
+            } 
+            else if (currentScenario === 3) {
+                // For scenario 3: Both frequency and amplitude modulation
+                const dopplerShift = calculateInstantaneousDopplerShift();
+                currentFrequency = frequency + dopplerShift;
+                
+                // Calculate amplitude modulation based on multipath effects
+                const directPathDistance = Math.abs(receiver.x - transmitter.x);
+                const isWallBetween = wall.x > transmitter.x && wall.x < receiver.x;
+                
+                // Calculate reflected path distance
+                let reflectedPathDistance = 0;
+                if (isWallBetween) {
+                    reflectedPathDistance = Math.sqrt(Math.pow(wall.x - transmitter.x, 2)) + 
+                                        Math.sqrt(Math.pow(receiver.x - wall.x, 2));
+                }
+                
+                // Calculate phase difference between direct and reflected paths
+                if (reflectedPathDistance > 0) {
+                    const pathDifference = reflectedPathDistance - directPathDistance;
+                    const wavelength = c / frequency;
+                    const phaseShift = (pathDifference / wavelength) * 2 * Math.PI;
+                    
+                    // Calculate amplitude effect from multipath interference
+                    // This creates a fading effect based on constructive/destructive interference
+                    const interferenceEffect = Math.cos(phaseShift);
+                    
+                    // Scale the interference effect to create visible amplitude modulation
+                    // 0.5 to 1.5 range gives visible AM without totally cancelling the signal
+                    amplitudeModulation = 1.0 + 0.5 * interferenceEffect;
+                }
             }
             
             // Calculate frequency ratio for visualization
-            // We'll use a relative frequency for better visualization
             const freqRatio = currentFrequency / frequency;
             const visualFreq = baseSignalFreq * freqRatio;
             
             // Add new point to signal history
             signalTime += 0.1;
             const signalX = signalTime % signalCanvas.width;
-            const signalY = (signalCanvas.height / 2) * (1 - Math.sin(visualFreq * signalTime));
+            
+            // Calculate signal Y value with appropriate modulation
+            // Center at half canvas height
+            const centerY = signalCanvas.height / 2;
+            // Base signal is a sine wave
+            const baseSineValue = Math.sin(visualFreq * signalTime);
+            // Apply amplitude modulation
+            const signalY = centerY * (1 - amplitudeModulation * baseSineValue);
             
             signalHistory.push({ x: signalX, y: signalY });
             
@@ -1001,305 +1085,179 @@
             }
             
             // Draw grid lines
-            signalCtx.strokeStyle = '#eee';
+            drawGrid();
+            
+            // Draw signal path with appropriate styling
+            drawSignalPath();
+            
+            // Add labels and info
+            drawLabels(currentFrequency, amplitudeModulation);
+        }
+
+        // Function to draw a nicer grid
+        function drawGrid() {
+            // Horizontal grid lines
+            signalCtx.strokeStyle = '#e2e8f0';
             signalCtx.lineWidth = 1;
             
-            // Horizontal center line
+            for (let y = 0; y <= signalCanvas.height; y += signalCanvas.height / 8) {
+                signalCtx.beginPath();
+                signalCtx.moveTo(0, y);
+                signalCtx.lineTo(signalCanvas.width, y);
+                signalCtx.stroke();
+            }
+            
+            // Highlight the center line
+            signalCtx.strokeStyle = '#cbd5e1';
+            signalCtx.lineWidth = 1.5;
             signalCtx.beginPath();
             signalCtx.moveTo(0, signalCanvas.height / 2);
             signalCtx.lineTo(signalCanvas.width, signalCanvas.height / 2);
             signalCtx.stroke();
             
             // Vertical grid lines
-            for (let x = 0; x < signalCanvas.width; x += 40) {
+            signalCtx.strokeStyle = '#e2e8f0';
+            signalCtx.lineWidth = 1;
+            for (let x = 0; x < signalCanvas.width; x += 60) {
                 signalCtx.beginPath();
                 signalCtx.moveTo(x, 0);
                 signalCtx.lineTo(x, signalCanvas.height);
                 signalCtx.stroke();
             }
+        }
+
+        // Function to draw the signal with appropriate styling
+        function drawSignalPath() {
+            if (signalHistory.length <= 1) return;
             
-            // Draw signal path
-            signalCtx.strokeStyle = '#3b82f6';
-            signalCtx.lineWidth = 2;
+            // Create gradient based on scenario
+            let gradient;
+            if (currentScenario === 1) {
+                // Blue gradient for frequency modulation (Doppler only)
+                gradient = signalCtx.createLinearGradient(0, 0, 0, signalCanvas.height);
+                gradient.addColorStop(0, '#3b82f6');   // Blue at top
+                gradient.addColorStop(0.5, '#2563eb'); // Darker blue at middle
+                gradient.addColorStop(1, '#3b82f6');   // Blue at bottom
+            } else if (currentScenario === 3) {
+                // Purple gradient for multipath (AM + FM)
+                gradient = signalCtx.createLinearGradient(0, 0, 0, signalCanvas.height);
+                gradient.addColorStop(0, '#8b5cf6');   // Purple at top
+                gradient.addColorStop(0.5, '#7c3aed'); // Darker purple at middle
+                gradient.addColorStop(1, '#8b5cf6');   // Purple at bottom
+            } else {
+                // Default gradient
+                gradient = signalCtx.createLinearGradient(0, 0, 0, signalCanvas.height);
+                gradient.addColorStop(0, '#3b82f6');   // Default blue
+                gradient.addColorStop(1, '#2563eb');   // Default darker blue
+            }
+            
+            // Draw the main signal line
+            signalCtx.strokeStyle = gradient;
+            signalCtx.lineWidth = 2.5;
+            signalCtx.lineCap = 'round';
+            signalCtx.lineJoin = 'round';
+            
             signalCtx.beginPath();
             
             // Connect the points with lines
-            if (signalHistory.length > 0) {
-                signalCtx.moveTo(signalHistory[0].x, signalHistory[0].y);
-                for (let i = 1; i < signalHistory.length; i++) {
-                    // Check for wrapping around the edge
-                    if (Math.abs(signalHistory[i].x - signalHistory[i-1].x) > signalCanvas.width / 2) {
-                        // Discontinuity due to wrapping, start a new path
-                        signalCtx.stroke();
-                        signalCtx.beginPath();
-                        signalCtx.moveTo(signalHistory[i].x, signalHistory[i].y);
-                    } else {
-                        signalCtx.lineTo(signalHistory[i].x, signalHistory[i].y);
-                    }
+            signalCtx.moveTo(signalHistory[0].x, signalHistory[0].y);
+            for (let i = 1; i < signalHistory.length; i++) {
+                // Check for wrapping around the edge
+                if (Math.abs(signalHistory[i].x - signalHistory[i-1].x) > signalCanvas.width / 2) {
+                    // Discontinuity due to wrapping, start a new path
+                    signalCtx.stroke();
+                    signalCtx.beginPath();
+                    signalCtx.moveTo(signalHistory[i].x, signalHistory[i].y);
+                } else {
+                    signalCtx.lineTo(signalHistory[i].x, signalHistory[i].y);
                 }
-                signalCtx.stroke();
             }
+            signalCtx.stroke();
             
-            // Add labels
-            signalCtx.fillStyle = '#1e293b';
-            signalCtx.font = '12px Inter';
+            // Add a subtle shadow under the curve
+            if (currentScenario === 1) {
+                signalCtx.strokeStyle = 'rgba(59, 130, 246, 0.3)'; // Blue shadow
+            } else if (currentScenario === 3) {
+                signalCtx.strokeStyle = 'rgba(139, 92, 246, 0.3)'; // Purple shadow
+            } else {
+                signalCtx.strokeStyle = 'rgba(59, 130, 246, 0.3)'; // Default shadow
+            }
+            signalCtx.lineWidth = 1;
+            signalCtx.stroke();
+            
+            // Add glow effect
+            if (currentScenario === 1) {
+                signalCtx.shadowColor = 'rgba(59, 130, 246, 0.3)'; // Blue glow
+            } else if (currentScenario === 3) {
+                signalCtx.shadowColor = 'rgba(139, 92, 246, 0.3)'; // Purple glow
+            } else {
+                signalCtx.shadowColor = 'rgba(59, 130, 246, 0.3)'; // Default glow
+            }
+            signalCtx.shadowBlur = 5;
+            signalCtx.shadowOffsetX = 0;
+            signalCtx.shadowOffsetY = 2;
+            signalCtx.stroke();
+            
+            // Reset shadow
+            signalCtx.shadowColor = 'transparent';
+            signalCtx.shadowBlur = 0;
+        }
+
+        // Function to draw labels and information
+        function drawLabels(currentFrequency, amplitudeModulation) {
+            // Reset any transformations or styles
+            signalCtx.setTransform(1, 0, 0, 1, 0, 0);
+            
+            // Draw card-like background for the information area
+            signalCtx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            signalCtx.fillRect(signalCanvas.width - 190, 5, 185, 70);
+            signalCtx.strokeStyle = '#e2e8f0';
+            signalCtx.lineWidth = 1;
+            signalCtx.strokeRect(signalCanvas.width - 190, 5, 185, 70);
+            
+            // Add title
+            signalCtx.fillStyle = '#334155';
+            signalCtx.font = 'bold 12px Inter, sans-serif';
             signalCtx.textAlign = 'left';
-            signalCtx.fillText('Signal Amplitude', 10, 15);
+            signalCtx.fillText('Signal Visualization', 10, 20);
             
-            // Add frequency information
+            // Add modulation type label
+            signalCtx.font = '11px Inter, sans-serif';
+            if (currentScenario === 1) {
+                signalCtx.fillText('Frequency Modulation (Doppler Effect)', 10, 40);
+            } else if (currentScenario === 3) {
+                signalCtx.fillText('Amplitude + Frequency Modulation (Multipath)', 10, 40);
+            } else {
+                signalCtx.fillText('No Modulation', 10, 40);
+            }
+            
+            // Add formatted frequency information
             const normalizedFreq = (currentFrequency / 1e6).toFixed(2);
-            signalCtx.textAlign = 'right';
-            signalCtx.fillText(`Frequency: ${normalizedFreq} MHz`, signalCanvas.width - 10, 15);
-        }
-
-        // Modify the animation functions to include signal updates
-        function animateScenario1() {
-            if (currentScenario !== 1) {
-                cancelAnimationFrame(animationFrame);
-                return;
-            }
-
-            const margin = 50;
-
-            // Update receiver position
-            receiver.x += receiver.velocity * receiver.direction * 0.2;
-
-            // Reverse direction at canvas edges
-            if (receiver.x < margin) {
-                receiver.x = margin;
-                receiver.direction *= -1;
-                receiver.isFlipped = receiver.direction === -1;
-            }
-            if (receiver.x > canvas.width - margin) {
-                receiver.x = canvas.width - margin;
-                receiver.direction *= -1;
-                receiver.isFlipped = receiver.direction === -1;
-            }
-
-            // Calculate results
-            const dopplerShift = calculateInstantaneousDopplerShift();
-            const instantaneousFrequency = (frequency + dopplerShift) / 1e6;
-
-            const dx = receiver.x - transmitter.x;
-            const dy = receiver.y - transmitter.y;
-            const distance = Math.sqrt(dx ** 2 + dy ** 2);
-
-            resultsDiv.innerHTML = `
-                Distance from Transmitter: ${distance.toFixed(1)} m<br>
-                Maximum Possible Doppler Shift: ${maxDopplerShift.toFixed(2)} Hz<br>
-                Instantaneous Doppler Shift: ${dopplerShift.toFixed(2)} Hz<br>
-                Instantaneous Frequency: ${instantaneousFrequency.toFixed(6)} MHz
-            `;
-
-            // Update and draw the signal graph
-            updateSignal();
             
-            draw();
-
-            // Request the next animation frame
-            animationFrame = requestAnimationFrame(animateScenario1);
-        }
-
-        function animateScenario3() {
-            if (currentScenario !== 3) {
-                cancelAnimationFrame(animationFrame);
-                return;
-            }
-
-            try {
-                // Get current velocity value
-                const currentVelocity = parseFloat(document.getElementById('velocity').value);
-                receiver.velocity = currentVelocity;
-
-                // Calculate movement bounds
-                const minPosition = transmitter.x - 350;
-                const maxPosition = wall.x - 30;
-
-                // Update receiver position
-                receiver.x += receiver.velocity * receiver.direction * 0.2;
-
-                // Reverse direction at boundaries and update flipping state
-                if (receiver.x < minPosition) {
-                    receiver.x = minPosition;
-                    receiver.direction *= -1;
-                    receiver.isFlipped = receiver.direction === -1;
-                }
-                if (receiver.x > maxPosition) {
-                    receiver.x = maxPosition;
-                    receiver.direction *= -1;
-                    receiver.isFlipped = receiver.direction === -1;
-                }
-
-                // Calculate distances and path differences
-                const dx = receiver.x - transmitter.x;
-                const directPathDistance = Math.abs(dx);
-
-                // Check if the wall is between the transmitter and receiver
-                const isWallBetween = wall.x > transmitter.x && wall.x < receiver.x;
-
-                // Calculate reflected path distance
-                const reflectedPathDistance = isWallBetween
-                    ? Math.sqrt(Math.pow(wall.x - transmitter.x, 2)) + Math.sqrt(Math.pow(receiver.x - wall.x, 2))
-                    : 0;
-
-                // Calculate Doppler shift
-                const dopplerShift = calculateInstantaneousDopplerShift();
-                const instantaneousFrequency = (frequency + dopplerShift) / 1e6;
-
-                // Calculate multipath parameters
-                const delaySpread = reflectedPathDistance > 0
-                    ? Math.abs((reflectedPathDistance / c) - (directPathDistance / c))
-                    : 0;
-
-                const coherenceBandwidth = delaySpread > 0
-                    ? 1 / (2 * delaySpread)
-                    : Infinity;
-
-                // Calculate coherence time
-                const dopplerSpread = calculateMaxDopplerShift(frequency, receiver.velocity);
-                const coherenceTime = dopplerSpread > 0 ? 1 / (2 * dopplerSpread) : Infinity;
-
-                // Update results with all parameters
-                resultsDiv.innerHTML = `
-                    Direct Path Distance: ${directPathDistance.toFixed(1)} m<br>
-                    Reflected Path Distance: ${reflectedPathDistance > 0 ? reflectedPathDistance.toFixed(1) : 'N/A'} m<br>
-                    ${isWallBetween ? "Wall is between transmitter and receiver<br>" : ""}
-                    Delay Spread: ${delaySpread > 0 ? (delaySpread * 1e9).toFixed(2) : '0.00'} ns<br>
-                    Coherence Bandwidth: ${isFinite(coherenceBandwidth) ? (coherenceBandwidth / 1e6).toFixed(2) : 'N/A'} MHz<br>
-                    Instantaneous Doppler Shift: ${dopplerShift.toFixed(2)} Hz<br>
-                    Instantaneous Frequency: ${instantaneousFrequency.toFixed(2)} MHz<br>
-                    Coherence Time: ${isFinite(coherenceTime) ? (coherenceTime * 1000).toFixed(2) : 'N/A'} ms
-                `;
-
-                // Update and draw the signal graph
-                updateSignal();
-                
-                // Redraw the canvas
-                draw();
-
-                // Request the next animation frame
-                animationFrame = requestAnimationFrame(animateScenario3);
-
-            } catch (error) {
-                console.error("Error in animateScenario3:", error);
-                cancelAnimationFrame(animationFrame);
-            }
-        }
-
-        // Modify startScenario2 to initialize and update the signal graph
-        function startScenario2() {
-            isScenario2Complete = true;
-            document.getElementById("scenario3").disabled = false;
-
-            // Cancel any existing animation from scenario 1
-            cancelAnimationFrame(animationFrame);
-
-            if (!isScenario1Complete) {
-                alert("Please complete Scenario 1 first.");
-                return;
-            }
+            signalCtx.font = '12px Inter, sans-serif';
+            signalCtx.textAlign = 'left';
+            signalCtx.fillText(`Frequency: ${normalizedFreq} MHz`, signalCanvas.width - 180, 25);
+            signalCtx.fillText(`Doppler Effect: ${currentScenario === 1 || currentScenario === 3 ? 'Active' : 'Inactive'}`, signalCanvas.width - 180, 45);
             
-            receiver.velocity = 0;
-
-            // Get wall position from the slider
-            const wallDistance = parseFloat(wallSlider.value);
-
-            // Static positions
-            receiver.x = transmitter.x + 200;
-            wall.x = transmitter.x + wallDistance;
-
-            // Calculate distances
-            const directPathDistance = Math.abs(receiver.x - transmitter.x);
-            const reflectedPathDistance = directPathDistance + 2 * wallDistance;
-
-            // Calculate delay spread and coherence bandwidth
-            const delaySpread = Math.abs((reflectedPathDistance / c) - (directPathDistance / c));
-            const coherenceBandwidth = 1 / (2 * delaySpread);
-
-            // Update output
-            resultsDiv.innerHTML = `
-                Direct Path Distance: ${directPathDistance.toFixed(1)} m<br>
-                Reflected Path Distance: ${reflectedPathDistance.toFixed(1)} m<br>
-                Delay Spread: ${(delaySpread * 1e9).toFixed(2)} ns<br>
-                Coherence Bandwidth: ${(coherenceBandwidth / 1e6).toFixed(2)} MHz
-            `;
-
-            // For scenario 2, show a static signal
-            // Clear any existing signal history
-            signalHistory.length = 0;
-            signalTime = 0;
-            
-            // Generate a static signal pattern
-            for (let i = 0; i < maxSignalPoints; i++) {
-                const x = (i / maxSignalPoints) * signalCanvas.width;
-                const phaseOffset = directPathDistance < reflectedPathDistance ? 
-                                    Math.PI * (reflectedPathDistance - directPathDistance) / 10 : 0;
-                const y = (signalCanvas.height / 2) * (1 - Math.sin(baseSignalFreq * x + phaseOffset));
-                signalHistory.push({ x, y });
-            }
-            
-            // Update the signal display
-            updateSignal();
-            
-            // Redraw canvas
-            draw();
-        }
-
-        // Add an event listener to update the signal when the wall slider changes in Scenario 2
-        document.getElementById('wallSlider').addEventListener('input', function() {
-            if (currentScenario === 2) {
-                startScenario2(); // Recalculate and update everything
-            }
-        });
-
-        // Add similar event listener for Scenario 3
-        document.getElementById('wallSlider3').addEventListener('input', function() {
+            // Add amplitude modulation info for scenario 3
             if (currentScenario === 3) {
-                // Just update the wall position, the animation loop will handle the rest
-                wall.x = transmitter.x + parseFloat(this.value);
-                document.getElementById('wallPositionDisplay3').innerText = `Current Wall Position: ${parseFloat(this.value)} m`;
+                signalCtx.fillText(`Amplitude Mod: ${(amplitudeModulation * 100 - 100).toFixed(1)}%`, signalCanvas.width - 180, 65);
             }
-        });
-
-        // Add initialization of the signal graph to the resetSimulation function
-        function resetSimulation() {
-            // Stop any ongoing animation
-            cancelAnimationFrame(animationFrame);
-
-            // Reset scenario flags
-            isScenario1Complete = false;
-            isScenario2Complete = false;
-
-            // Reset inputs to default values
-            document.getElementById('frequency').value = '100';
-            document.getElementById('velocity').value = '0';
-            document.getElementById('initialDistance').value = '300';
-            document.getElementById('distance').value = '100';
-            document.getElementById('wallSlider').value = '0';
-            document.getElementById('wallSlider3').value = '0';
-
-            // Reset receiver state
-            receiver.x = transmitter.x + receiver.initialDistance;
-            receiver.velocity = 0;
-            receiver.direction = 1;
-            receiver.isFlipped = false;
-
-            // Reset wall position
-            wall.x = -1000; // Move the wall off-screen
-
-            // Clear results
-            resultsDiv.innerHTML = '';
             
-            // Clear signal history
-            signalHistory.length = 0;
-            signalTime = 0;
-            updateSignal();
-
-            // Redraw the simulation
-            draw();
-
-            // Log reset for debugging
-            console.log("Simulation reset to initial state");
+            // Add time markers on the x-axis
+            signalCtx.fillStyle = '#64748b';
+            signalCtx.font = '10px Inter, sans-serif';
+            signalCtx.textAlign = 'center';
+            
+            for (let x = 60; x < signalCanvas.width; x += 60) {
+                signalCtx.fillText(`${(x/60).toFixed(0)}s`, x, signalCanvas.height - 5);
+            }
+            
+            // Add scenario identifier
+            signalCtx.font = '11px Inter, sans-serif';
+            signalCtx.fillStyle = '#94a3b8';
+            signalCtx.textAlign = 'left';
+            signalCtx.fillText(`Scenario ${currentScenario}: ${currentScenario === 1 ? 'Doppler Effect' : currentScenario === 3 ? 'Multipath & Doppler' : 'Other'}`, 10, signalCanvas.height - 8);
         }
     </script>            
 </body>
