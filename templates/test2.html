@@ -360,18 +360,25 @@
         let matrixData = [];
         let txElements = [], rxElements = [];
         let svdResult = null;
-        
+    
         // Initialize on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            // Initial simulation
-            simulate();
+        document.addEventListener('DOMContentLoaded', function () {
+            // Clear the canvas and reset the system diagram
+            const canvas = document.getElementById("signalCanvas");
+            const ctx = canvas.getContext("2d");
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+            // Hide output boxes and buttons
+            document.getElementById("outputBox").style.display = "none";
+            document.getElementById("eigenbeamBtn").style.display = "none";
+            document.getElementById("svdPrecodingBtn").style.display = "none";
         });
-        
+    
         function resetSimulation() {
             // Reset input values
             document.getElementById("txCount").value = 4;
             document.getElementById("rxCount").value = 5;
-            
+    
             // Clear matrix and SVD results
             matrixData = [];
             svdResult = null;
@@ -380,42 +387,42 @@
             document.getElementById("outputBox").style.display = "none";
             document.getElementById("eigenbeamBtn").style.display = "none";
             document.getElementById("svdPrecodingBtn").style.display = "none";
-            
+    
             // Reset antennas
             const txCount = parseInt(document.getElementById("txCount").value);
             const rxCount = parseInt(document.getElementById("rxCount").value);
             renderAntennas(txCount, rxCount);
         }
-        
+    
         function simulate() {
             try {
                 const errorMsg = document.getElementById('errorMessage');
                 errorMsg.style.display = 'none';
-                
+    
                 let txCount = parseInt(document.getElementById("txCount").value);
                 let rxCount = parseInt(document.getElementById("rxCount").value);
-                
+    
                 // Validate input
                 if (isNaN(txCount) || isNaN(rxCount)) {
                     throw new Error("Please enter valid numbers for all inputs");
                 }
-                
+    
                 // Limit to reasonable numbers
                 txCount = Math.min(Math.max(txCount, 1), 8);
                 rxCount = Math.min(Math.max(rxCount, 1), 8);
-                
+    
                 document.getElementById("txCount").value = txCount;
                 document.getElementById("rxCount").value = rxCount;
-                
+    
                 // Reset SVD results
                 svdResult = null;
                 document.getElementById("svdContainer").innerHTML = '<div class="matrix-row"></div>';
                 document.getElementById("outputBox").style.display = "none";
                 document.getElementById("eigenbeamBtn").style.display = "none";
-                
+    
                 renderAntennas(txCount, rxCount);
                 generateChannelMatrix(rxCount, txCount);
-                
+    
                 // Show SVD button
                 document.getElementById("svdPrecodingBtn").style.display = "block";
             } catch (error) {
@@ -424,66 +431,66 @@
                 errorMsg.style.display = 'block';
             }
         }
-
+    
         function renderAntennas(txCount, rxCount) {
             const txColumn = document.getElementById("txColumn");
             const rxColumn = document.getElementById("rxColumn");
             const canvas = document.getElementById("signalCanvas");
             const ctx = canvas.getContext("2d");
-            
+    
             // Set canvas dimensions
             const container = document.querySelector('.container');
             canvas.width = container.offsetWidth;
             canvas.height = container.offsetHeight;
-            
+    
             // Clear previous content
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             txColumn.innerHTML = "";
             rxColumn.innerHTML = "";
             txElements = [];
             rxElements = [];
-            
+    
             // Create antenna elements
             for (let i = 0; i < txCount; i++) {
                 let div = createAntennaElement();
                 txColumn.appendChild(div);
                 txElements.push(div);
             }
-            
+    
             for (let i = 0; i < rxCount; i++) {
                 let div = createAntennaElement();
                 rxColumn.appendChild(div);
                 rxElements.push(div);
             }
-            
+    
             // Wait for elements to be positioned in the DOM
             setTimeout(() => {
                 drawChannelConnections(txElements, rxElements, ctx);
             }, 100);
         }
-
+    
         function createAntennaElement() {
             const div = document.createElement("div");
             div.className = "antenna";
-            
+    
             // Add hover effect
-            div.addEventListener('mouseenter', function() {
+            div.addEventListener('mouseenter', function () {
                 this.classList.add('active');
             });
-            
-            div.addEventListener('mouseleave', function() {
+    
+            div.addEventListener('mouseleave', function () {
                 this.classList.remove('active');
             });
-            
+    
             return div;
         }
-
+    
         function drawChannelConnections(txElements, rxElements, ctx) {
             ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
             ctx.strokeStyle = "rgba(100, 100, 100, 0.6)";
             ctx.setLineDash([5, 5]);
             ctx.lineWidth = 1;
-
+    
             // Draw connections for all antenna pairs
             for (let i = 0; i < txElements.length; i++) {
                 for (let j = 0; j < rxElements.length; j++) {
@@ -491,35 +498,35 @@
                 }
             }
         }
-
+    
         function drawLine(tx, rx, ctx) {
             const txRect = tx.getBoundingClientRect();
             const rxRect = rx.getBoundingClientRect();
-            
+    
             const canvasRect = ctx.canvas.getBoundingClientRect();
-            const txX = txRect.left + txRect.width/2 - canvasRect.left;
-            const txY = txRect.top + txRect.height/2 - canvasRect.top;
-            const rxX = rxRect.left + rxRect.width/2 - canvasRect.left;
-            const rxY = rxRect.top + rxRect.height/2 - canvasRect.top;
-            
+            const txX = txRect.left + txRect.width / 2 - canvasRect.left;
+            const txY = txRect.top + txRect.height / 2 - canvasRect.top;
+            const rxX = rxRect.left + rxRect.width / 2 - canvasRect.left;
+            const rxY = rxRect.top + rxRect.height / 2 - canvasRect.top;
+    
             ctx.beginPath();
             ctx.moveTo(txX, txY);
             ctx.lineTo(rxX, rxY);
             ctx.stroke();
         }
-
+    
         function generateChannelMatrix(nr, nt) {
             matrixData = [];
             const matrixContainer = document.getElementById('matrixContainer');
             matrixContainer.innerHTML = '';
-
+    
             // Always generate a Random Rayleigh channel matrix
             matrixData = generateRandomMatrix(nr, nt);
-
+    
             // Display the matrix
             const table = document.createElement('table');
             table.classList.add('matrix');
-
+    
             for (let i = 0; i < nr; i++) {
                 const row = document.createElement('tr');
                 for (let j = 0; j < nt; j++) {
@@ -531,7 +538,7 @@
             }
             matrixContainer.appendChild(table);
         }
-        
+    
         function generateRandomMatrix(nr, nt) {
             // Rayleigh fading channel: complex Gaussian entries
             const matrix = [];
@@ -546,79 +553,38 @@
             }
             return matrix;
         }
-        
-        function generateLOSMatrix(nr, nt) {
-            // Line of Sight channel: dominant diagonal with some scatter
-            const matrix = [];
-            for (let i = 0; i < nr; i++) {
-                const row = [];
-                for (let j = 0; j < nt; j++) {
-                    let value;
-                    if (i < nt && i === j) {
-                        // Strong direct path
-                        value = 2.0 + (Math.random() * 0.5);
-                    } else {
-                        // Weak scatter
-                        value = Math.random() * 0.5;
-                    }
-                    row.push(value);
-                }
-                matrix.push(row);
-            }
-            return matrix;
-        }
-        
-        function generateCorrelatedMatrix(nr, nt) {
-            // Correlated channel: similar values in adjacent antennas
-            const matrix = [];
-            const baseSeed = Array(nt).fill(0).map(() => Math.random() * 2 - 1);
-            
-            for (let i = 0; i < nr; i++) {
-                const row = [];
-                const rowBase = Math.random() * 2 - 1;
-                
-                for (let j = 0; j < nt; j++) {
-                    // Correlation with neighbors
-                    const neighborEffect = (j > 0 ? 0.3 * row[j-1] : 0);
-                    const value = 0.5 * rowBase + 0.5 * baseSeed[j] + neighborEffect + Math.random() * 0.5;
-                    row.push(value);
-                }
-                matrix.push(row);
-            }
-            return matrix;
-        }
-
+    
         function performSVD() {
             if (matrixData.length === 0) {
                 showError('Please generate a matrix first');
                 return;
             }
-
+    
             try {
                 const svdContainer = document.getElementById('svdContainer');
                 svdContainer.innerHTML = '<div class="matrix-row"></div>';
-                
+    
                 // Perform SVD
                 svdResult = numeric.svd(matrixData);
                 const { U, S, V } = svdResult;
-                
+    
                 // Count significant singular values (effective rank)
                 const threshold = 1e-10;
                 const nonZeroSingularValues = S.filter(val => Math.abs(val) > threshold);
                 const R = nonZeroSingularValues.length;
-                
+    
                 // Calculate condition number
-                const conditionNumber = (S[0] > threshold) ? (S[0] / S[Math.min(R-1, S.length-1)]).toFixed(2) : "∞";
-                
+                const conditionNumber = (S[0] > threshold) ? (S[0] / S[Math.min(R - 1, S.length - 1)]).toFixed(2) : "∞";
+    
                 // Show output metrics
                 document.getElementById("outputBox").style.display = "block";
                 document.getElementById("rankOutput").innerText = R;
                 document.getElementById("conditionOutput").innerText = conditionNumber;
                 document.getElementById("rankInfo").innerText = R;
-                
+    
                 // Display the decomposition matrices
                 displayMatrix("U (Left Singular Vectors)", U, "svdContainer");
-                
+    
                 // Create diagonal Σ matrix
                 const Sigma = [];
                 for (let i = 0; i < S.length; i++) {
@@ -627,19 +593,22 @@
                     Sigma.push(row);
                 }
                 displayMatrix("Σ (Singular Values)", Sigma, "svdContainer");
-                
+    
                 displayMatrix("Vᵀ (Right Singular Vectors)", V, "svdContainer");
-                
+    
                 // Calculate and display capacity
-                calculateCapacity(S, snrDb);
-                
+                calculateCapacity(S);
+    
                 // Enable eigenbeam visualization button
                 document.getElementById("eigenbeamBtn").style.display = "block";
+    
+                // Update system diagram
+                updateSystem(R);
             } catch (error) {
                 showError('Error performing SVD: ' + error.message);
             }
         }
-
+    
         function displayMatrix(label, matrix, containerId) {
             const container = document.getElementById(containerId);
             const matrixRow = container.querySelector('.matrix-row');
@@ -805,6 +774,58 @@
             }
         }
 
+        function updateSystem(R) {
+            const txColumn = document.getElementById("txColumn");
+            const rxColumn = document.getElementById("rxColumn");
+            const canvas = document.getElementById("signalCanvas");
+            const ctx = canvas.getContext("2d");
+    
+            // Clear existing content
+            txColumn.innerHTML = "";
+            rxColumn.innerHTML = "";
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+            // Create new antennas and draw lines
+            const newTx = [], newRx = [];
+            for (let i = 0; i < R; i++) {
+                const tx = createAntennaElement();
+                const rx = createAntennaElement();
+                txColumn.appendChild(tx);
+                rxColumn.appendChild(rx);
+                newTx.push(tx);
+                newRx.push(rx);
+            }
+    
+            // Draw lines between antennas
+            setTimeout(() => {
+                ctx.strokeStyle = "red";
+                ctx.lineWidth = 2;
+                ctx.setLineDash([]);
+    
+                newTx.forEach((tx, i) => {
+                    drawLine(tx, newRx[i], ctx);
+                });
+    
+                // Update capacity output
+                const capacity = (R * Math.log2(1 + 10)).toFixed(2);
+                document.getElementById("capacityOutput").innerText = capacity;
+            }, 100);
+        }
+    
+        function calculateCapacity(singularValues) {
+            const snr = Math.pow(10, 10 / 10); // Fixed SNR of 10 dB (linear scale)
+    
+            let capacity = 0;
+            for (let i = 0; i < singularValues.length; i++) {
+                if (singularValues[i] > 1e-10) {
+                    const eigenChannel = Math.pow(singularValues[i], 2);
+                    capacity += Math.log2(1 + snr * eigenChannel);
+                }
+            }
+    
+            document.getElementById("capacityOutput").innerText = capacity.toFixed(2);
+        }
+    
         function showError(message) {
             const errorMsg = document.getElementById('errorMessage');
             errorMsg.textContent = message;
