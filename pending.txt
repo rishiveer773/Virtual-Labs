@@ -15,6 +15,10 @@
 11) Change the multiantenna svg for the model     -      
 12) Updata the Two-ray experiment: add the          -   
     recieved signals' interference plot 
+13) In the spatial Multiplexing experiment, do the following:
+    (i) Eignevalues should be displayed on the channel line
+    (ii) Display the capacity as each receiver and show the overall capacity as sum capacity
+
 
 
 ---------------------------------------------------------------
