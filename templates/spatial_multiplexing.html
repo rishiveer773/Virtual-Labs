@@ -559,32 +559,46 @@
                 showError('Please generate a matrix first');
                 return;
             }
-    
+
             try {
                 const svdContainer = document.getElementById('svdContainer');
-                svdContainer.innerHTML = '<div class="matrix-row"></div>';
-    
+                if (!svdContainer) {
+                    showError('SVD container not found');
+                    return;
+                }
+                
+                svdContainer.innerHTML = '<div class="matrix-row"></div>'; // Reset container
+
                 // Perform SVD
                 svdResult = numeric.svd(matrixData);
                 const { U, S, V } = svdResult;
-    
-                // Count significant singular values (effective rank)
+
+                // Count significant singular values
                 const threshold = 1e-10;
                 const nonZeroSingularValues = S.filter(val => Math.abs(val) > threshold);
                 const R = nonZeroSingularValues.length;
-    
+
                 // Calculate condition number
                 const conditionNumber = (S[0] > threshold) ? (S[0] / S[Math.min(R - 1, S.length - 1)]).toFixed(2) : "∞";
-    
-                // Show output metrics
-                document.getElementById("outputBox").style.display = "block";
-                document.getElementById("rankOutput").innerText = R;
-                document.getElementById("conditionOutput").innerText = conditionNumber;
-                document.getElementById("rankInfo").innerText = R;
-    
-                // Display the decomposition matrices
+
+                // Safely update output metrics (check if elements exist)
+                const outputBox = document.getElementById("outputBox");
+                const rankOutput = document.getElementById("rankOutput");
+                const conditionOutput = document.getElementById("conditionOutput");
+                const rankInfo = document.getElementById("rankInfo");
+
+                if (outputBox && rankOutput && conditionOutput && rankInfo) {
+                    outputBox.style.display = "block";
+                    rankOutput.innerText = R;
+                    conditionOutput.innerText = conditionNumber;
+                    rankInfo.innerText = R;
+                } else {
+                    showError('Output elements missing in DOM');
+                }
+
+                // Display matrices
                 displayMatrix("U (Left Singular Vectors)", U, "svdContainer");
-    
+                
                 // Create diagonal Σ matrix
                 const Sigma = [];
                 for (let i = 0; i < S.length; i++) {
@@ -593,15 +607,18 @@
                     Sigma.push(row);
                 }
                 displayMatrix("Σ (Singular Values)", Sigma, "svdContainer");
-    
+
                 displayMatrix("Vᵀ (Right Singular Vectors)", V, "svdContainer");
-    
+
                 // Calculate and display capacity
                 calculateCapacity(S);
-    
+
                 // Enable eigenbeam visualization button
-                document.getElementById("eigenbeamBtn").style.display = "block";
-    
+                const eigenbeamBtn = document.getElementById("eigenbeamBtn");
+                if (eigenbeamBtn) {
+                    eigenbeamBtn.style.display = "block";
+                }
+
                 // Update system diagram
                 updateSystem(R);
             } catch (error) {
@@ -691,14 +708,14 @@
                     
                     // Add eigenbeam index label
                     const txLabel = document.createElement("div");
-                    txLabel.textContent = `λ${i+1}: ${S[i].toFixed(2)}`;
-                    txLabel.style.fontSize = "12px";
-                    txLabel.style.marginTop = "5px";
+                    // txLabel.textContent = `λ${i+1}: ${S[i].toFixed(2)}`;
+                    // txLabel.style.fontSize = "12px";
+                    // txLabel.style.marginTop = "5px";
                     
                     const rxLabel = document.createElement("div");
-                    rxLabel.textContent = `λ${i+1}`;
-                    rxLabel.style.fontSize = "12px";
-                    rxLabel.style.marginTop = "5px";
+                    // rxLabel.textContent = `λ${i+1}`;
+                    // rxLabel.style.fontSize = "12px";
+                    // rxLabel.style.marginTop = "5px";
                     
                     const txWrapper = document.createElement("div");
                     txWrapper.style.textAlign = "center";
@@ -743,9 +760,9 @@
                             const midY = (txRect.top + rxRect.top) / 2 + txRect.height / 2 - canvasRect.top;
                             
                             ctx.fillStyle = "var(--primary-color)";
-                            ctx.font = "bold 14px Arial";
+                            ctx.font = "bold 50px";
                             ctx.textAlign = "center";
-                            ctx.fillText(`λ${i+1}`, midX, midY - 10);
+                            ctx.fillText(`λ${i+1}: ${S[i].toFixed(2)}`, midX, midY - 10);
                         }
                     });
                     
