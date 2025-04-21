@@ -1,0 +1,1044 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Clarke's Model Simulator</title>
+
+    <!-- Include Plotly.js library -->
+    <script src='https://cdn.plot.ly/plotly-latest.min.js'></script>
+
+    <!-- CSS Styling Embedded -->
+    <style>
+        /* --- Variables --- */
+        :root {
+            --primary-color: #3498db; /* Vibrant Blue */
+            --secondary-color: #2ecc71; /* Green */
+            --accent-color: #e74c3c; /* Red/Orange */
+            --bg-color: #f4f7f9; /* Light Grayish Blue */
+            --widget-bg-color: #ffffff; /* White */
+            --text-color: #34495e; /* Dark Blue/Gray */
+            --text-light-color: #7f8c8d; /* Lighter Gray */
+            --border-color: #e1e6ea;
+            --font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            --header-font: 'Poppins', sans-serif; /* Requires Google Font import if not available */
+        }
+
+        /* --- Basic Reset & Body Style --- */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-family);
+            line-height: 1.6;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        /* --- Main Container --- */
+        .simulator-container {
+            width: 100%;
+            max-width: 1400px; /* Wider layout */
+            background-color: var(--widget-bg-color);
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+            overflow: hidden; /* Contain child elements */
+        }
+
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 20px 30px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-family: var(--header-font);
+            font-weight: 600;
+            font-size: 2em;
+            margin-bottom: 5px;
+        }
+
+        header .intro {
+            font-size: 0.95em;
+            opacity: 0.9;
+        }
+
+        /* --- Main Content Grid Layout --- */
+        .main-content {
+            display: grid;
+            grid-template-columns: 320px 1fr; /* Controls | Visualizations */
+            gap: 0; /* No gap, use padding */
+            min-height: 600px; /* Ensure sufficient height */
+        }
+
+        /* --- Controls Section --- */
+        .controls-section {
+            background-color: #f8f9fa; /* Slightly different background */
+            padding: 25px;
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .controls-section h2 {
+            font-family: var(--header-font);
+            font-size: 1.4em;
+            color: var(--primary-color);
+            margin-bottom: 25px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--primary-color);
+            text-align: center;
+        }
+
+        .input-group {
+            margin-bottom: 22px;
+        }
+
+        .input-group label {
+            display: block;
+            font-weight: 600;
+            color: var(--text-color);
+            margin-bottom: 8px;
+            font-size: 0.9em;
+        }
+
+        .input-row {
+             display: flex;
+             align-items: center;
+             gap: 10px;
+        }
+
+        .input-group input[type="range"] {
+            flex-grow: 1;
+            cursor: pointer;
+            accent-color: var(--primary-color);
+            height: 6px; /* Make slider track thinner */
+            background: #e1e6ea; /* Track background */
+            border-radius: 3px;
+            appearance: none; /* Override default */
+             -webkit-appearance: none;
+        }
+        /* Webkit Thumb */
+         .input-group input[type="range"]::-webkit-slider-thumb {
+             appearance: none; -webkit-appearance: none;
+             width: 16px; height: 16px; background: var(--primary-color);
+             border-radius: 50%; cursor: pointer; margin-top: -5px; /* Center thumb */
+         }
+         /* Firefox Thumb */
+         .input-group input[type="range"]::-moz-range-thumb {
+             width: 16px; height: 16px; background: var(--primary-color);
+             border-radius: 50%; cursor: pointer; border: none;
+         }
+
+
+        .input-group input[type="number"] {
+            padding: 8px 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 5px;
+            font-size: 0.9em;
+            width: 80px; /* Fixed width for number inputs */
+             text-align: right;
+        }
+         .input-group input[type="number"]:focus {
+             outline: none;
+             border-color: var(--primary-color);
+             box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.2);
+         }
+
+
+        .input-group .value-display {
+            font-size: 0.9em;
+            color: var(--text-light-color);
+            background-color: #e9ecef;
+            padding: 5px 8px;
+            border-radius: 4px;
+            min-width: 65px;
+            text-align: center;
+        }
+
+        #run-button {
+            margin-top: auto; /* Push button to bottom */
+            padding: 12px 20px;
+            background: linear-gradient(135deg, var(--primary-color), #2980b9);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 1.1em;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 10px rgba(52, 152, 219, 0.3);
+            width: 100%;
+        }
+
+        #run-button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(52, 152, 219, 0.4);
+        }
+         #run-button:active:not(:disabled) {
+            transform: translateY(0px);
+            box-shadow: 0 2px 5px rgba(52, 152, 219, 0.3);
+         }
+
+        #run-button:disabled {
+            background: #bdc3c7; /* Gray out when disabled */
+            cursor: wait;
+             box-shadow: none;
+        }
+         #run-button .spinner {
+             display: inline-block;
+             width: 1em;
+             height: 1em;
+             border: 2px solid rgba(255, 255, 255, 0.3);
+             border-radius: 50%;
+             border-top-color: #fff;
+             animation: spin 1s ease-in-out infinite;
+             margin-right: 8px;
+             vertical-align: middle;
+         }
+         @keyframes spin { to { transform: rotate(360deg); } }
+
+
+        /* --- Visualizations Section --- */
+        .visualizations-section {
+            padding: 25px;
+            display: grid;
+            grid-template-columns: 1fr 1fr; /* Two columns for plots/animations */
+            grid-template-rows: auto auto 1fr; /* Params, Diagram/Phasor, Plots */
+            gap: 25px;
+            overflow-y: auto; /* Allow scrolling if content overflows */
+        }
+
+        .calculated-params {
+            grid-column: 1 / -1; /* Span both columns */
+            background-color: #ecf0f1;
+            padding: 15px 20px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+         .calculated-params h3 { display: none; } /* Hide redundant heading */
+         .calculated-params p {
+             margin: 0;
+             font-size: 0.95em;
+             color: var(--text-light-color);
+         }
+         .calculated-params span {
+             font-weight: 600;
+             color: var(--text-color);
+             margin-left: 5px;
+         }
+
+        /* --- Scatterer Diagram and Phasor Animation --- */
+        .diagram-container, .phasor-container {
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 15px;
+            background-color: var(--widget-bg-color);
+             position: relative; /* For titles inside */
+             min-height: 250px; /* Ensure some height */
+             display: flex;
+             flex-direction: column;
+             align-items: center;
+             justify-content: center;
+        }
+
+        .viz-title {
+            position: absolute;
+            top: 10px;
+            left: 15px;
+            font-weight: 600;
+            font-size: 0.9em;
+            color: var(--text-light-color);
+        }
+
+        #scatterer-diagram-svg {
+            width: 90%;
+            max-width: 200px;
+            height: auto;
+            margin-top: 20px; /* Space below title */
+        }
+        #scatterer-diagram-svg .scatterer { fill: #bdc3c7; }
+        #scatterer-diagram-svg .receiver { fill: var(--primary-color); }
+        #scatterer-diagram-svg .path { stroke: var(--primary-color); stroke-width: 0.5px; stroke-dasharray: 2,2; opacity: 0.7; }
+        #scatterer-diagram-svg .center-marker { fill: none; stroke: var(--primary-color); stroke-width: 1px; }
+
+        #phasor-canvas {
+            /* width: 90%; */
+            max-width: 250px; /* Limit canvas size */
+            height: 250px; /* Fixed height */
+             margin-top: 20px;
+             border: 1px dashed var(--border-color); /* Visual guide for canvas */
+        }
+
+        /* --- Plot Area --- */
+        .plots-area {
+            grid-column: 1 / -1; /* Span both columns */
+            display: grid;
+            grid-template-columns: 1fr; /* Plots stack vertically */
+            gap: 25px;
+            margin-top: 0; /* Remove extra top margin */
+        }
+
+        .plot-container {
+            width: 100%;
+            min-height: 380px; /* Slightly taller plots */
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background-color: var(--widget-bg-color); /* Ensure background */
+            overflow: hidden; /* Clip Plotly content */
+        }
+
+        .plot-container .placeholder-text {
+             display: flex;
+             justify-content: center;
+             align-items: center;
+             height: 100%;
+             color: #aaa;
+             font-style: italic;
+             font-size: 1.1em;
+         }
+
+
+        /* --- Responsive Adjustments --- */
+        @media (max-width: 1200px) {
+             .visualizations-section {
+                 grid-template-columns: 1fr; /* Stack diagram/phasor */
+             }
+             .plots-area {
+                 grid-column: auto; /* Reset span */
+             }
+         }
+
+        @media (max-width: 900px) {
+             .main-content {
+                 grid-template-columns: 1fr; /* Stack controls and visualizations */
+             }
+             .controls-section {
+                 border-right: none;
+                 border-bottom: 1px solid var(--border-color);
+             }
+             #run-button {
+                 margin-top: 25px; /* Add back margin when stacked */
+             }
+         }
+         @media (max-width: 600px) {
+             body { padding: 10px; }
+             .simulator-container { border-radius: 8px; }
+             header { padding: 15px 20px; }
+             header h1 { font-size: 1.6em; }
+             .controls-section, .visualizations-section { padding: 20px; }
+             .input-group label { flex-basis: auto; margin-bottom: 5px; }
+             .input-row { flex-wrap: wrap; }
+             .calculated-params { justify-content: flex-start; }
+             .plot-container { min-height: 300px; }
+         }
+
+    </style>
+
+</head>
+<body>
+    <!-- HTML Body Content -->
+    <div class="simulator-container">
+        <header>
+            <h1>Interactive Clarke's Model Simulator</h1>
+            <p class="intro">Explore flat fading channels: adjust parameters, see the scattering effect, watch the phasor sum evolve, and analyze the results.</p>
+        </header>
+
+        <div class="main-content">
+            <!-- Controls Section -->
+            <div class="controls-section">
+                <h2>Parameters</h2>
+
+                <div class="input-group">
+                    <label for="speed">Mobile Speed (v)</label>
+                    <div class="input-row">
+                         <input type="range" id="speed" name="speed" min="1" max="150" value="50" step="1">
+                         <span class="value-display" id="speed-value">50 km/h</span>
+                    </div>
+                </div>
+
+                <div class="input-group">
+                    <label for="frequency">Carrier Frequency (f<sub>c</sub>)</label>
+                     <div class="input-row">
+                        <input type="range" id="frequency" name="frequency" min="0.7" max="3.5" value="0.9" step="0.1">
+                        <span class="value-display" id="frequency-value">0.9 GHz</span>
+                     </div>
+                </div>
+
+                <div class="input-group">
+                    <label for="bandwidth">Channel Bandwidth / Symbol Rate (W)</label>
+                     <div class="input-row">
+                         <input type="number" id="bandwidth" name="bandwidth" min="1" max="1000" value="100" step="1">
+                        <span class="value-display" style="min-width: 30px; background: none;">kHz</span>
+                     </div>
+                </div>
+
+                <div class="input-group">
+                    <label for="duration">Simulation Duration (T<sub>sim</sub>)</label>
+                     <div class="input-row">
+                        <input type="number" id="duration" name="duration" min="0.1" max="5" value="1" step="0.1">
+                        <span class="value-display" style="min-width: 15px; background: none;">s</span>
+                     </div>
+                </div>
+
+                <div class="input-group optional">
+                    <label for="scatterers">Number of Scatterers (K)</label>
+                    <div class="input-row">
+                        <input type="number" id="scatterers" name="scatterers" min="8" max="256" value="64" step="8">
+                        <span class="value-display" style="min-width: auto; background: none; color: var(--text-light-color); font-style: italic; font-size: 0.85em;">(Sim accuracy)</span>
+                    </div>
+                </div>
+
+                <button id="run-button">
+                    <span class="button-text">Run Simulation</span>
+                </button>
+            </div>
+
+            <!-- Visualizations Section -->
+            <div class="visualizations-section">
+                <!-- Derived Parameters -->
+                <div class="calculated-params">
+                     <p>f<sub>m</sub>: <span id="fm-display">-</span> Hz</p>
+                     <p>D<sub>s</sub>: <span id="ds-display">-</span> Hz</p>
+                     <p>T<sub>c</sub> (approx): <span id="tc-display">-</span> ms</p>
+                </div>
+
+                <!-- Scatterer Diagram -->
+                <div class="diagram-container">
+                     <span class="viz-title">Scattering Model</span>
+                     <svg id="scatterer-diagram-svg" viewBox="-60 -60 120 120">
+                         <defs>
+                            <radialGradient id="grad1" cx="50%" cy="50%" r="50%" fx="50%" fy="50%">
+                              <stop offset="70%" style="stop-color:var(--primary-color);stop-opacity:1" />
+                              <stop offset="100%" style="stop-color:#2980b9;stop-opacity:1" />
+                            </radialGradient>
+                          </defs>
+                          <!-- Scatterers (example static positions) -->
+                         <circle class="scatterer" cx="0" cy="-50" r="3"/>
+                         <circle class="scatterer" cx="43.3" cy="-25" r="3"/>
+                         <circle class="scatterer" cx="43.3" cy="25" r="3"/>
+                         <circle class="scatterer" cx="0" cy="50" r="3"/>
+                         <circle class="scatterer" cx="-43.3" cy="25" r="3"/>
+                         <circle class="scatterer" cx="-43.3" cy="-25" r="3"/>
+                         <circle class="scatterer" cx="25" cy="-43.3" r="3"/>
+                         <circle class="scatterer" cx="-25" cy="-43.3" r="3"/>
+                         <circle class="scatterer" cx="25" cy="43.3" r="3"/>
+                         <circle class="scatterer" cx="-25" cy="43.3" r="3"/>
+                         <circle class="scatterer" cx="50" cy="0" r="3"/>
+                         <circle class="scatterer" cx="-50" cy="0" r="3"/>
+
+                         <!-- Paths (example static paths) -->
+                         <line class="path" x1="0" y1="-50" x2="0" y2="0" />
+                         <line class="path" x1="43.3" y1="-25" x2="0" y2="0" />
+                         <line class="path" x1="0" y1="50" x2="0" y2="0" />
+                         <line class="path" x1="-43.3" y1="25" x2="0" y2="0" />
+                          <line class="path" x1="50" y1="0" x2="0" y2="0" />
+                          <line class="path" x1="-25" y1="-43.3" x2="0" y2="0" />
+
+
+                         <!-- Receiver -->
+                         <circle class="receiver" cx="0" cy="0" r="5" fill="url(#grad1)"/>
+                         <text x="0" y="2" fill="white" font-size="6px" text-anchor="middle" dy=".1em">Rx</text>
+
+                         <!-- Center marker -->
+                         <circle class="center-marker" cx="0" cy="0" r="1"/>
+                     </svg>
+                </div>
+
+                <!-- Phasor Sum Animation -->
+                <div class="phasor-container">
+                    <span class="viz-title">Channel Phasor Sum: h<sub>0</sub>(t) = Σ a<sub>i</sub>e<sup>j(2πf<sub>i</sub>t + φ<sub>i</sub>)</sup></span>
+                    <canvas id="phasor-canvas" width="250" height="250"></canvas>
+                </div>
+
+                <!-- Plots Area -->
+                <div class="plots-area">
+                    <div id="time-plot-div" class="plot-container">
+                         <p class="placeholder-text">Channel Envelope |h<sub>0</sub>(t)|</p>
+                    </div>
+                    <div id="acf-plot-div" class="plot-container">
+                         <p class="placeholder-text">Autocorrelation R<sub>0</sub>(τ)</p>
+                    </div>
+                    <div id="psd-plot-div" class="plot-container">
+                         <p class="placeholder-text">Doppler Spectrum S(f) (Requires FFT)</p>
+                    </div>
+                </div>
+            </div> <!-- End Visualizations Section -->
+        </div> <!-- End Main Content -->
+    </div> <!-- End Simulator Container -->
+
+    <script>
+        // --- Constants ---
+        const C_LIGHT = 3e8;
+        const PI = Math.PI;
+        const TWO_PI = 2 * PI;
+
+        // --- DOM Elements ---
+        const speedSlider = document.getElementById('speed');
+        const speedValueDisplay = document.getElementById('speed-value');
+        const frequencySlider = document.getElementById('frequency');
+        const frequencyValueDisplay = document.getElementById('frequency-value');
+        const bwInput = document.getElementById('bandwidth');
+        const durationInput = document.getElementById('duration');
+        const kInput = document.getElementById('scatterers');
+        const runButton = document.getElementById('run-button');
+        const buttonText = runButton.querySelector('.button-text'); // Target text span
+
+        const fmDisplay = document.getElementById('fm-display');
+        const dsDisplay = document.getElementById('ds-display');
+        const tcDisplay = document.getElementById('tc-display');
+
+        const timePlotDiv = document.getElementById('time-plot-div');
+        const acfPlotDiv = document.getElementById('acf-plot-div');
+        const psdPlotDiv = document.getElementById('psd-plot-div');
+
+        // --- Animation Elements ---
+        const phasorCanvas = document.getElementById('phasor-canvas');
+        const phasorCtx = phasorCanvas.getContext('2d');
+        let animationFrameId = null;
+        let phasorAnimParams = { K: 0, fm: 0, amps: [], phases: [], thetas: [] }; // Store params for animation loop
+        let lastTimestamp = 0;
+        let accumulatedTime = 0;
+
+
+        // --- Initial Setup ---
+        function updateSpeedDisplay() {
+            speedValueDisplay.textContent = `${speedSlider.value} km/h`;
+            updateDerivedParamsDisplay(); // Live update
+        }
+        function updateFrequencyDisplay() {
+            frequencyValueDisplay.textContent = `${frequencySlider.value} GHz`;
+            updateDerivedParamsDisplay(); // Live update
+        }
+        function updateDerivedParamsDisplay() {
+             // Calculate and display f_m, D_s, T_c based on current slider values
+             try {
+                 let v_kmh = parseFloat(speedSlider.value);
+                 let fc_ghz = parseFloat(frequencySlider.value);
+                 if (isNaN(v_kmh) || isNaN(fc_ghz) || v_kmh <= 0 || fc_ghz <= 0) {
+                      fmDisplay.textContent = '-';
+                      dsDisplay.textContent = '-';
+                      tcDisplay.textContent = '-';
+                      return;
+                 }
+                 let v_mps = v_kmh * 1000 / 3600;
+                 let fc_hz = fc_ghz * 1e9;
+                 let fm_hz = fc_hz * v_mps / C_LIGHT;
+                 let ds_hz = 2 * fm_hz;
+                 let tc_s = (fm_hz > 1e-9) ? (0.423 / fm_hz) : Infinity; // Avoid division by zero, use smaller epsilon
+
+                 fmDisplay.textContent = fm_hz.toFixed(2);
+                 dsDisplay.textContent = ds_hz.toFixed(2);
+                 tcDisplay.textContent = (tc_s === Infinity) ? '∞' : (tc_s * 1000).toFixed(2);
+             } catch (e) {
+                 fmDisplay.textContent = 'Err';
+                 dsDisplay.textContent = 'Err';
+                 tcDisplay.textContent = 'Err';
+             }
+        }
+        updateSpeedDisplay();
+        updateFrequencyDisplay();
+        drawPhasorSum(phasorCtx, 0, phasorAnimParams); // Draw initial empty state
+
+
+        // --- Event Listeners ---
+        speedSlider.addEventListener('input', updateSpeedDisplay);
+        frequencySlider.addEventListener('input', updateFrequencyDisplay);
+        runButton.addEventListener('click', runSimulation);
+
+
+        // --- Phasor Animation ---
+        function startPhasorAnimation(params) {
+            phasorAnimParams = params; // Update parameters for animation
+            if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId); // Stop previous animation
+            }
+            lastTimestamp = 0;
+            accumulatedTime = 0;
+            animationLoop(); // Start new animation
+        }
+
+        function stopPhasorAnimation() {
+             if (animationFrameId) {
+                cancelAnimationFrame(animationFrameId);
+                animationFrameId = null;
+            }
+             // Optionally clear canvas or draw a static final state
+             // drawPhasorSum(phasorCtx, accumulatedTime, phasorAnimParams); // Draw final state
+        }
+
+        function animationLoop(timestamp) {
+             if (!lastTimestamp) lastTimestamp = timestamp;
+             const deltaTime = (timestamp - lastTimestamp) / 1000.0; // Time elapsed in seconds
+             lastTimestamp = timestamp;
+             // Control animation speed (optional): make time advance slower/faster
+             const timeScale = 0.5; // Example: animation time runs at half real time
+             accumulatedTime += deltaTime * timeScale;
+
+            drawPhasorSum(phasorCtx, accumulatedTime, phasorAnimParams);
+            animationFrameId = requestAnimationFrame(animationLoop);
+        }
+
+        function drawPhasorSum(ctx, time, params) {
+            const { K, fm, amps, phases, thetas } = params;
+            const width = ctx.canvas.width;
+            const height = ctx.canvas.height;
+            const centerX = width / 2;
+            const centerY = height / 2;
+
+            // Determine scale based on expected max amplitude (sum of amplitudes)
+            const totalAmpSum = amps.reduce((sum, amp) => sum + amp, 0);
+            const maxPossibleRadius = totalAmpSum > 0 ? totalAmpSum : 1.0; // Avoid zero scale
+            const scale = Math.min(centerX, centerY) * 0.8 / maxPossibleRadius;
+
+            // Clear canvas
+            ctx.clearRect(0, 0, width, height);
+
+            // Draw axes
+            ctx.beginPath();
+            ctx.moveTo(0, centerY);
+            ctx.lineTo(width, centerY);
+            ctx.moveTo(centerX, 0);
+            ctx.lineTo(centerX, height);
+            ctx.strokeStyle = '#e0e0e0'; ctx.lineWidth = 0.5; ctx.stroke();
+
+            if (K <= 0 || fm === undefined) return;
+
+            let currentX = centerX; let currentY = centerY;
+            let sumReal = 0; let sumImag = 0;
+            const colors = ['#2ecc71', '#e74c3c', '#f1c40f', '#9b59b6', '#1abc9c', '#d35400'];
+
+            for (let i = 0; i < K; i++) {
+                const amp = amps[i]; const initialPhase = phases[i]; const theta = thetas[i];
+                const dopplerFreq = fm * Math.cos(theta);
+                const currentAngle = TWO_PI * dopplerFreq * time + initialPhase;
+                const dx = amp * Math.cos(currentAngle) * scale;
+                const dy = -amp * Math.sin(currentAngle) * scale;
+                const endX = currentX + dx; const endY = currentY + dy;
+
+                ctx.beginPath(); ctx.moveTo(currentX, currentY); ctx.lineTo(endX, endY);
+                ctx.strokeStyle = colors[i % colors.length]; ctx.lineWidth = 1; ctx.stroke();
+                ctx.beginPath(); ctx.arc(endX, endY, 1.5, 0, TWO_PI);
+                ctx.fillStyle = colors[i % colors.length]; ctx.fill();
+
+                currentX = endX; currentY = endY;
+                sumReal += dx / scale; sumImag += -dy / scale;
+            }
+
+            // Draw the resultant vector (sum)
+            const sumX = centerX + sumReal * scale; const sumY = centerY - sumImag * scale;
+            ctx.beginPath(); ctx.moveTo(centerX, centerY); ctx.lineTo(sumX, sumY);
+            ctx.strokeStyle = '#34495e'; ctx.lineWidth = 2.5;
+            ctx.setLineDash([4, 2]); ctx.stroke(); ctx.setLineDash([]);
+
+             // Draw arrowhead
+             const headlen = 8; const angle = Math.atan2(sumY - centerY, sumX - centerX);
+             ctx.beginPath(); ctx.moveTo(sumX, sumY);
+             ctx.lineTo(sumX - headlen * Math.cos(angle - PI / 6), sumY - headlen * Math.sin(angle - PI / 6));
+             ctx.moveTo(sumX, sumY);
+             ctx.lineTo(sumX - headlen * Math.cos(angle + PI / 6), sumY - headlen * Math.sin(angle + PI / 6));
+             ctx.strokeStyle = '#34495e'; ctx.lineWidth = 2.5; ctx.stroke();
+        }
+
+
+        // --- Simulation Functions ---
+        function runSimulation() {
+            console.log("Running simulation...");
+            // Update button state
+            buttonText.textContent = "Running...";
+            const spinner = document.createElement('span');
+            spinner.className = 'spinner';
+            runButton.insertBefore(spinner, buttonText); // Add spinner
+            runButton.disabled = true;
+            stopPhasorAnimation(); // Stop any ongoing animation
+
+            // Clear previous plots
+            timePlotDiv.innerHTML = '<p class="placeholder-text">Generating Envelope...</p>';
+            acfPlotDiv.innerHTML = '<p class="placeholder-text">Generating ACF...</p>';
+            psdPlotDiv.innerHTML = '<p class="placeholder-text">Generating PSD...</p>';
+
+
+            // Use setTimeout to allow UI update before potentially long calculation
+            setTimeout(() => {
+                try {
+                    // 1. Get Inputs & Validate
+                    let v_kmh = parseFloat(speedSlider.value);
+                    let fc_ghz = parseFloat(frequencySlider.value);
+                    let w_khz = parseFloat(bwInput.value);
+                    let t_sim_s = parseFloat(durationInput.value);
+                    let k_scatterers = parseInt(kInput.value);
+
+                    if (isNaN(v_kmh) || isNaN(fc_ghz) || isNaN(w_khz) || isNaN(t_sim_s) || isNaN(k_scatterers) ||
+                        v_kmh <= 0 || fc_ghz <= 0 || w_khz <= 0 || t_sim_s <= 0 || k_scatterers < 4) {
+                        alert("Please enter valid positive numerical values (K >= 4).");
+                        resetButtonState();
+                        return;
+                    }
+
+                    let fc_hz = fc_ghz * 1e9;
+                    let w_hz = w_khz * 1e3;
+
+                    // 2. Calculate Parameters
+                    let v_mps = v_kmh * 1000 / 3600;
+                    let fm_hz = fc_hz * v_mps / C_LIGHT;
+                    let ts_s = 1 / w_hz;
+                    let m_samples = Math.floor(t_sim_s / ts_s);
+                    let pr_avg = 1.0; // Normalized average power
+
+                    updateDerivedParamsDisplay(); // Ensure final values are shown
+
+                    // Validate sample count
+                    if (m_samples <= 1 || m_samples > 500000) {
+                         alert(`Simulation requires ${m_samples} samples. Adjust duration or bandwidth (range ~100 to 500,000 samples).`);
+                         resetButtonState();
+                         return;
+                    }
+                    console.log(`Parameters: fm=${fm_hz.toFixed(2)}Hz, Ts=${ts_s.toExponential(2)}s, M=${m_samples}, K=${k_scatterers}`);
+
+                    // 3. Generate Channel
+                    console.log("Generating channel coefficients...");
+                    let { h0_complex, time_vector, pathParams } = generateClarkeChannel(m_samples, ts_s, fm_hz, k_scatterers, pr_avg);
+                     if (!h0_complex) { throw new Error("Channel generation failed."); }
+                     console.log("Channel generation complete.");
+
+                     // Prepare params for animation
+                     const animK = Math.min(k_scatterers, 12);
+                     const animParams = {
+                         K: animK, fm: fm_hz,
+                         amps: pathParams.amps.slice(0, animK),
+                         phases: pathParams.phases.slice(0, animK),
+                         thetas: pathParams.thetas.slice(0, animK)
+                     };
+                     startPhasorAnimation(animParams);
+
+
+                    // 4. Analyze Results
+                    console.log("Analyzing results...");
+                    let analysisResults = analyzeChannel(h0_complex, ts_s, fm_hz, pr_avg, w_hz);
+                    console.log("Analysis complete.");
+
+                    // 5. Plot Results
+                    console.log("Plotting results...");
+                    let tc_s = (fm_hz > 1e-9) ? (0.423 / fm_hz) : Infinity;
+                    plotResults(time_vector, h0_complex, analysisResults, tc_s, fm_hz, w_hz);
+                    console.log("Plotting complete.");
+
+                } catch (error) {
+                    console.error("Simulation Error:", error);
+                    alert("An error occurred during simulation: " + error.message);
+                    stopPhasorAnimation(); // Stop animation on error
+                    // Reset plot areas on error
+                    timePlotDiv.innerHTML = '<p class="placeholder-text">Channel Envelope |h<sub>0</sub>(t)|</p>';
+                    acfPlotDiv.innerHTML = '<p class="placeholder-text">Autocorrelation R<sub>0</sub>(τ)</p>';
+                    psdPlotDiv.innerHTML = '<p class="placeholder-text">Doppler Spectrum S(f)</p>';
+                } finally {
+                    resetButtonState();
+                }
+            }, 50);
+        }
+
+         function resetButtonState() {
+             buttonText.textContent = "Run Simulation";
+             const spinner = runButton.querySelector('.spinner');
+             if(spinner) runButton.removeChild(spinner); // Remove spinner
+             runButton.disabled = false;
+         }
+
+        function generateClarkeChannel(M, Ts, fm, K, Pr) {
+            if (M <= 0 || K <= 0) return { h0_complex: null, time_vector: null, pathParams: null };
+            let h0_real = new Array(M).fill(0); let h0_imag = new Array(M).fill(0);
+            let t = new Array(M); let path_amp_val = Math.sqrt(Pr / K);
+            let pathParams = {
+                 amps: Array(K).fill(path_amp_val),
+                 phases: Array.from({ length: K }, () => Math.random() * TWO_PI),
+                 thetas: Array.from({ length: K }, (_, i) => TWO_PI * i / K)
+            };
+            for (let m = 0; m < M; m++) {
+                t[m] = m * Ts; let h_real_m = 0; let h_imag_m = 0;
+                for (let i = 0; i < K; i++) {
+                    let doppler_i = fm * Math.cos(pathParams.thetas[i]);
+                    let phasor_arg = TWO_PI * doppler_i * t[m] + pathParams.phases[i];
+                    h_real_m += pathParams.amps[i] * Math.cos(phasor_arg);
+                    h_imag_m += pathParams.amps[i] * Math.sin(phasor_arg);
+                }
+                h0_real[m] = h_real_m; h0_imag[m] = h_imag_m;
+            }
+            let h0_complex = h0_real.map((re, idx) => ({ real: re, imag: h0_imag[idx] }));
+            return { h0_complex, time_vector: t, pathParams };
+        }
+
+        // --- Analysis Function (Includes PSD) ---
+        function analyzeChannel(h0_complex, Ts, fm, Pr, W) {
+            const M = h0_complex.length;
+
+            // Envelope and ACF
+            let h0_mag = h0_complex.map(c => Math.sqrt(c.real**2 + c.imag**2));
+            let max_lag_n = Math.min(M - 1, Math.floor(M / 10), Math.ceil(5 / (fm * Ts + 1e-9)));
+            if (max_lag_n <= 0) max_lag_n = Math.min(M - 1, 100);
+            let R_hat_complex = calculateACF(h0_complex, max_lag_n);
+            let lag_time = Array.from({ length: max_lag_n + 1 }, (_, n) => n * Ts);
+            let R0_theory = lag_time.map(tau => Pr * besselJ0(TWO_PI * fm * tau));
+
+            // PSD Calculation
+            let S_hat_shifted = null, S_theory = null, freq_axis = null;
+            if (M > 0 && W > 0) {
+                 freq_axis = createFrequencyAxis(M, W);
+                 // Sample PSD
+                 try {
+                     const fftResult = performFFT(h0_complex); // NEEDS REAL FFT
+                     const psd_raw = fftResult.map(c => c.real**2 + c.imag**2);
+                     const psd_normalized = psd_raw.map(p => p / (M * W)); // Density approx
+                     S_hat_shifted = fftShift(psd_normalized); // NEEDS REAL FFTSHIFT
+                 } catch (fftError) {
+                     console.error("Error during FFT:", fftError);
+                     S_hat_shifted = new Array(M).fill(0);
+                 }
+                 // Theoretical PSD
+                 S_theory = freq_axis.map(f => {
+                     if (fm < 1e-9) return (Math.abs(f) < W/M/2) ? Pr / (W/M) : 0; // Static approx
+                     if (Math.abs(f) >= fm) return 0;
+                     const fm_epsilon = fm * 0.99999;
+                     let f_clipped = Math.abs(f) > fm_epsilon ? Math.sign(f) * fm_epsilon : f;
+                     const denominator = PI * fm * Math.sqrt(1 - (f_clipped / fm)**2);
+                     return (denominator < 1e-12) ? Pr / (2 * fm * 0.01) : Pr / denominator; // Cap singularity
+                 });
+             }
+            return { h0_mag, lag_time, R_hat_complex, R0_theory, S_hat_shifted, S_theory, freq_axis };
+        }
+
+        // --- Utility Functions (ACF, BesselJ0, FFT placeholders) ---
+        function calculateACF(signal_complex, max_lag) {
+            let M = signal_complex.length;
+             if (max_lag >= M) max_lag = M - 1;
+            let acf = new Array(max_lag + 1);
+            for (let n = 0; n <= max_lag; n++) {
+                let sum_real = 0; let sum_imag = 0;
+                for (let m = 0; m < M - n; m++) {
+                     let h1 = signal_complex[m+n]; let h2 = signal_complex[m];
+                     sum_real += h1.real * h2.real + h1.imag * h2.imag; // Real part of h1*conj(h2)
+                     sum_imag += h1.imag * h2.real - h1.real * h2.imag; // Imag part of h1*conj(h2)
+                }
+                acf[n] = { real: sum_real / M, imag: sum_imag / M };
+            }
+             let norm_factor = (acf[0] && acf[0].real > 1e-12) ? acf[0].real : 1.0; // Avoid div by zero
+             acf = acf.map(val => ({ real: val.real / norm_factor, imag: val.imag / norm_factor }));
+             return acf;
+        }
+
+        function besselJ0(x) {
+            let ax = Math.abs(x);
+            if (ax < 8.0) {
+                let xx = x * x;
+                // More stable polynomial approx: A&S 9.4.1 slightly modified
+                let t = xx/4.0;
+                return 1.0 + t * (-2.2499997 + t * (1.2656208 + t * (-0.3163866 + t * (0.0444479 + t * (-0.0039444 + t * 0.0002100)))));
+            } else {
+                // A&S 9.2.1 asymptotic approx
+                let t = 1.0 / ax;
+                let p = 1.0 + t*t*(-0.015625 + t*t*0.0001519); // P(x) approx
+                let q = t*(-0.0078125 + t*t*0.0000833);       // Q(x) approx
+                let theta = ax - PI / 4.0;
+                return Math.sqrt(2.0 / (PI * ax)) * (p * Math.cos(theta) - q * Math.sin(theta));
+            }
+        }
+
+        // --- FFT Placeholder Functions ---
+        // IMPORTANT: Replace these with a real FFT implementation/library!
+        // You would typically include a library via <script src=...> in the <head>
+        // and then call its functions here.
+        let FFT_IMPLEMENTED = false; // Flag to track if real FFT is used
+
+        function performFFT(complexSignal) {
+            if (typeof complex && typeof complex.fft === 'function') { // Example check for a library named 'complex'
+                 FFT_IMPLEMENTED = true;
+                 // Adapt input/output format as needed by the library
+                 // const complexArray = complexSignal.map(c => new complex(c.real, c.imag));
+                 // const fftOutput = complex.fft(complexArray);
+                 // return fftOutput.map(c => ({ real: c.re, imag: c.im }));
+                 console.warn("Detected potential FFT library, but placeholder is still active. Adapt the performFFT function.");
+                 return complexSignal.map(() => ({ real: 0, imag: 0 })); // Placeholder
+            } else {
+                 FFT_IMPLEMENTED = false;
+                 console.warn("Using placeholder FFT. PSD plot will not be accurate.");
+                 return complexSignal.map(() => ({ real: 0, imag: 0 })); // Return zeros
+            }
+        }
+
+        function fftShift(fftResult) {
+             // This should rearrange the FFT output so DC (0 Hz) is in the center
+             const N = fftResult.length;
+             if (N === 0) return [];
+             const halfN = Math.ceil(N / 2);
+             // Slice carefully to handle odd/even lengths correctly
+             const firstHalf = fftResult.slice(halfN); // Second part of array comes first
+             const secondHalf = fftResult.slice(0, halfN); // First part of array comes second
+             return [...firstHalf, ...secondHalf];
+        }
+
+        // Helper to create frequency axis for plotting FFT results
+        function createFrequencyAxis(M, W) {
+             const freqAxis = new Array(M);
+             if (M === 0) return freqAxis;
+             const freqStep = W / M;
+             for (let i = 0; i < M; i++) {
+                 // Frequency ranges from -W/2 to +W/2 after fftShift
+                 freqAxis[i] = -W / 2 + i * freqStep;
+             }
+             return freqAxis;
+        }
+
+
+        // --- Plotting Function (Includes PSD) ---
+        function plotResults(t, h0_complex, analysis, Tc, fm, W) {
+            // Clear plots
+            timePlotDiv.innerHTML = ''; acfPlotDiv.innerHTML = ''; psdPlotDiv.innerHTML = '';
+
+            // Plot Layout Base
+            const plotLayoutBase = {
+                margin: { l: 60, r: 30, b: 50, t: 60, pad: 4 },
+                xaxis: { automargin: true, gridcolor: '#ecf0f1', linecolor: '#bdc3c7', zerolinecolor: '#bdc3c7', zerolinewidth: 1},
+                yaxis: { automargin: true, gridcolor: '#ecf0f1', linecolor: '#bdc3c7', zerolinecolor: '#bdc3c7', zerolinewidth: 1, rangemode: 'tozero'},
+                plot_bgcolor: 'rgba(0,0,0,0)', paper_bgcolor: 'rgba(0,0,0,0)',
+                font: { family: 'var(--font-family)', size: 11, color: 'var(--text-color)' },
+                title: { font: { size: 14 }, x: 0.05, xanchor: 'left' }, // Title left-aligned
+                legend: { orientation: "h", yanchor: "bottom", y: 1.02, xanchor: "right", x: 1 }
+            };
+            const plotConfig = {responsive: true, displaylogo: false}; // Common Plotly config
+
+            // Plot 1: Envelope
+            try {
+                let trace_env = {
+                    x: t, y: analysis.h0_mag, mode: 'lines', name: '|h<sub>0</sub>(t)|',
+                    line: { color: 'var(--primary-color)', width: 1.5 }
+                };
+                let layout_env = Object.assign({}, plotLayoutBase, {
+                    title: { ...plotLayoutBase.title, text: 'Channel Envelope vs Time'},
+                    xaxis: { ...plotLayoutBase.xaxis, title: 'Time (s)' },
+                    yaxis: { ...plotLayoutBase.yaxis, title: 'Magnitude' },
+                    shapes: [{
+                        type: 'line', x0: t[0], y0: 1, x1: t[t.length-1], y1: 1,
+                        line: { color: 'var(--accent-color)', width: 1, dash: 'dash' }, name: 'RMS Level'
+                    }]
+                });
+                Plotly.newPlot(timePlotDiv, [trace_env], layout_env, plotConfig);
+            } catch (e) { console.error("Error plotting envelope:", e); timePlotDiv.innerHTML = '<p class="placeholder-text">Error plotting envelope.</p>'; }
+
+            // Plot 2: ACF
+            try {
+                if (analysis.R_hat_complex && analysis.R0_theory && analysis.lag_time) {
+                    let trace_acf_sample = {
+                        x: analysis.lag_time, y: analysis.R_hat_complex.map(c => Math.sqrt(c.real**2 + c.imag**2)),
+                        mode: 'lines', name: 'Sample |R̂<sub>0</sub>(τ)|',
+                        line: { color: 'var(--secondary-color)', width: 1.5 }
+                    };
+                    let trace_acf_theory = {
+                        x: analysis.lag_time, y: analysis.R0_theory.map(Math.abs),
+                        mode: 'lines', name: 'Theory |J<sub>0</sub>(2πτf<sub>m</sub>)|',
+                        line: { dash: 'dash', color: 'var(--accent-color)', width: 1.5 }
+                    };
+                    let tc_text = (Tc === Infinity) ? '∞' : `≈ ${(Tc*1000).toFixed(1)} ms`;
+                    let layout_acf = Object.assign({}, plotLayoutBase, {
+                        title: { ...plotLayoutBase.title, text: 'Autocorrelation Function (Magnitude)'},
+                        xaxis: { ...plotLayoutBase.xaxis, title: 'Time Lag τ (s)' },
+                        yaxis: { ...plotLayoutBase.yaxis, title: 'Normalized Correlation', range: [0, 1.1], rangemode: 'normal' }, // Override rangemode
+                        shapes: (Tc === Infinity) ? [] : [{
+                            type: 'line', x0: Tc, y0: 0, x1: Tc, y1: 1.1,
+                            line: { color: '#9b59b6', width: 1.5, dash: 'dot'}
+                        }],
+                        annotations: (Tc === Infinity) ? [] : [{
+                             x: Tc, y: 0.5, xref: 'x', yref: 'y', text: `T<sub>c</sub> ${tc_text}`,
+                             showarrow: true, arrowhead: 2, ax: 30, ay: -30,
+                             bgcolor: 'rgba(255, 255, 255, 0.8)', borderpad: 4, font: {size: 10}
+                         }]
+                    });
+                    Plotly.newPlot(acfPlotDiv, [trace_acf_sample, trace_acf_theory], layout_acf, plotConfig);
+                } else { acfPlotDiv.innerHTML = '<p class="placeholder-text">ACF data unavailable.</p>'; }
+            } catch (e) { console.error("Error plotting ACF:", e); acfPlotDiv.innerHTML = '<p class="placeholder-text">Error plotting ACF.</p>'; }
+
+
+            // Plot 3: Power Spectral Density
+            try {
+                 if (analysis.S_hat_shifted && analysis.S_theory && analysis.freq_axis && fm !== undefined) {
+                     // Check if speed is effectively zero
+                     if (fm < 1e-9) {
+                          psdPlotDiv.innerHTML = '<p class="placeholder-text">Doppler Spectrum (Static Channel at 0 Hz)</p>';
+                          // Optionally plot a simple bar or line at 0 Hz if desired
+                          return; // Exit plotting for PSD if static
+                     }
+
+                     // Convert PSD to dB
+                     const epsilon = 1e-20;
+                     const S_hat_db = analysis.S_hat_shifted.map(val => 10 * Math.log10(Math.max(val, epsilon)));
+                     const S_theory_db = analysis.S_theory.map(val => 10 * Math.log10(Math.max(val, epsilon)));
+
+                     // Find reasonable y-axis range for dB plot
+                     const finite_S_theory_db = S_theory_db.filter(db => isFinite(db));
+                     const finite_S_hat_db = S_hat_db.filter(db => isFinite(db));
+
+                     if (finite_S_theory_db.length === 0 || finite_S_hat_db.length === 0) {
+                         throw new Error("No finite PSD values found for dB scaling.");
+                     }
+
+                     const maxDbTheory = Math.max(...finite_S_theory_db);
+                     const maxDbSample = Math.max(...finite_S_hat_db);
+                     const minDbSample = Math.min(...finite_S_hat_db);
+
+                     const yMax = Math.ceil(Math.max(maxDbTheory, maxDbSample) / 5) * 5 + 5; // Round up max dB + buffer
+                     const yMin = Math.max(yMax - 60, Math.floor(minDbSample / 10) * 10 - 10); // Show ~60dB range or down to sample min
+
+                     let trace_psd_sample = {
+                         x: analysis.freq_axis, y: S_hat_db, mode: 'lines', name: 'Sample PSD (FFT)',
+                         line: { color: 'var(--secondary-color)', width: 1.5 }
+                     };
+                     let trace_psd_theory = {
+                         x: analysis.freq_axis, y: S_theory_db, mode: 'lines', name: 'Theoretical PSD',
+                         line: { dash: 'dash', color: 'var(--accent-color)', width: 1.5 }
+                     };
+
+                     let layout_psd = Object.assign({}, plotLayoutBase, {
+                         title: { ...plotLayoutBase.title, text: 'Doppler Spectrum (Power Spectral Density)'},
+                         xaxis: { ...plotLayoutBase.xaxis, title: 'Frequency (Hz)', range: [-W/2, W/2] },
+                         yaxis: {
+                             ...plotLayoutBase.yaxis, title: 'PSD (dB/Hz)',
+                             rangemode: 'normal', range: [yMin, yMax]
+                         },
+                         shapes: [
+                            { type: 'line', x0: fm, y0: yMin, x1: fm, y1: yMax, line: { color: '#9b59b6', width: 1, dash: 'dot' } },
+                            { type: 'line', x0: -fm, y0: yMin, x1: -fm, y1: yMax, line: { color: '#9b59b6', width: 1, dash: 'dot' } }
+                         ],
+                         annotations: [
+                            { x: fm, y: yMax * 0.95, xref: 'x', yref: 'y', text: '+f<sub>m</sub>', showarrow: false, xanchor: 'left', font: { size: 10, color: '#9b59b6' } },
+                            { x: -fm, y: yMax * 0.95, xref: 'x', yref: 'y', text: '-f<sub>m</sub>', showarrow: false, xanchor: 'right', font: { size: 10, color: '#9b59b6' } }
+                         ]
+                     });
+
+                     Plotly.newPlot(psdPlotDiv, [trace_psd_sample, trace_psd_theory], layout_psd, plotConfig);
+
+                 } else {
+                     // Keep placeholder if data is missing
+                     psdPlotDiv.innerHTML = `<p class="placeholder-text">PSD Plot ${!FFT_IMPLEMENTED ? '(Requires FFT Library)' : '(Data Missing)'}</p>`;
+                     if (!FFT_IMPLEMENTED) {
+                         console.warn("PSD plot requires replacing the placeholder FFT functions.");
+                     }
+                 }
+            } catch (e) {
+                 console.error("Error plotting PSD:", e);
+                 psdPlotDiv.innerHTML = '<p class="placeholder-text">Error plotting PSD.</p>';
+             }
+        }
+
+    </script>
+
+</body>
+</html>
