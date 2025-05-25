@@ -92,6 +92,12 @@
             border-radius: 0.25rem; /* rounded */
             box-sizing: border-box;
         }
+        
+        input[type="number"]:disabled {
+            background-color: #e5e7eb;
+            cursor: not-allowed;
+        }
+
 
         .button-group {
             display: flex;
@@ -198,6 +204,11 @@
             vertical-align: -0.125em;
             fill: currentColor;
         }
+        .input-note {
+            font-size: 0.75rem;
+            color: #4b5563;
+            margin-top: 0.25rem;
+        }
 
     </style>
 </head>
@@ -225,18 +236,19 @@
                     <input type="number" id="numSymbols" value="1000" min="100" max="5000" step="100">
                 </div>
                 <div>
-                    <label for="channelTaps">Channel Taps</label>
+                    <label for="channelTapsInput">Channel Taps</label>
                     <input type="number" id="channelTapsInput" value="3" min="1" max="5">
                 </div>
             </div>
             <div class="grid md-grid-cols-2">
                 <div>
-                    <label for="channelCoeffs">Channel Coefficients (comma-separated)</label>
-                    <input type="text" id="channelCoeffsInput" value="1, 0.5, 0.25" placeholder="1, 0.5, 0.25">
+                    <label for="channelCoeffsInput">Channel Coefficients (comma-separated)</label>
+                    <input type="text" id="channelCoeffsInput" value="0.3, 0.7, 0.2" placeholder="e.g., 0.3, 0.7, 0.2">
                 </div>
                 <div>
-                    <label for="noiseVariance">MMSE Noise Variance Est.</label>
-                    <input type="number" id="noiseVarianceInput" value="0.1" min="0.01" max="1" step="0.01">
+                    <label for="noiseVarianceInput">MMSE Noise Variance Est. (UI only)</label>
+                    <input type="number" id="noiseVarianceInput" value="0.1" min="0.01" max="1" step="0.01" disabled>
+                    <p class="input-note">Note: For BER curve, MMSE uses adaptive noise based on current SNR.</p>
                 </div>
             </div>
             <div class="button-group">
@@ -290,9 +302,9 @@
                 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
                 Key Observations
             </h3>
-            <p><strong>Zero Forcing (ZF):</strong> Completely inverts the channel but amplifies noise, especially at low SNR. Performance degrades significantly when channel gain is small.</p>
-            <p><strong>MMSE:</strong> Balances ISI suppression and noise amplification by minimizing mean square error. Provides better BER performance across all SNR levels, particularly at low SNR.</p>
-            <p><strong>Trade-off:</strong> ZF provides perfect ISI cancellation but poor noise handling. MMSE sacrifices some ISI cancellation for better overall performance.</p>
+            <p><strong>Zero Forcing (ZF):</strong> Aims to completely invert the channel. Can significantly amplify noise if the channel has weak spots (low gain), especially at low SNR. These simplified single-tap equalizers primarily show noise amplification differences.</p>
+            <p><strong>MMSE:</strong> Balances ISI suppression (less so with single-tap) and noise amplification by minimizing mean square error. Uses an estimate of noise power to avoid excessive noise gain. Generally provides better BER performance, particularly when ZF struggles with noise.</p>
+            <p><strong>Trade-off:</strong> With more advanced multi-tap equalizers, ZF offers better ISI cancellation when noise is low, while MMSE offers better overall robustness by considering noise.</p>
         </div>
     </div>
 
@@ -302,7 +314,7 @@
         const numSymbolsInput = document.getElementById('numSymbols');
         const channelTapsInput = document.getElementById('channelTapsInput');
         const channelCoeffsInput = document.getElementById('channelCoeffsInput');
-        const noiseVarianceInput = document.getElementById('noiseVarianceInput');
+        const noiseVarianceInput = document.getElementById('noiseVarianceInput'); // Kept for UI consistency, but not used by MMSE in loop
         const startPauseButton = document.getElementById('startPauseButton');
         const playIcon = document.getElementById('playIcon');
         const pauseIcon = document.getElementById('pauseIcon');
@@ -313,12 +325,11 @@
         const progressDisplay = document.getElementById('progressDisplay');
         const constellationSNRDisplay = document.getElementById('constellationSNRDisplay');
 
-        // Simulation Parameters (initial values from React state)
+        // Simulation Parameters
         let params = {
             snrRange: [-10, 20],
             numSymbols: 1000,
             modulation: 'QPSK',
-            // channelTaps is not directly used in logic, channelCoeffs.length is used
         };
         
         // Simulation State
@@ -332,17 +343,20 @@
         };
         
         // Channel and noise parameters
-        let channelCoeffs = [1, 0.5, 0.25];
-        let noiseVariance = 0.1; // For MMSE equalizer
-        
+        let channelCoeffs = [0.3, 0.7, 0.2]; // MODIFIED: Default to a channel that can show differences
+        let uiNoiseVariance = 0.1; // Value from UI, not used by MMSE in BER curve calculation anymore
+
         let simulationInterval;
 
         // Chart.js instances
         let berChartInstance, transmittedConstellationChartInstance, zfConstellationChartInstance, mmseConstellationChartInstance;
 
-        // Helper Functions (copied and adapted from React component)
         const generateConstellation = (modType, numSymbolsVal) => {
             const symbols = [];
+            let normFactor = 1;
+            if (modType === 'QPSK') normFactor = 1 / Math.sqrt(2);
+            else if (modType === '16QAM') normFactor = 1 / Math.sqrt(10); // Avg power of 16QAM with levels -3,-1,1,3 is 10
+
             switch(modType) {
                 case 'BPSK':
                     for(let i = 0; i < numSymbolsVal; i++) {
@@ -352,15 +366,15 @@
                 case 'QPSK':
                     for(let i = 0; i < numSymbolsVal; i++) {
                         const bits = Math.floor(Math.random() * 4);
-                        symbols.push({ real: bits < 2 ? 1 / Math.sqrt(2) : -1 / Math.sqrt(2), imag: (bits % 2) === 0 ? 1 / Math.sqrt(2) : -1 / Math.sqrt(2) });
+                        symbols.push({ real: (bits < 2 ? 1 : -1) * normFactor, imag: ((bits % 2) === 0 ? 1 : -1) * normFactor });
                     }
                     break;
                 case '16QAM':
-                    const qamMap = [-3, -1, 1, 3].map(v => v / Math.sqrt(10)); // Normalize average power to 1
+                    const qamLevels = [-3, -1, 1, 3];
                     for(let i = 0; i < numSymbolsVal; i++) {
                         symbols.push({
-                            real: qamMap[Math.floor(Math.random() * 4)],
-                            imag: qamMap[Math.floor(Math.random() * 4)]
+                            real: qamLevels[Math.floor(Math.random() * 4)] * normFactor,
+                            imag: qamLevels[Math.floor(Math.random() * 4)] * normFactor
                         });
                     }
                     break;
@@ -370,39 +384,27 @@
 
         const applyChannel = (symbols, coeffs) => {
             const received = [];
+            const M = coeffs.length; // Memory of the channel
             for(let i = 0; i < symbols.length; i++) {
-                let real = 0, imag = 0;
-                for(let j = 0; j < coeffs.length && i - j >= 0; j++) {
-                    // Original had: const tapGain = coeffs[j] * (0.8 + 0.4 * Math.random()); // Add some randomness
-                    // This makes channel time-varying per symbol which is complex.
-                    // Using fixed coeffs for now, can re-add randomness if needed for specific effect.
-                    const tapGain = coeffs[j]; 
-                    real += symbols[i - j].real * tapGain - symbols[i-j].imag * 0; // Assuming real channel for simplicity of example
-                    imag += symbols[i - j].real * 0 + symbols[i-j].imag * tapGain;
+                let realSum = 0, imagSum = 0;
+                for(let j = 0; j < M; j++) {
+                    if (i - j >= 0) { // Check if symbol exists
+                        const h_j = coeffs[j]; // Assuming real channel coefficients
+                        const s_i_minus_j = symbols[i-j];
+                        realSum += s_i_minus_j.real * h_j;
+                        imagSum += s_i_minus_j.imag * h_j;
+                    }
                 }
-                received.push({ real, imag, id: i });
+                // The ISI is now incorporated correctly. 
+                // The original simplified applyChannel only convolved the current symbol with taps without summing past symbol contributions correctly for a given output sample.
+                // This is still a FIR filter.
+                received.push({ real: realSum, imag: imagSum, id: i });
             }
             return received;
         };
-
-        const addNoise = (symbols, snrDb) => {
-            const snrLinear = Math.pow(10, snrDb / 10);
-            // Assuming average symbol power is 1 (normalized constellations)
-            // SNR = SignalPower / NoisePower => NoisePower = SignalPower / SNR
-            // NoisePower = NoiseVariance (for complex noise, variance per dimension is NoisePower/2)
-            const noisePower = 1 / snrLinear;
-            const noiseStd = Math.sqrt(noisePower / 2); // Per dimension
-            
-            return symbols.map(s => ({
-                ...s,
-                real: s.real + noiseStd * (Math.random() * 2 - 1), // Gaussian approx: (Math.random() - 0.5) * 2 * sqrt(3) for uniform, or use proper Box-Muller
-                imag: s.imag + noiseStd * (Math.random() * 2 - 1)  // Using uniform for simplicity for now.
-            }));
-        };
         
-        // Box-Muller transform for Gaussian noise (more accurate)
         function gaussianRandom(mean=0, stdev=1) {
-            let u = 1 - Math.random(); //Converting [0,1) to (0,1]
+            let u = 1 - Math.random(); 
             let v = Math.random();
             let z = Math.sqrt( -2.0 * Math.log( u ) ) * Math.cos( 2.0 * Math.PI * v );
             return z * stdev + mean;
@@ -410,8 +412,12 @@
 
         const addNoiseGaussian = (symbols, snrDb) => {
             const snrLinear = Math.pow(10, snrDb / 10);
-            const noisePower = 1 / snrLinear; // Assuming signal power = 1
-            const noiseStd = Math.sqrt(noisePower / 2); // Std dev for real and imag parts
+            // Assuming average transmitted symbol power Es = 1 (due to normalization in generateConstellation)
+            // SNR = Es / N0 => N0 = Es / SNR = 1 / SNR (where N0 is total noise power for complex noise)
+            const noisePowerN0 = 1 / snrLinear;
+            // For complex AWGN, N0 is split equally between real and imag parts, so variance per dimension is N0/2.
+            // Standard deviation is sqrt(variance).
+            const noiseStd = Math.sqrt(noisePowerN0 / 2); 
             
             return symbols.map(s => ({
                 ...s,
@@ -420,13 +426,14 @@
             }));
         };
 
-
         const zfEqualize = (received, channelCoeffsVal) => {
-            // Simplified ZF: inverse filtering using only the first tap.
-            // A more complete ZF would involve matrix inversion of channel matrix or FFT-based division.
-            const mainTap = channelCoeffsVal[0];
-            if (Math.abs(mainTap) < 1e-6) return received.map(s => ({...s, real:0, imag:0})); // Avoid division by zero
-            const invGain = 1 / mainTap;
+            const mainTapGain = channelCoeffsVal[0];
+            if (Math.abs(mainTapGain) < 1e-9) { // Avoid division by zero/very small number
+                // If main tap is effectively zero, ZF fails spectacularly.
+                // Return a very noisy signal or zero to reflect this.
+                return received.map(s => ({...s, real: s.real * 1e9, imag: s.imag * 1e9 })); // Amplify to show failure
+            }
+            const invGain = 1 / mainTapGain;
             
             return received.map(s => ({
                 ...s,
@@ -435,16 +442,15 @@
             }));
         };
 
-        const mmseEqualize = (received, channelCoeffsVal, noiseVarEst) => {
+        const mmseEqualize = (received, channelCoeffsVal, actualNoisePowerEstimate) => {
             // Simplified MMSE for a single tap dominant channel.
-            // H is the main channel coefficient (complex)
-            // For real channelCoeffsVal[0], H = Hconj = channelCoeffsVal[0]
-            const H = channelCoeffsVal[0]; 
-            const HmagSq = H * H;
+            const H1 = channelCoeffsVal[0]; // Main channel coefficient (assuming real)
+            const H1MagSq = H1 * H1;
             
-            // MMSE weight: H* / (|H|^2 + N0/Es) or H* / (|H|^2 + noise_variance_of_signal_after_channel_and_before_eq)
-            // The noiseVarEst is an estimate of noise variance.
-            const mmseWeight = H / (HmagSq + noiseVarEst); 
+            // MMSE weight: H1* / (|H1|^2 + N0_estimate/Es)
+            // Since Es (avg symbol energy) is normalized to 1, this is H1 / (H1^2 + N0_estimate)
+            // actualNoisePowerEstimate is N0 (total noise power for complex)
+            const mmseWeight = H1 / (H1MagSq + actualNoisePowerEstimate); 
             
             return received.map(s => ({
                 ...s,
@@ -456,79 +462,90 @@
         const decideSymbol = (rxSymbol, modType) => {
             let decReal = 0;
             let decImag = 0;
+            let normFactor = 1;
 
             if (modType === 'BPSK') {
                 decReal = rxSymbol.real > 0 ? 1 : -1;
                 decImag = 0;
             } else if (modType === 'QPSK') {
-                const norm = 1 / Math.sqrt(2);
-                decReal = rxSymbol.real > 0 ? norm : -norm;
-                decImag = rxSymbol.imag > 0 ? norm : -norm;
+                normFactor = 1 / Math.sqrt(2);
+                decReal = rxSymbol.real > 0 ? normFactor : -normFactor;
+                decImag = rxSymbol.imag > 0 ? normFactor : -normFactor;
             } else if (modType === '16QAM') {
-                const levels = [-3, -1, 1, 3].map(v => v / Math.sqrt(10));
-                let closestDistReal = Infinity;
-                let closestDistImag = Infinity;
+                normFactor = 1 / Math.sqrt(10);
+                const levels = [-3, -1, 1, 3].map(v => v * normFactor);
                 
-                levels.forEach(level => {
-                    if (Math.abs(rxSymbol.real - level) < closestDistReal) {
-                        closestDistReal = Math.abs(rxSymbol.real - level);
-                        decReal = level;
-                    }
-                    if (Math.abs(rxSymbol.imag - level) < closestDistImag) {
-                        closestDistImag = Math.abs(rxSymbol.imag - level);
-                        decImag = level;
-                    }
-                });
+                decReal = levels.reduce((prev, curr) => Math.abs(curr - rxSymbol.real) < Math.abs(prev - rxSymbol.real) ? curr : prev);
+                decImag = levels.reduce((prev, curr) => Math.abs(curr - rxSymbol.imag) < Math.abs(prev - rxSymbol.imag) ? curr : prev);
             }
             return { real: decReal, imag: decImag };
         };
 
-
         const calculateBER = (transmitted, receivedEq, modType) => {
             let errors = 0;
             let totalBits = 0;
-            
             const numSymbolsToCompare = Math.min(transmitted.length, receivedEq.length);
 
             for(let i = 0; i < numSymbolsToCompare; i++) {
                 const tx = transmitted[i];
                 const rxDecided = decideSymbol(receivedEq[i], modType);
 
-                if (modType === 'BPSK') {
+                if (modType === 'BPSK') { // 1 bit per symbol
                     if (Math.sign(tx.real) !== Math.sign(rxDecided.real)) errors++;
                     totalBits++;
-                } else if (modType === 'QPSK') {
-                    if (Math.sign(tx.real) !== Math.sign(rxDecided.real)) errors++;
-                    if (Math.sign(tx.imag) !== Math.sign(rxDecided.imag)) errors++;
+                } else if (modType === 'QPSK') { // 2 bits per symbol
+                    if (Math.sign(tx.real) !== Math.sign(rxDecided.real)) errors++; // Error in I-channel bit
+                    if (Math.sign(tx.imag) !== Math.sign(rxDecided.imag)) errors++; // Error in Q-channel bit
                     totalBits += 2;
-                } else if (modType === '16QAM') {
-                    // Compare decided symbols to transmitted symbols (assuming they are from the same normalized set)
-                    // Need to map to bits or compare symbol error rate and convert
-                    // Simplified: check if decided symbol matches transmitted
-                    // A more accurate BER for 16QAM would require demapping to bits.
-                    // This calculates Symbol Error Rate components.
-                    if (Math.abs(tx.real - rxDecided.real) > 1e-3) errors++; // Arbitrary small epsilon
-                    if (Math.abs(tx.imag - rxDecided.imag) > 1e-3) errors++;
-                    totalBits += 4; // 2 bits for real, 2 for imag path in terms of error events for 16QAM
+                } else if (modType === '16QAM') { // 4 bits per symbol
+                    // A simple way to count bit errors for 16QAM with Gray coding (approx)
+                    // Compare to original levels before normalization for easier bit mapping.
+                    const txUnNorm = { real: tx.real * Math.sqrt(10), imag: tx.imag * Math.sqrt(10) };
+                    const rxUnNorm = { real: rxDecided.real * Math.sqrt(10), imag: rxDecided.imag * Math.sqrt(10) };
+
+                    // Map un-normalized levels (-3, -1, 1, 3) to bits (e.g., Gray coded)
+                    // -3 -> 00, -1 -> 01, 1 -> 11, 3 -> 10 (for MSB, LSB)
+                    const toGrayBits = (level) => {
+                        if (level < -2) return [0,0]; // for -3
+                        if (level < 0) return [0,1];  // for -1
+                        if (level < 2) return [1,1];  // for 1
+                        return [1,0];                 // for 3
+                    };
+                    
+                    const txBitsReal = toGrayBits(txUnNorm.real);
+                    const rxBitsReal = toGrayBits(rxUnNorm.real);
+                    if (txBitsReal[0] !== rxBitsReal[0]) errors++;
+                    if (txBitsReal[1] !== rxBitsReal[1]) errors++;
+
+                    const txBitsImag = toGrayBits(txUnNorm.imag);
+                    const rxBitsImag = toGrayBits(rxUnNorm.imag);
+                    if (txBitsImag[0] !== rxBitsImag[0]) errors++;
+                    if (txBitsImag[1] !== rxBitsImag[1]) errors++;
+                    
+                    totalBits += 4;
                 }
             }
-            
             return totalBits > 0 ? errors / totalBits : 0;
         };
 
-
         const runSingleSNPSimulation = (snrDbVal) => {
             const transmittedSyms = generateConstellation(params.modulation, params.numSymbols);
-            const channelOutput = applyChannel(transmittedSyms, channelCoeffs);
-            const noisySignal = addNoiseGaussian(channelOutput, snrDbVal); // Using Gaussian noise
+            // Apply channel introduces ISI. The simplified equalizers here mostly fight noise on the first tap's path.
+            const channelOutput = applyChannel(transmittedSyms, channelCoeffs); 
+            const noisySignal = addNoiseGaussian(channelOutput, snrDbVal);
             
             const zfOutput = zfEqualize(noisySignal, channelCoeffs);
-            const mmseOutput = mmseEqualize(noisySignal, channelCoeffs, noiseVariance);
+            
+            // MODIFIED: MMSE uses actual noise power for this SNR point
+            const snrLinear = Math.pow(10, snrDbVal / 10);
+            const actualNoisePowerForMMSE = 1 / snrLinear; // N0 (total noise power), assuming Es=1
+            const mmseOutput = mmseEqualize(noisySignal, channelCoeffs, actualNoisePowerForMMSE);
             
             const zfBER = calculateBER(transmittedSyms, zfOutput, params.modulation);
             const mmseBER = calculateBER(transmittedSyms, mmseOutput, params.modulation);
             
-            // Update constellations (first 100 symbols for visualization)
+            console.log(`SNR: ${snrDbVal.toFixed(1)} dB -> ZF_BER: ${zfBER.toExponential(3)}, MMSE_BER: ${mmseBER.toExponential(3)} (N0_MMSE_est: ${actualNoisePowerForMMSE.toExponential(2)})`);
+            
             const displayCount = Math.min(100, params.numSymbols);
             constellations.transmitted = transmittedSyms.slice(0, displayCount).map(s => ({x: s.real, y: s.imag}));
             constellations.zf_received = zfOutput.slice(0, displayCount).map(s => ({x: s.real, y: s.imag}));
@@ -537,7 +554,6 @@
             return { snr: snrDbVal, zfBER, mmseBER };
         };
 
-        // Animation control
         function startSimulationLoop() {
             if (isRunning) return;
             isRunning = true;
@@ -548,22 +564,22 @@
                 
                 const existingIndex = results.findIndex(r => r.snr === currentSNR);
                 if (existingIndex >= 0) {
-                    results[existingIndex] = result; // Replace if re-running for same SNR
+                    results[existingIndex] = result;
                 } else {
                     results.push(result);
                 }
-                results.sort((a, b) => a.snr - b.snr); // Keep sorted for chart
+                results.sort((a, b) => a.snr - b.snr);
                 
                 updateBERChart();
                 updateConstellationCharts();
-                updateUIState(); // For progress and current SNR display
+                updateUIState();
                 
                 if (currentSNR < params.snrRange[1]) {
                     currentSNR++;
                 } else {
                     pauseSimulationLoop();
                 }
-            }, 500); // Interval time
+            }, 200); // Reduced interval for faster sim
         }
 
         function pauseSimulationLoop() {
@@ -578,7 +594,7 @@
             results = [];
             constellations = { transmitted: [], zf_received: [], mmse_received: [] };
             
-            updateBERChart(); // Clear or reset charts
+            updateBERChart();
             updateConstellationCharts();
             updateUIState();
         }
@@ -606,29 +622,32 @@
             }
         }
         
-        // Charting functions
         function initCharts() {
             const berCtx = document.getElementById('berChart').getContext('2d');
             berChartInstance = new Chart(berCtx, {
                 type: 'line',
                 data: {
-                    labels: [], // SNR values
+                    labels: [],
                     datasets: [
                         {
                             label: 'Zero Forcing BER',
-                            data: [], // zfBER values
+                            data: [],
                             borderColor: '#ff7300',
                             backgroundColor: 'rgba(255, 115, 0, 0.1)',
                             tension: 0.1,
-                            fill: false
+                            fill: false,
+                            pointRadius: 3,
+                            borderWidth: 2
                         },
                         {
                             label: 'MMSE BER',
-                            data: [], // mmseBER values
+                            data: [],
                             borderColor: '#387908',
                             backgroundColor: 'rgba(56, 121, 8, 0.1)',
                             tension: 0.1,
-                            fill: false
+                            fill: false,
+                            pointRadius: 3,
+                            borderWidth: 2
                         }
                     ]
                 },
@@ -642,10 +661,10 @@
                         y: {
                             type: 'logarithmic',
                             title: { display: true, text: 'Bit Error Rate' },
-                            min: 1e-5, // Adjust as needed
+                            min: 1e-6, // Adjusted min for potentially lower BERs
                              ticks: {
                                 callback: function(value, index, values) {
-                                    return value.toExponential();
+                                    return Number(value.toPrecision(1)).toExponential();
                                 }
                             }
                         }
@@ -655,14 +674,18 @@
                             callbacks: {
                                 label: function(context) {
                                     let label = context.dataset.label || '';
-                                    if (label) {
-                                        label += ': ';
-                                    }
+                                    if (label) { label += ': '; }
                                     if (context.parsed.y !== null) {
                                         label += context.parsed.y.toExponential(2);
                                     }
                                     return label;
                                 }
+                            }
+                        },
+                        legend: {
+                            labels: {
+                                usePointStyle: true,
+                                pointStyle: 'rect',
                             }
                         }
                     }
@@ -673,82 +696,99 @@
                 responsive: true,
                 maintainAspectRatio: false,
                 scales: {
-                    x: { type: 'linear', position: 'bottom', min: -2, max: 2, title: { display: false, text: 'Real' }, ticks: { font: {size: 8}}},
-                    y: { min: -2, max: 2, title: { display: false, text: 'Imag' }, ticks: { font: {size: 8}} }
+                    x: { type: 'linear', position: 'bottom', min: -2.5, max: 2.5, title: { display: false }, ticks: { font: {size: 8}}},
+                    y: { min: -2.5, max: 2.5, title: { display: false }, ticks: { font: {size: 8}} }
                 },
                 plugins: {
                     legend: { display: false },
                     tooltip: { enabled: false }
-                }
+                },
+                animation: false // Disable animation for faster updates
             });
 
             transmittedConstellationChartInstance = new Chart(document.getElementById('transmittedConstellationChart').getContext('2d'), {
                 type: 'scatter',
-                data: { datasets: [{ data: [], backgroundColor: '#8884d8' }] },
+                data: { datasets: [{ data: [], backgroundColor: '#8884d8', pointRadius: 2 }] },
                 options: commonScatterOptions('Transmitted')
             });
             zfConstellationChartInstance = new Chart(document.getElementById('zfConstellationChart').getContext('2d'), {
                 type: 'scatter',
-                data: { datasets: [{ data: [], backgroundColor: '#ff7300' }] },
+                data: { datasets: [{ data: [], backgroundColor: '#ff7300', pointRadius: 2 }] },
                 options: commonScatterOptions('ZF Received')
             });
             mmseConstellationChartInstance = new Chart(document.getElementById('mmseConstellationChart').getContext('2d'), {
                 type: 'scatter',
-                data: { datasets: [{ data: [], backgroundColor: '#387908' }] },
+                data: { datasets: [{ data: [], backgroundColor: '#387908', pointRadius: 2 }] },
                 options: commonScatterOptions('MMSE Received')
             });
         }
 
         function updateBERChart() {
             if (!berChartInstance) return;
-            berChartInstance.data.labels = results.map(r => r.snr);
-            berChartInstance.data.datasets[0].data = results.map(r => r.zfBER > 0 ? r.zfBER : null); // Use null for log scale if 0
-            berChartInstance.data.datasets[1].data = results.map(r => r.mmseBER > 0 ? r.mmseBER : null);
+            const labels = results.map(r => r.snr);
+            const zfData = results.map(r => (r.zfBER > 0 && isFinite(r.zfBER)) ? r.zfBER : null);
+            const mmseData = results.map(r => (r.mmseBER > 0 && isFinite(r.mmseBER)) ? r.mmseBER : null);
+
+            console.log("BER Chart Update - Labels:", JSON.stringify(labels));
+            console.log("BER Chart Update - ZF Data:", JSON.stringify(zfData));
+            console.log("BER Chart Update - MMSE Data:", JSON.stringify(mmseData));
+
+            berChartInstance.data.labels = labels;
+            berChartInstance.data.datasets[0].data = zfData;
+            berChartInstance.data.datasets[1].data = mmseData;
             berChartInstance.update();
         }
 
         function updateConstellationCharts() {
-            if (!transmittedConstellationChartInstance || !zfConstellationChartInstance || !mmseConstellationChartInstance) return;
+            if (!transmittedConstellationChartInstance) return;
             
-            const getDomain = (data) => {
-                if (!data || data.length === 0) return [-1.5, 1.5]; // Default domain
-                const allValues = data.flatMap(p => [p.x, p.y]).filter(v => typeof v === 'number' && isFinite(v));
-                if (allValues.length === 0) return [-1.5, 1.5];
-                let minVal = Math.min(...allValues);
-                let maxVal = Math.max(...allValues);
-                const padding = Math.max(0.5, (maxVal - minVal) * 0.1);
-                minVal = Math.floor(minVal - padding);
-                maxVal = Math.ceil(maxVal + padding);
-                return [Math.min(-1.5, minVal), Math.max(1.5, maxVal)]; // Ensure at least -1.5 to 1.5
+            const getDynamicDomain = (dataArray, fallbackMin = -1.5, fallbackMax = 1.5) => {
+                if (!dataArray || dataArray.length === 0) return [fallbackMin, fallbackMax];
+                let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+                dataArray.forEach(p => {
+                    if (isFinite(p.x)) { minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x); }
+                    if (isFinite(p.y)) { minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y); }
+                });
+                if (!isFinite(minX)) return [fallbackMin, fallbackMax]; // All data was non-finite
+
+                const rangeX = maxX - minX;
+                const rangeY = maxY - minY;
+                const paddingX = Math.max(0.5, rangeX * 0.1);
+                const paddingY = Math.max(0.5, rangeY * 0.1);
+
+                return [
+                    Math.min(fallbackMin, Math.floor((minX - paddingX) * 2) / 2), // Round down to nearest 0.5
+                    Math.max(fallbackMax, Math.ceil((maxX + paddingX) * 2) / 2),  // Round up to nearest 0.5
+                    Math.min(fallbackMin, Math.floor((minY - paddingY) * 2) / 2),
+                    Math.max(fallbackMax, Math.ceil((maxY + paddingY) * 2) / 2)
+                ];
             };
 
-            const transmittedDomain = getDomain(constellations.transmitted);
-            const zfDomain = getDomain(constellations.zf_received);
-            const mmseDomain = getDomain(constellations.mmse_received);
-
+            const txDomain = getDynamicDomain(constellations.transmitted);
             transmittedConstellationChartInstance.data.datasets[0].data = constellations.transmitted;
-            transmittedConstellationChartInstance.options.scales.x.min = transmittedDomain[0];
-            transmittedConstellationChartInstance.options.scales.x.max = transmittedDomain[1];
-            transmittedConstellationChartInstance.options.scales.y.min = transmittedDomain[0];
-            transmittedConstellationChartInstance.options.scales.y.max = transmittedDomain[1];
-            transmittedConstellationChartInstance.update('none'); // 'none' for no animation
+            transmittedConstellationChartInstance.options.scales.x.min = txDomain[0];
+            transmittedConstellationChartInstance.options.scales.x.max = txDomain[1];
+            transmittedConstellationChartInstance.options.scales.y.min = txDomain[2];
+            transmittedConstellationChartInstance.options.scales.y.max = txDomain[3];
+            transmittedConstellationChartInstance.update('none');
 
+            const zfDomain = getDynamicDomain(constellations.zf_received);
             zfConstellationChartInstance.data.datasets[0].data = constellations.zf_received;
             zfConstellationChartInstance.options.scales.x.min = zfDomain[0];
             zfConstellationChartInstance.options.scales.x.max = zfDomain[1];
-            zfConstellationChartInstance.options.scales.y.min = zfDomain[0];
-            zfConstellationChartInstance.options.scales.y.max = zfDomain[1];
+            zfConstellationChartInstance.options.scales.y.min = zfDomain[2];
+            zfConstellationChartInstance.options.scales.y.max = zfDomain[3];
             zfConstellationChartInstance.update('none');
 
+            const mmseDomain = getDynamicDomain(constellations.mmse_received);
             mmseConstellationChartInstance.data.datasets[0].data = constellations.mmse_received;
             mmseConstellationChartInstance.options.scales.x.min = mmseDomain[0];
             mmseConstellationChartInstance.options.scales.x.max = mmseDomain[1];
-            mmseConstellationChartInstance.options.scales.y.min = mmseDomain[0];
-            mmseConstellationChartInstance.options.scales.y.max = mmseDomain[1];
+            mmseConstellationChartInstance.options.scales.y.min = mmseDomain[2];
+            mmseConstellationChartInstance.options.scales.y.max = mmseDomain[3];
             mmseConstellationChartInstance.update('none');
         }
 
-        // Event Listeners for controls
         startPauseButton.addEventListener('click', () => {
             if (isRunning) {
                 pauseSimulationLoop();
@@ -756,60 +796,58 @@
                 startSimulationLoop();
             }
         });
-
         resetButton.addEventListener('click', resetSimulation);
 
         function parseAndUpdateParams() {
             params.modulation = modulationSelect.value;
             params.numSymbols = parseInt(numSymbolsInput.value) || 1000;
             
-            const coeffsStr = channelCoeffsInput.value.split(',').map(x => parseFloat(x.trim()));
-            if (coeffsStr.every(x => !isNaN(x)) && coeffsStr.length > 0) {
-                channelCoeffs = coeffsStr;
-                // Update channelTapsInput to reflect actual number of coefficients
+            const coeffsStrRaw = channelCoeffsInput.value.split(',');
+            const parsedCoeffs = coeffsStrRaw.map(x => parseFloat(x.trim())).filter(x => !isNaN(x));
+            
+            if (parsedCoeffs.length > 0) {
+                channelCoeffs = parsedCoeffs;
                 channelTapsInput.value = channelCoeffs.length; 
             } else {
-                // Reset to default if input is invalid
-                channelCoeffsInput.value = channelCoeffs.join(', '); 
+                channelCoeffsInput.value = channelCoeffs.join(', '); // Revert to old if invalid
             }
             
-            noiseVariance = parseFloat(noiseVarianceInput.value) || 0.1;
-            // No direct channelTaps state in React, it was bound to channelTapsInput.
-            // Here we can just read channelCoeffs.length when needed for simulation.
-            resetSimulation(); // Reset if params change
+            uiNoiseVariance = parseFloat(noiseVarianceInput.value) || 0.1; // Still update this, though not used by MMSE in loop
+            resetSimulation();
         }
         
         modulationSelect.addEventListener('change', parseAndUpdateParams);
         numSymbolsInput.addEventListener('change', parseAndUpdateParams);
         channelCoeffsInput.addEventListener('change', parseAndUpdateParams);
-        noiseVarianceInput.addEventListener('change', parseAndUpdateParams);
+        noiseVarianceInput.addEventListener('change', () => { // Only updates uiNoiseVariance
+            uiNoiseVariance = parseFloat(noiseVarianceInput.value) || 0.1;
+        });
         channelTapsInput.addEventListener('change', () => {
-            // If user changes "Channel Taps" number, we can auto-populate channelCoeffs
             const numTaps = parseInt(channelTapsInput.value);
             if (numTaps > 0 && numTaps <= 5) {
                 if (numTaps !== channelCoeffs.length) {
-                    const newCoeffs = Array(numTaps).fill(0).map((_, i) => i === 0 ? 1 : parseFloat((Math.random()*0.5).toFixed(2)) );
+                    // Generate somewhat random default taps if count changes
+                    const newCoeffs = Array(numTaps).fill(0).map((_, i) => {
+                        if (i === 0) return parseFloat((0.2 + Math.random()*0.3).toFixed(2)); // First tap weaker
+                        return parseFloat((Math.random()*0.8).toFixed(2)); // Other taps
+                    });
                     channelCoeffs = newCoeffs;
                     channelCoeffsInput.value = channelCoeffs.join(', ');
-                    parseAndUpdateParams();
+                    parseAndUpdateParams(); // This will call reset
                 }
             }
         });
 
-
-        // Initial Setup
         document.addEventListener('DOMContentLoaded', () => {
-            // Set initial values from JS to HTML inputs
             modulationSelect.value = params.modulation;
             numSymbolsInput.value = params.numSymbols;
             channelTapsInput.value = channelCoeffs.length;
             channelCoeffsInput.value = channelCoeffs.join(', ');
-            noiseVarianceInput.value = noiseVariance;
+            noiseVarianceInput.value = uiNoiseVariance;
 
             initCharts();
-            resetSimulation(); // Initialize UI and state
+            resetSimulation();
         });
-
     </script>
 </body>
 </html>
