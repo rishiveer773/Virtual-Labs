@@ -114,7 +114,7 @@
 
         .results {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            grid-template-columns: 1fr 1fr;
             gap: 25px;
             margin-bottom: 30px;
         }
@@ -271,13 +271,7 @@
 
         <div class="results">
             <div class="chart-container">
-                <canvas id="berChart"></canvas>
-            </div>
-            <div class="chart-container">
                 <canvas id="constellationChart"></canvas>
-            </div>
-            <div class="chart-container">
-                <canvas id="channelChart"></canvas>
             </div>
             <div class="chart-container">
                 <canvas id="snrChart"></canvas>
@@ -303,8 +297,11 @@
     </div>
 
     <script>
-        // Global variables for charts
-        let berChart, constellationChart, channelChart, snrChart;
+        // Global variables for charts and performance data
+        let constellationChart, snrChart;
+        let zfBERData = [];
+        let mmseBERData = [];
+        let snrRange = [];
         
         // Update display values
         document.getElementById('snr').addEventListener('input', function() {
@@ -359,7 +356,8 @@
                         symbols.push(new Complex(Math.random() > 0.5 ? 1 : -1, 0));
                         break;
                     case 'QPSK':
-                        const qpsk = [(1, 1), (1, -1), (-1, 1), (-1, -1)][Math.floor(Math.random() * 4)];
+                        const qpskVals = [[1, 1], [1, -1], [-1, 1], [-1, -1]];
+                        const qpsk = qpskVals[Math.floor(Math.random() * 4)];
                         symbols.push(new Complex(qpsk[0] / Math.sqrt(2), qpsk[1] / Math.sqrt(2)));
                         break;
                     case 'QAM16':
@@ -500,36 +498,61 @@
             return errors / minLength;
         }
 
-        // Main experiment function
+        // Main experiment function - now runs for full SNR range
         function runExperiment() {
-            const snrDb = parseInt(document.getElementById('snr').value);
             const numSymbols = parseInt(document.getElementById('numSymbols').value);
             const channelLength = parseInt(document.getElementById('channelLength').value);
             const modulation = document.getElementById('modulation').value;
+            const currentSNR = parseInt(document.getElementById('snr').value);
             
-            // Generate data
+            // Clear previous data
+            zfBERData = [];
+            mmseBERData = [];
+            snrRange = [];
+            
+            // Run experiment for SNR range from -10 to 20 dB
+            for (let snrDb = -10; snrDb <= 20; snrDb += 1) {
+                // Generate data
+                const transmittedSymbols = generateSymbols(numSymbols, modulation);
+                const channel = generateChannel(channelLength);
+                const channelOutput = convolve(transmittedSymbols, channel);
+                const receivedSignal = addNoise(channelOutput, snrDb);
+                
+                // Apply equalizers
+                const noiseVariance = Math.pow(10, -snrDb/10);
+                const zfEqualized = zfEqualizer(receivedSignal, channel);
+                const mmseEqualized = mmseEqualizer(receivedSignal, channel, noiseVariance);
+                
+                // Calculate performance metrics
+                const zfBER = calculateBER(transmittedSymbols, zfEqualized, modulation);
+                const mmseBER = calculateBER(transmittedSymbols, mmseEqualized, modulation);
+                
+                // Store data
+                snrRange.push(snrDb);
+                zfBERData.push(Math.max(zfBER, 1e-6)); // Avoid zero for log scale
+                mmseBERData.push(Math.max(mmseBER, 1e-6));
+            }
+            
+            // Generate constellation data for current SNR
             const transmittedSymbols = generateSymbols(numSymbols, modulation);
             const channel = generateChannel(channelLength);
             const channelOutput = convolve(transmittedSymbols, channel);
-            const receivedSignal = addNoise(channelOutput, snrDb);
+            const receivedSignal = addNoise(channelOutput, currentSNR);
             
-            // Apply equalizers
-            const noiseVariance = Math.pow(10, -snrDb/10);
+            const noiseVariance = Math.pow(10, -currentSNR/10);
             const zfEqualized = zfEqualizer(receivedSignal, channel);
             const mmseEqualized = mmseEqualizer(receivedSignal, channel, noiseVariance);
             
-            // Calculate performance metrics
-            const zfBER = calculateBER(transmittedSymbols, zfEqualized, modulation);
-            const mmseBER = calculateBER(transmittedSymbols, mmseEqualized, modulation);
+            // Calculate current performance metrics for display
+            const currentZFBER = calculateBER(transmittedSymbols, zfEqualized, modulation);
+            const currentMMSEBER = calculateBER(transmittedSymbols, mmseEqualized, modulation);
             
             // Update performance metrics display
-            updatePerformanceMetrics(zfBER, mmseBER, snrDb);
+            updatePerformanceMetrics(currentZFBER, currentMMSEBER, currentSNR);
             
             // Update charts
-            updateBERChart(snrDb, zfBER, mmseBER);
             updateConstellationChart(transmittedSymbols, zfEqualized, mmseEqualized, modulation);
-            updateChannelChart(channel);
-            updateSNRChart(snrDb, zfBER, mmseBER);
+            updateSNRChart(currentSNR);
         }
 
         function updatePerformanceMetrics(zfBER, mmseBER, snrDb) {
@@ -555,44 +578,6 @@
             document.getElementById('performanceMetrics').innerHTML = metricsHtml;
         }
 
-        function updateBERChart(snrDb, zfBER, mmseBER) {
-            const ctx = document.getElementById('berChart').getContext('2d');
-            
-            if (berChart) berChart.destroy();
-            
-            berChart = new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: ['ZF Equalizer', 'MMSE Equalizer'],
-                    datasets: [{
-                        label: 'Bit Error Rate',
-                        data: [zfBER, mmseBER],
-                        backgroundColor: ['rgba(255, 99, 132, 0.6)', 'rgba(54, 162, 235, 0.6)'],
-                        borderColor: ['rgba(255, 99, 132, 1)', 'rgba(54, 162, 235, 1)'],
-                        borderWidth: 2
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        title: {
-                            display: true,
-                            text: `BER Comparison at ${snrDb} dB SNR`
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            title: {
-                                display: true,
-                                text: 'Bit Error Rate'
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
         function updateConstellationChart(transmitted, zfEqualized, mmseEqualized, modulation) {
             const ctx = document.getElementById('constellationChart').getContext('2d');
             
@@ -610,20 +595,26 @@
                         {
                             label: 'Transmitted',
                             data: txData,
-                            backgroundColor: 'rgba(75, 192, 192, 0.6)',
-                            pointRadius: 4
+                            backgroundColor: 'rgba(75, 192, 192, 0.8)',
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            pointRadius: 5,
+                            pointHoverRadius: 7
                         },
                         {
                             label: 'ZF Equalized',
                             data: zfData,
                             backgroundColor: 'rgba(255, 99, 132, 0.6)',
-                            pointRadius: 3
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            pointRadius: 4,
+                            pointHoverRadius: 6
                         },
                         {
                             label: 'MMSE Equalized',
                             data: mmseData,
                             backgroundColor: 'rgba(54, 162, 235, 0.6)',
-                            pointRadius: 3
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            pointRadius: 4,
+                            pointHoverRadius: 6
                         }
                     ]
                 },
@@ -632,106 +623,60 @@
                     plugins: {
                         title: {
                             display: true,
-                            text: `${modulation} Constellation Diagram`
+                            text: `${modulation} Constellation Diagram`,
+                            font: {
+                                size: 16,
+                                weight: 'bold'
+                            }
+                        },
+                        legend: {
+                            display: true,
+                            position: 'top'
                         }
                     },
                     scales: {
                         x: {
                             title: {
                                 display: true,
-                                text: 'In-Phase'
-                            }
-                        },
-                        y: {
-                            title: {
-                                display: true,
-                                text: 'Quadrature'
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
-        function updateChannelChart(channel) {
-            const ctx = document.getElementById('channelChart').getContext('2d');
-            
-            if (channelChart) channelChart.destroy();
-            
-            const magnitudes = channel.map(c => c.magnitude());
-            const phases = channel.map(c => Math.atan2(c.imag, c.real) * 180 / Math.PI);
-            
-            channelChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: channel.map((_, i) => i),
-                    datasets: [
-                        {
-                            label: 'Magnitude',
-                            data: magnitudes,
-                            borderColor: 'rgba(75, 192, 192, 1)',
-                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                            yAxisID: 'y'
-                        },
-                        {
-                            label: 'Phase (degrees)',
-                            data: phases,
-                            borderColor: 'rgba(255, 159, 64, 1)',
-                            backgroundColor: 'rgba(255, 159, 64, 0.2)',
-                            yAxisID: 'y1'
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        title: {
-                            display: true,
-                            text: 'Channel Impulse Response'
-                        }
-                    },
-                    scales: {
-                        x: {
-                            title: {
-                                display: true,
-                                text: 'Tap Index'
-                            }
-                        },
-                        y: {
-                            type: 'linear',
-                            display: true,
-                            position: 'left',
-                            title: {
-                                display: true,
-                                text: 'Magnitude'
-                            }
-                        },
-                        y1: {
-                            type: 'linear',
-                            display: true,
-                            position: 'right',
-                            title: {
-                                display: true,
-                                text: 'Phase (°)'
+                                text: 'In-Phase',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
                             },
                             grid: {
-                                drawOnChartArea: false,
+                                color: 'rgba(0, 0, 0, 0.1)'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Quadrature',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
                             },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.1)'
+                            }
                         }
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'point'
                     }
                 }
             });
         }
 
-        function updateSNRChart(currentSNR, zfBER, mmseBER) {
+        function updateSNRChart(currentSNR) {
             const ctx = document.getElementById('snrChart').getContext('2d');
             
             if (snrChart) snrChart.destroy();
             
-            // Generate theoretical BER curves
-            const snrRange = Array.from({length: 31}, (_, i) => i);
-            const zfTheoretical = snrRange.map(snr => Math.max(0.5 * Math.exp(-snr/5), 1e-6));
-            const mmseTheoretical = snrRange.map(snr => Math.max(0.5 * Math.exp(-snr/3), 1e-6));
+            // Find current SNR index for highlighting
+            const currentIndex = snrRange.indexOf(currentSNR);
             
             snrChart = new Chart(ctx, {
                 type: 'line',
@@ -739,36 +684,24 @@
                     labels: snrRange,
                     datasets: [
                         {
-                            label: 'ZF (Theoretical)',
-                            data: zfTheoretical,
-                            borderColor: 'rgba(255, 99, 132, 0.8)',
-                            backgroundColor: 'rgba(255, 99, 132, 0.1)',
-                            borderDash: [5, 5]
-                        },
-                        {
-                            label: 'MMSE (Theoretical)',
-                            data: mmseTheoretical,
-                            borderColor: 'rgba(54, 162, 235, 0.8)',
-                            backgroundColor: 'rgba(54, 162, 235, 0.1)',
-                            borderDash: [5, 5]
-                        },
-                        {
-                            label: `ZF (Current: ${currentSNR} dB)`,
-                            data: [{x: currentSNR, y: zfBER}],
+                            label: 'ZF Equalizer',
+                            data: zfBERData,
                             borderColor: 'rgba(255, 99, 132, 1)',
-                            backgroundColor: 'rgba(255, 99, 132, 1)',
-                            pointRadius: 8,
-                            pointHoverRadius: 10,
-                            showLine: false
+                            backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                            borderWidth: 3,
+                            pointRadius: snrRange.map((_, i) => i === currentIndex ? 8 : 3),
+                            pointBackgroundColor: snrRange.map((_, i) => i === currentIndex ? 'rgba(255, 99, 132, 1)' : 'rgba(255, 99, 132, 0.6)'),
+                            tension: 0.4
                         },
                         {
-                            label: `MMSE (Current: ${currentSNR} dB)`,
-                            data: [{x: currentSNR, y: mmseBER}],
+                            label: 'MMSE Equalizer',
+                            data: mmseBERData,
                             borderColor: 'rgba(54, 162, 235, 1)',
-                            backgroundColor: 'rgba(54, 162, 235, 1)',
-                            pointRadius: 8,
-                            pointHoverRadius: 10,
-                            showLine: false
+                            backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                            borderWidth: 3,
+                            pointRadius: snrRange.map((_, i) => i === currentIndex ? 8 : 3),
+                            pointBackgroundColor: snrRange.map((_, i) => i === currentIndex ? 'rgba(54, 162, 235, 1)' : 'rgba(54, 162, 235, 0.6)'),
+                            tension: 0.4
                         }
                     ]
                 },
@@ -777,24 +710,55 @@
                     plugins: {
                         title: {
                             display: true,
-                            text: 'BER vs SNR Performance Curve'
+                            text: `BER vs SNR Performance (Current: ${currentSNR} dB)`,
+                            font: {
+                                size: 16,
+                                weight: 'bold'
+                            }
+                        },
+                        legend: {
+                            display: true,
+                            position: 'top'
                         }
                     },
                     scales: {
                         x: {
                             title: {
                                 display: true,
-                                text: 'SNR (dB)'
+                                text: 'SNR (dB)',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.1)'
                             }
                         },
                         y: {
                             type: 'logarithmic',
                             title: {
                                 display: true,
-                                text: 'Bit Error Rate (log scale)'
+                                text: 'Bit Error Rate (log scale)',
+                                font: {
+                                    size: 14,
+                                    weight: 'bold'
+                                }
                             },
                             min: 1e-6,
-                            max: 1
+                            max: 1,
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.1)'
+                            }
+                        }
+                    },
+                    interaction: {
+                        intersect: false,
+                        mode: 'index'
+                    },
+                    elements: {
+                        point: {
+                            hoverRadius: 10
                         }
                     }
                 }
