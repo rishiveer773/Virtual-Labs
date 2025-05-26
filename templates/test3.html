@@ -1,785 +1,743 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Clarke's Flat Fading Model - Virtual Experiment</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: #333;
-            min-height: 100vh;
-        }
-        
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            background: rgba(255, 255, 255, 0.95);
-            border-radius: 20px;
-            padding: 30px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-        }
-        
-        h1 {
-            text-align: center;
-            color: #4a5568;
-            margin-bottom: 10px;
-            font-size: 2.5em;
-            font-weight: 300;
-        }
-        
-        .subtitle {
-            text-align: center;
-            color: #718096;
-            margin-bottom: 30px;
-            font-size: 1.1em;
-        }
-        
-        .controls-section {
-            background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
-            padding: 25px;
-            border-radius: 15px;
-            margin-bottom: 30px;
-            border: 1px solid #e2e8f0;
-        }
-        
-        .controls-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
-            margin-bottom: 20px;
-        }
-        
-        .control-group {
-            background: white;
-            padding: 20px;
-            border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        }
-        
-        .control-group h3 {
-            margin: 0 0 15px 0;
-            color: #2d3748;
-            font-size: 1.1em;
-        }
-        
-        .input-group {
-            margin-bottom: 15px;
-        }
-        
-        label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: 500;
-            color: #4a5568;
-        }
-        
-        input[type="range"] {
-            width: 100%;
-            height: 6px;
-            border-radius: 3px;
-            background: #e2e8f0;
-            outline: none;
-            -webkit-appearance: none;
-        }
-        
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            background: #667eea;
-            cursor: pointer;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-        }
-        
-        .value-display {
-            display: inline-block;
-            background: #667eea;
-            color: white;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 0.9em;
-            margin-left: 10px;
-        }
-        
-        .update-btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            padding: 12px 30px;
-            border-radius: 25px;
-            cursor: pointer;
-            font-size: 1.1em;
-            font-weight: 500;
-            transition: all 0.3s ease;
-            display: block;
-            margin: 20px auto 0;
-        }
-        
-        .update-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
-        }
-        
-        .charts-container {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 30px;
-            margin-top: 30px;
-        }
-        
-        .chart-section {
-            background: white;
-            padding: 25px;
-            border-radius: 15px;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.08);
-        }
-        
-        .chart-title {
-            font-size: 1.4em;
-            color: #2d3748;
-            margin-bottom: 20px;
-            text-align: center;
-            font-weight: 500;
-        }
-        
-        .chart-container {
-            position: relative;
-            height: 400px;
-        }
-        
-        .model-info {
-            background: linear-gradient(135deg, #e6fffa 0%, #f0fff4 100%);
-            padding: 20px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            border-left: 4px solid #48bb78;
-        }
-        
-        .formula {
-            background: #f7fafc;
-            padding: 15px;
-            border-radius: 8px;
-            margin: 10px 0;
-            font-family: 'Courier New', monospace;
-            border: 1px solid #e2e8f0;
-        }
-        
-        @media (max-width: 768px) {
-            .charts-container {
-                grid-template-columns: 1fr;
-            }
-            .controls-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Advanced Shadowing and Outage Probability Lab</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: grid;
+      grid-template-columns: 320px 1fr 350px;
+      height: 100vh;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      overflow: hidden; 
+    }
+
+    #inputs, #simulation, #outputs {
+      border: none;
+      margin: 10px;
+      border-radius: 15px;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(20px);
+      box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+      overflow: auto; 
+    }
+
+    #inputs, #outputs {
+      padding: 20px;
+    }
+
+    #simulation {
+      display: flex; 
+      justify-content: center;
+      align-items: center;
+      position: relative; 
+      padding: 15px; 
+    }
+
+    h3 {
+      color: #333;
+      margin: 0 0 20px 0;
+      text-align: center;
+      font-size: 1.3em;
+      font-weight: 600;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .input-group {
+      margin-bottom: 20px;
+      padding: 15px;
+      background: rgba(255, 255, 255, 0.8);
+      border-radius: 10px;
+      border: 1px solid rgba(102, 126, 234, 0.2);
+      transition: all 0.3s ease;
+    }
+
+    .input-group:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #444;
+      font-size: 0.9em;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: all 0.3s ease;
+      background: white;
+    }
+
+    input:focus, select:focus {
+      border-color: #667eea;
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .grid-container {
+      border: 3px solid #333;
+      border-radius: 12px;
+      overflow: hidden; 
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      background: #333; 
+    }
+
+    .cell {
+      width: 18px; 
+      height: 18px; 
+      border: none; 
+      cursor: pointer;
+      transition: background-color 0.1s ease, transform 0.2s ease; 
+      position: relative; /* Needed for ::after pseudo-element */
+    }
+
+    .cell:hover {
+      transform: scale(1.15); 
+      z-index: 10;
+      box-shadow: 0 0 10px rgba(0,0,0,0.6); 
+    }
+
+    .transmitter {
+      border-radius: 50%;
+      border: 3px solid #000 !important;
+      background: radial-gradient(circle, #ffeb3b, #ff9800) !important;
+      box-shadow: 0 0 12px rgba(255, 193, 7, 0.8);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 12px rgba(255, 193, 7, 0.8); transform: scale(1); }
+      50% { box-shadow: 0 0 20px rgba(255, 193, 7, 1); transform: scale(1.05); }
+    }
+
+    .obstacle-normal {
+      background: linear-gradient(45deg, #555, #777) !important; 
+      border: 1px solid #222 !important; 
+    }
+
+    .obstacle-heavy {
+      background: linear-gradient(45deg, #7A0000, #C01030) !important; 
+      border: 1px solid #500 !important; 
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.4);
+    }
+
+    .outage-cell {
+      box-shadow: inset 0 0 0 1px #dd0033, 0 0 4px rgba(255, 23, 68, 0.5);
+      animation: blink-outage 1.5s infinite alternate; 
+    }
+    
+    .obstacle-normal.outage-cell, 
+    .obstacle-heavy.outage-cell {
+         box-shadow: inset 0 0 0 1px #dd0033, 0 0 4px rgba(255, 23, 68, 0.5);
+    }
+
+    @keyframes blink-outage { 
+      from { box-shadow: inset 0 0 0 1px #dd0033, 0 0 4px rgba(255, 23, 68, 0.5); }
+      to   { box-shadow: inset 0 0 0 1px #ff4466, 0 0 7px rgba(255, 87, 34, 0.7); }
+    }
+
+    /* Style for shadowed cells */
+    .cell.shadowed-cell::after {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        /* Use a CSS variable for dynamic alpha. Default to a very light base. */
+        background-color: rgba(0, 0, 0, var(--shadow-alpha, 0.02)); /* Default alpha if var not set, very light */
+        pointer-events: none; 
+        z-index: 1; 
+        transition: background-color 0.1s ease-in-out; /* Smooth alpha changes if needed */
+    }
+    .transmitter.shadowed-cell::after { display: none; } 
+    .obstacle-normal.shadowed-cell::after,
+    .obstacle-heavy.shadowed-cell::after {
+        display: none; 
+    }
+
+
+    .tooltip {
+      position: absolute;
+      background: linear-gradient(135deg, #2c3e50, #34495e); 
+      color: white;
+      padding: 10px 15px;
+      border-radius: 8px;
+      font-size: 12px;
+      pointer-events: none;
+      white-space: nowrap;
+      transform: translate(-50%, -120%); 
+      z-index: 1000;
+      box-shadow: 0 5px 25px rgba(0,0,0,0.5);
+      border: 1px solid rgba(255,255,255,0.15);
+    }
+
+    .output-section {
+      margin-bottom: 20px;
+      padding: 15px;
+      background: rgba(255, 255, 255, 0.85); 
+      border-radius: 10px;
+      border-left: 4px solid #667eea;
+    }
+
+    .output-section h4 { margin: 0 0 12px 0; color: #2c3e50; font-size: 1.1em; font-weight: 600; }
+    .metric { display: flex; justify-content: space-between; align-items: center; margin: 8px 0; padding: 6px 0; border-bottom: 1px solid rgba(0,0,0,0.08); }
+    .metric:last-child { border-bottom: none; }
+    .metric-label { font-weight: 500; color: #34495e; font-size: 0.9em; }
+    .metric-value { font-family: 'Courier New', monospace; font-weight: bold; color: #2c3e50; font-size: 0.95em; }
+
+    .status-indicator { padding: 12px; border-radius: 8px; text-align: center; font-weight: 600; margin-top: 10px; transition: all 0.3s ease; text-shadow: 0 1px 1px rgba(0,0,0,0.2); }
+    .status-excellent { background: linear-gradient(135deg, #2ecc71, #27ae60); color: white; }
+    .status-good { background: linear-gradient(135deg, #f1c40f, #f39c12); color: white; }
+    .status-fair { background: linear-gradient(135deg, #e67e22, #d35400); color: white; }
+    .status-poor { background: linear-gradient(135deg, #e74c3c, #c0392b); color: white; }
+
+    .legend { margin-top: 20px; padding: 15px; background: rgba(255, 255, 255, 0.85); border-radius: 10px; border: 1px solid rgba(102, 126, 234, 0.15); }
+    .legend h4 { margin: 0 0 12px 0; color: #2c3e50; font-size: 1em; font-weight: 600; }
+    .legend-item { display: flex; align-items: center; margin: 8px 0; font-size: 0.85em; color: #34495e;}
+    .legend-color { width: 20px; height: 20px; border-radius: 4px; margin-right: 10px; border: 1px solid #bdc3c7; flex-shrink: 0; }
+
+    .instructions { font-size: 0.85em; color: #34495e; margin-top: 15px; padding: 12px; background: linear-gradient(135deg, #ecf0f1, #e0e6e8); border-radius: 8px; border-left: 4px solid #f39c12; line-height: 1.4; }
+    button { width: 100%; padding: 12px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.95em; margin-top: 15px; transition: all 0.3s ease; text-shadow: 0 1px 1px rgba(0,0,0,0.2); }
+    button:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); filter: brightness(1.1); }
+    .mode-buttons { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 10px; }
+    .mode-btn { padding: 8px 4px; margin: 0; font-size: 0.8em; border-radius: 6px; }
+    .mode-btn.active { background: linear-gradient(135deg, #2ecc71, #27ae60); transform: scale(0.97); box-shadow: inset 0 1px 3px rgba(0,0,0,0.2); }
+    .progress-bar { width: 100%; height: 8px; background: rgba(0,0,0,0.08); border-radius: 4px; overflow: hidden; margin: 5px 0; }
+    .progress-fill { height: 100%; transition: width 0.3s ease; }
+    #outageProgress.progress-fill { background: linear-gradient(90deg, #e74c3c, #c0392b); } 
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Clarke's Flat Fading Model</h1>
-        <p class="subtitle">Interactive Virtual Experiment for Mobile Channel Modeling</p>
-        
-        <div class="model-info">
-            <h3>Model Description</h3>
-            <p>Clarke's model simulates flat fading in mobile communications where a receiver moves through a field of scatterers. The model assumes K scattering paths with uniform angular distribution.</p>
-            <div class="formula">
-                <strong>Key Equations:</strong><br>
-                Autocorrelation: R₀[n] = 2a²πJ₀(nπDᵥ/W)<br>
-                Doppler Spectrum: S(f) = 4a²W / (π√(1-(2fW/Dᵥ)²)) for |f| ≤ Dᵥ/(2W)
-            </div>
-        </div>
-        
-        <div class="controls-section">
-            <div class="controls-grid">
-                <div class="control-group">
-                    <h3>Signal Parameters</h3>
-                    <div class="input-group">
-                        <label for="amplitude">Amplitude (a): <span class="value-display" id="amplitudeValue">1.0</span></label>
-                        <input type="range" id="amplitude" min="0.1" max="2.0" step="0.1" value="1.0">
-                    </div>
-                    <div class="input-group">
-                        <label for="bandwidth">Bandwidth (W) [Hz]: <span class="value-display" id="bandwidthValue">10</span></label>
-                        <input type="range" id="bandwidth" min="1" max="50" step="1" value="10">
-                    </div>
-                </div>
-                
-                <div class="control-group">
-                    <h3>Doppler Parameters</h3>
-                    <div class="input-group">
-                        <label for="dopplerSpread">Doppler Spread (Dᵥ) [Hz]: <span class="value-display" id="dopplerSpreadValue">20</span></label>
-                        <input type="range" id="dopplerSpread" min="5" max="100" step="5" value="20">
-                    </div>
-                    <div class="input-group">
-                        <label for="coherenceTime">Coherence Time Factor: <span class="value-display" id="coherenceTimeValue">0.05</span></label>
-                        <input type="range" id="coherenceTime" min="0.01" max="0.2" step="0.01" value="0.05">
-                    </div>
-                </div>
-                
-                <div class="control-group">
-                    <h3>Simulation Parameters</h3>
-                    <div class="input-group">
-                        <label for="numSamples">Number of Samples: <span class="value-display" id="numSamplesValue">200</span></label>
-                        <input type="range" id="numSamples" min="50" max="500" step="50" value="200">
-                    </div>
-                    <div class="input-group">
-                        <label for="numPaths">Number of Paths (K): <span class="value-display" id="numPathsValue">8</span></label>
-                        <input type="range" id="numPaths" min="4" max="20" step="2" value="8">
-                    </div>
-                </div>
-            </div>
-            
-            <button class="update-btn" onclick="updatePlots()">Update Simulation</button>
-        </div>
-        
-        <!-- One-Ring Model Diagram Section -->
-        <div class="chart-section" style="margin-bottom: 30px;">
-            <h3 class="chart-title">One-Ring Model Diagram</h3>
-            <div style="background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
-                <div class="controls-grid" style="margin-bottom: 15px;">
-                    <div class="control-group">
-                        <h4 style="margin: 0 0 10px 0;">Diagram Controls</h4>
-                        <div class="input-group">
-                            <label for="ringRadius">Ring Radius: <span class="value-display" id="ringRadiusValue">100</span></label>
-                            <input type="range" id="ringRadius" min="80" max="150" step="10" value="100">
-                        </div>
-                        <div class="input-group">
-                            <label for="mobileAngle">Mobile Position (°): <span class="value-display" id="mobileAngleValue">0</span></label>
-                            <input type="range" id="mobileAngle" min="0" max="360" step="15" value="0">
-                        </div>
-                    </div>
-                    <div class="control-group">
-                        <h4 style="margin: 0 0 10px 0;">Animation</h4>
-                        <div class="input-group">
-                            <label for="animationSpeed">Animation Speed: <span class="value-display" id="animationSpeedValue">1</span></label>
-                            <input type="range" id="animationSpeed" min="0" max="5" step="1" value="1">
-                        </div>
-                        <button id="toggleAnimation" style="background: #48bb78; color: white; border: none; padding: 8px 16px; border-radius: 15px; cursor: pointer;">Start Animation</button>
-                    </div>
-                </div>
-                <div style="text-align: center;">
-                    <canvas id="oneRingCanvas" width="500" height="500" style="border: 2px solid #e2e8f0; border-radius: 10px; max-width: 100%;"></canvas>
-                </div>
-                <div style="margin-top: 15px; text-align: center; color: #718096;">
-                    <p><strong>Interactive One-Ring Model:</strong> Mobile receiver (blue circle) moves around the ring of scatterers. 
-                    Each scatterer reflects signals with different delays and angles, creating the multipath fading environment.</p>
-                </div>
-            </div>
-        </div>
-
-        <div class="charts-container">
-            <div class="chart-section">
-                <h3 class="chart-title">Autocorrelation Function R₀[n]</h3>
-                <div class="chart-container">
-                    <canvas id="autocorrelationChart"></canvas>
-                </div>
-            </div>
-            
-            <div class="chart-section">
-                <h3 class="chart-title">Doppler Power Spectrum S(f)</h3>
-                <div class="chart-container">
-                    <canvas id="spectrumChart"></canvas>
-                </div>
-            </div>
-        </div>
+  <div id="inputs">
+    <h3>🎛️ System Parameters</h3>
+    <div class="input-group"> <label for="setting">📡 Environment Type:</label> <select id="setting"> <option value="urban">Urban (High Interference)</option> <option value="suburban">Suburban (Medium)</option> <option value="rural">Rural (Low Interference)</option> </select> </div>
+    <div class="input-group"> <label for="Pt">🔋 Transmitter Power (dBm):</label> <input type="number" id="Pt" value="30" min="0" max="50" step="1"> </div>
+    <div class="input-group"> <label for="Pmin">📶 Min Required Power (dBm):</label> <input type="number" id="Pmin" value="-85" min="-120" max="-50" step="1"> </div>
+    <div class="input-group"> <label for="frequency">📻 Frequency (MHz):</label> <input type="number" id="frequency" value="900" min="400" max="6000" step="50"> </div>
+    <!-- Path Loss Exponent and Shadow Fading Std Dev Inputs REMOVED -->
+    <div class="input-group"> <label>🖱️ Click Mode:</label> <div class="mode-buttons"> <button class="mode-btn active" onclick="setMode('normal')">Normal</button> <button class="mode-btn" onclick="setMode('heavy')">Heavy</button> <button class="mode-btn" onclick="setMode('erase')">Erase</button> </div> </div>
+    <button onclick="clearAll()">🗑️ Clear All Obstacles</button> <button onclick="randomObstacles()">🎲 Random Obstacles</button>
+    <div class="instructions"> <strong>📋 Instructions:</strong><br> • Yellow circle = Transmitter<br> • Click cells to place obstacles<br> • Red outlined cells = Outage<br> • Tinged cells = Shadowed by obstacle<br> • Hover for detailed cell info<br> • Adjust parameters to see effects </div>
+    <div class="legend"> <h4>🎨 Legend</h4> <div class="legend-item"> <div class="legend-color" style="background: radial-gradient(circle, #ffeb3b, #ff9800); border-radius: 50%;"></div> <span>Transmitter</span> </div>     <!-- ... other legend items ... -->
+    <div class="legend-item"> 
+        <div class="legend-color" style="background: linear-gradient(45deg, #555, #777);"></div> 
+        <!-- MODIFIED Legend Text -->
+        <span>Normal Obstacle (18dB Max Shadow)</span> 
+    </div> 
+    <div class="legend-item"> 
+        <div class="legend-color" style="background: linear-gradient(45deg, #7A0000, #C01030);"></div> 
+        <!-- MODIFIED Legend Text -->
+        <span>Heavy Obstacle (35dB Max Shadow)</span> 
     </div>
+    <!-- ... other legend items ... --> <div class="legend-item"> <div class="legend-color" style="background: #00ff00;"></div> <span>Strong Signal (>-60dBm)</span> </div> <div class="legend-item"> <div class="legend-color" style="background: #ffff00;"></div> <span>Medium Signal (-60 to -80dBm)</span> </div> <div class="legend-item"> <div class="legend-color" style="background: #ff0000;"></div> <span>Weak Signal (<-80dBm)</span> </div> <div class="legend-item"> <div class="legend-color" style="box-shadow: inset 0 0 0 1px #dd0033;"></div> <span>Outage Indication</span> </div> <div class="legend-item"> <div class="legend-color" style="background-color: rgba(0,0,0,0.15); border: 1px dashed #555;"></div> <span>Shadowed Cell (Tinge)</span> </div> </div>
+  </div>
+
+  <div id="simulation"> <div class="grid-container" id="grid-container"></div> </div>
+
+  <div id="outputs">
+    <h3>📊 Results & Analysis</h3>
+    <div class="output-section"> <h4>🎯 Coverage Metrics</h4> <div class="metric"> <span class="metric-label">Outage Probability:</span> <span class="metric-value" id="outageProb">0.00%</span> </div> <div class="progress-bar"> <div class="progress-fill" id="outageProgress" style="width: 0%;"></div> </div> <div class="metric"> <span class="metric-label">Coverage Area:</span> <span class="metric-value" id="coverageArea">100.00%</span> </div> <div class="metric"> <span class="metric-label">Cells in Outage:</span> <span class="metric-value" id="outageCells">0 / 929</span> </div> </div>
+    <div class="output-section"> <h4>📡 Signal Analysis</h4> <div class="metric"> <span class="metric-label">Avg Rx Power (Covered):</span> <span class="metric-value" id="avgReceivedPower">0.00 dBm</span> </div> <div class="metric"> <span class="metric-label">Min Rx Power (Covered):</span> <span class="metric-value" id="minReceivedPower">0.00 dBm</span> </div> <div class="metric"> <span class="metric-label">Max Rx Power (Covered):</span> <span class="metric-value" id="maxReceivedPower">0.00 dBm</span> </div> <div class="metric"> <span class="metric-label">Signal Dynamic Range:</span> <span class="metric-value" id="signalRange">0.00 dB</span> </div> </div>
+    <div class="output-section"> <h4>🌐 Path Loss Analysis</h4> <div class="metric"> <span class="metric-label">Avg Total Path Loss:</span> <span class="metric-value" id="avgPathloss">0.00 dB</span> </div>
+      <!-- Avg Shadow Loss (Obstacle + Random) changed to Avg Obstacle Shadow (dB) -->
+      <div class="metric"> <span class="metric-label">Avg Obstacle Shadow (dB):</span> <span class="metric-value" id="avgShadowLoss">0.00 dB</span> </div> 
+      <div class="metric"> <span class="metric-label">Max Coverage Distance:</span> <span class="metric-value" id="maxDistance">0.00 km</span> </div> </div>
+    <div class="output-section"> <h4>🏢 Environment Impact</h4> <div class="metric"> <span class="metric-label">Environment Factor:</span> <span class="metric-value" id="envFactor">Urban</span> </div> <div class="metric"> <span class="metric-label">Obstacle Count:</span> <span class="metric-value" id="obstacleCount">0</span> </div>
+      <!-- Shadowing Factor (from Std) changed to Shadowing Model -->
+      <div class="metric"> <span class="metric-label">Shadowing Model:</span> <span class="metric-value" id="shadowingFactor">Obstacle-based</span> </div> 
+    </div>
+    <div class="status-indicator" id="systemStatus"> System Status: Excellent Coverage </div>
+  </div>
 
     <script>
-        // Global variables for charts and animation
-        let autocorrelationChart = null;
-        let spectrumChart = null;
-        let animationRunning = false;
-        let animationId = null;
-        let currentAngle = 0;
+    // Configuration
+    const gridSize = 18; 
+    const rows = 31;
+    const cols = 31;
+    const transmitter = { x: Math.floor(cols / 2), y: Math.floor(rows / 2) }; 
+    const CELL_SIZE_METERS = 100; 
+    
+    let currentMode = 'normal'; 
+    let cells = [];
+
+    // Shadow Fading Effect Constants
+    const MAX_SHADOW_FADE_DISTANCE_GRID_UNITS = 12; 
+    const MAX_VISUAL_ALPHA = 0.03; // Max alpha for the tinge (center of cone, close to obs)
+    const MIN_VISUAL_ALPHA = 0.002; // Min alpha for tinge (far edge of cone, far from obs)
+
+
+    const environmentFactors = {
+      urban: { pathLossOffset: 5, name: "Urban" },     
+      suburban: { pathLossOffset: 2, name: "Suburban" }, 
+      rural: { pathLossOffset: 0, name: "Rural" }      
+    };
+
+    const gridContainer = document.getElementById("grid-container");
+    gridContainer.style.display = 'grid';
+    gridContainer.style.gridTemplateRows = `repeat(${rows}, ${gridSize}px)`;
+    gridContainer.style.gridTemplateColumns = `repeat(${cols}, ${gridSize}px)`;
+    gridContainer.style.width = `${cols * gridSize}px`; 
+    gridContainer.style.height = `${rows * gridSize}px`; 
+
+    const tooltip = document.createElement("div");
+    tooltip.className = "tooltip";
+    tooltip.style.display = "none";
+    document.body.appendChild(tooltip);
+
+    function createGrid() {
+      gridContainer.innerHTML = ''; 
+      cells = [];
+      
+      for (let row = 0; row < rows; row++) {
+        cells[row] = [];
+        for (let col = 0; col < cols; col++) {
+          const cellElement = document.createElement("div");
+          cellElement.classList.add("cell");
+          cellElement.dataset.row = row;
+          cellElement.dataset.col = col;
+
+          if (row === transmitter.y && col === transmitter.x) {
+            cellElement.classList.add("transmitter");
+          }
+
+          gridContainer.appendChild(cellElement); 
+          cells[row][col] = {
+            element: cellElement, basePathloss: 0, currentPathloss: 0, receivedPower: 0,
+            lossComponents: { base: 0, obstacleShadow: 0 }, 
+            obstacleType: null, isOutage: false, distance: 0,
+            isVisuallyShadowed: false, 
+            distanceForTinge: MAX_SHADOW_FADE_DISTANCE_GRID_UNITS + 1,
+            lateralScaleForTinge: 0 // Initialize
+          };
+
+          cellElement.addEventListener('click', () => handleCellClick(row, col));
+          cellElement.addEventListener('mouseover', (e) => showTooltip(e, row, col));
+          cellElement.addEventListener('mouseout', () => hideTooltip());
+        }
+      }
+    }
+
+    function calculateFreeSpacePathLoss(distanceM, frequencyMHz) {
+      if (distanceM <= 0) return 0; 
+      return 20 * Math.log10(distanceM) + 20 * Math.log10(frequencyMHz) - 27.55;
+    }
+    
+    function calculatePathLoss(distanceM, frequencyMHz, environment) {
+      if (distanceM <= 0) return 0;
+      const freeSpacePL = calculateFreeSpacePathLoss(Math.max(1, distanceM), frequencyMHz); 
+      const envData = environmentFactors[environment];
+      return freeSpacePL + envData.pathLossOffset; 
+    }
+
+    // --- MODIFIED isPointShadowed for a smoother-edged triangular/cone-like shadow ---
+    // --- AND INCREASED BASE ATTENUATION FOR BOTH OBSTACLE TYPES ---
+    function isPointShadowed(targetCol, targetRow, obstacleCol, obstacleRow, obstacleType) {
+        const tx = transmitter.x;
+        const ty = transmitter.y;
+
+        const vec_tx_obs_x = obstacleCol - tx;
+        const vec_tx_obs_y = obstacleRow - ty;
+        const vec_tx_target_x = targetCol - tx;
+        const vec_tx_target_y = targetRow - ty;
+
+        const dist_tx_obs_sq = vec_tx_obs_x * vec_tx_obs_x + vec_tx_obs_y * vec_tx_obs_y;
+        const dist_tx_target_sq = vec_tx_target_x * vec_tx_target_x + vec_tx_target_y * vec_tx_target_y;
+
+        if (dist_tx_target_sq <= dist_tx_obs_sq) {
+            return { isShadowed: false, baseAttenuation: 0, distanceInShadow: 0, lateralScale: 0 };
+        }
+
+        const dotProduct = vec_tx_obs_x * vec_tx_target_x + vec_tx_obs_y * vec_tx_target_y;
+        if (dotProduct <= 0 || dotProduct < dist_tx_obs_sq) {
+            return { isShadowed: false, baseAttenuation: 0, distanceInShadow: 0, lateralScale: 0 };
+        }
+
+        const dist_tx_obs = Math.sqrt(dist_tx_obs_sq);
+        if (dist_tx_obs < 0.1) {
+            return { isShadowed: false, baseAttenuation: 0, distanceInShadow: 0, lateralScale: 0 };
+        }
         
-        // Bessel function J0 approximation (good for small to medium arguments)
-        function besselJ0(x) {
-            if (Math.abs(x) < 8) {
-                const y = x * x;
-                const ans1 = 57568490574.0 + y * (-13362590354.0 + y * (651619640.7 + 
-                    y * (-11214424.18 + y * (77392.33017 + y * (-184.9052456)))));
-                const ans2 = 57568490411.0 + y * (1029532985.0 + y * (9494680.718 + 
-                    y * (59272.64853 + y * (267.8532712 + y * 1.0))));
-                return ans1 / ans2;
-            } else {
-                const z = 8.0 / x;
-                const y = z * z;
-                const xx = x - 0.785398164;
-                const ans1 = 1.0 + y * (-0.1098628627e-2 + y * (0.2734510407e-4 + 
-                    y * (-0.2073370639e-5 + y * 0.2093887211e-6)));
-                const ans2 = -0.1562499995e-1 + y * (0.1430488765e-3 + 
-                    y * (-0.6911147651e-5 + y * (0.7621095161e-6 - y * 0.934945152e-7)));
-                return Math.sqrt(0.636619772 / x) * (Math.cos(xx) * ans1 - z * Math.sin(xx) * ans2);
+        const perpendicularDistance = Math.abs(vec_tx_obs_x * vec_tx_target_y - vec_tx_obs_y * vec_tx_target_x) / dist_tx_obs;
+        const distanceInShadow = Math.sqrt(dist_tx_target_sq) - dist_tx_obs;
+
+        const INITIAL_SHADOW_WIDTH = 0.6; 
+        const SHADOW_SPREAD_FACTOR = 0.35; // This controls the angle/spread of the cone
+        const CORE_PERCENTAGE_OF_CONE = 0.3; 
+        const PENUMBRA_TOTAL_PERCENTAGE_OF_CONE = 1.0; 
+        const currentMaxConeHalfWidth = INITIAL_SHADOW_WIDTH + (distanceInShadow * SHADOW_SPREAD_FACTOR);
+
+        let lateralScale = 0; 
+
+        if (perpendicularDistance <= currentMaxConeHalfWidth * CORE_PERCENTAGE_OF_CONE) {
+            lateralScale = 1.0;
+        } else if (perpendicularDistance <= currentMaxConeHalfWidth * PENUMBRA_TOTAL_PERCENTAGE_OF_CONE) {
+            const coreEdge = currentMaxConeHalfWidth * CORE_PERCENTAGE_OF_CONE;
+            const penumbraEdge = currentMaxConeHalfWidth * PENUMBRA_TOTAL_PERCENTAGE_OF_CONE;
+            if (penumbraEdge > coreEdge) {
+                lateralScale = 1.0 - (perpendicularDistance - coreEdge) / (penumbraEdge - coreEdge);
+                lateralScale = Math.max(0, Math.min(1, lateralScale)); 
+            } else { 
+                lateralScale = (coreEdge === 0 && penumbraEdge === 0 && perpendicularDistance === 0) ? 1.0 : 0;
             }
+        } else {
+            return { isShadowed: false, baseAttenuation: 0, distanceInShadow: 0, lateralScale: 0 };
+        }
+
+        let baseAttenuationDb = 0;
+        if (obstacleType === "heavy") {
+            // --- INCREASED for heavy obstacles ---
+            baseAttenuationDb = 35; // Was 25 dB
+            // --- END OF CHANGE ---
+        } else if (obstacleType === "normal") {
+            // --- INCREASED for normal obstacles ---
+            baseAttenuationDb = 18; // Was 12 dB
+            // --- END OF CHANGE ---
         }
         
-        // Initialize sliders and their displays
-        function initializeControls() {
-            const sliders = ['amplitude', 'bandwidth', 'dopplerSpread', 'coherenceTime', 'numSamples', 'numPaths', 'ringRadius', 'mobileAngle', 'animationSpeed'];
-            
-            sliders.forEach(id => {
-                const slider = document.getElementById(id);
-                const display = document.getElementById(id + 'Value');
-                
-                if (slider && display) {
-                    slider.oninput = function() {
-                        display.textContent = this.value;
-                        if (id === 'ringRadius') {
-                            drawOneRingModel();
-                        } else if (id === 'mobileAngle') {
-                            currentAngle = parseFloat(this.value);
-                            drawOneRingModel();
-                        }
-                    };
-                }
-            });
-            
-            // Animation toggle button
-            const toggleBtn = document.getElementById('toggleAnimation');
-            toggleBtn.onclick = function() {
-                if (animationRunning) {
-                    stopAnimation();
-                    this.textContent = 'Start Animation';
-                    this.style.background = '#48bb78';
-                } else {
-                    startAnimation();
-                    this.textContent = 'Stop Animation';
-                    this.style.background = '#e53e3e';
-                }
-            };
-        }
-        
-        // One-Ring Model Drawing Functions
-        function drawOneRingModel() {
-            const canvas = document.getElementById('oneRingCanvas');
-            const ctx = canvas.getContext('2d');
-            const centerX = canvas.width / 2;
-            const centerY = canvas.height / 2;
-            const radius = parseFloat(document.getElementById('ringRadius').value);
-            const K = parseInt(document.getElementById('numPaths').value);
-            
-            // Clear canvas
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            // Draw background
-            ctx.fillStyle = '#f8fafc';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
-            // Draw outer ring (scatterer boundary)
-            ctx.strokeStyle = '#cbd5e0';
-            ctx.lineWidth = 2;
-            ctx.setLineDash([5, 5]);
-            ctx.beginPath();
-            ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
-            ctx.stroke();
-            ctx.setLineDash([]);
-            
-            // Draw scatterers around the ring
-            for (let i = 0; i < K; i++) {
-                const angle = (2 * Math.PI * i) / K;
-                const x = centerX + radius * Math.cos(angle);
-                const y = centerY + radius * Math.sin(angle);
-                
-                // Draw scatterer
-                ctx.fillStyle = '#e53e3e';
-                ctx.beginPath();
-                ctx.arc(x, y, 4, 0, 2 * Math.PI);
-                ctx.fill();
-                
-                // Draw scatterer label
-                ctx.fillStyle = '#2d3748';
-                ctx.font = '10px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText(`S${i+1}`, x, y - 10);
-            }
-            
-            // Draw transmitter at center
-            ctx.fillStyle = '#f56565';
-            ctx.beginPath();
-            ctx.arc(centerX, centerY, 8, 0, 2 * Math.PI);
-            ctx.fill();
-            ctx.fillStyle = 'white';
-            ctx.font = 'bold 10px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText('Tx', centerX, centerY + 3);
-            
-            // Calculate mobile receiver position
-            const mobileAngle = (currentAngle * Math.PI) / 180;
-            const mobileRadius = radius * 0.3; // Mobile moves in inner circle
-            const mobileX = centerX + mobileRadius * Math.cos(mobileAngle);
-            const mobileY = centerY + mobileRadius * Math.sin(mobileAngle);
-            
-            // Draw mobile receiver
-            ctx.fillStyle = '#3182ce';
-            ctx.beginPath();
-            ctx.arc(mobileX, mobileY, 8, 0, 2 * Math.PI);
-            ctx.fill();
-            ctx.fillStyle = 'white';
-            ctx.font = 'bold 10px Arial';
-            ctx.fillText('Rx', mobileX, mobileY + 3);
-            
-            // Draw mobile movement path
-            ctx.strokeStyle = '#90cdf4';
-            ctx.lineWidth = 1;
-            ctx.setLineDash([2, 2]);
-            ctx.beginPath();
-            ctx.arc(centerX, centerY, mobileRadius, 0, 2 * Math.PI);
-            ctx.stroke();
-            ctx.setLineDash([]);
-            
-            // Draw multipath rays (from transmitter through scatterers to mobile)
-            ctx.strokeStyle = '#48bb78';
-            ctx.lineWidth = 1;
-            ctx.globalAlpha = 0.6;
-            
-            for (let i = 0; i < Math.min(K, 6); i++) { // Limit rays for clarity
-                const scatterAngle = (2 * Math.PI * i) / K;
-                const scatterX = centerX + radius * Math.cos(scatterAngle);
-                const scatterY = centerY + radius * Math.sin(scatterAngle);
-                
-                // Ray from transmitter to scatterer
-                ctx.beginPath();
-                ctx.moveTo(centerX, centerY);
-                ctx.lineTo(scatterX, scatterY);
-                ctx.stroke();
-                
-                // Ray from scatterer to mobile
-                ctx.beginPath();
-                ctx.moveTo(scatterX, scatterY);
-                ctx.lineTo(mobileX, mobileY);
-                ctx.stroke();
-                
-                // Draw small arrow on the ray to show direction
-                drawArrow(ctx, scatterX, scatterY, mobileX, mobileY);
-            }
-            
-            ctx.globalAlpha = 1.0;
-            
-            // Draw velocity vector
-            const velLength = 30;
-            const velAngle = mobileAngle + Math.PI/2; // Perpendicular to radius
-            const velEndX = mobileX + velLength * Math.cos(velAngle);
-            const velEndY = mobileY + velLength * Math.sin(velAngle);
-            
-            ctx.strokeStyle = '#ed8936';
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            ctx.moveTo(mobileX, mobileY);
-            ctx.lineTo(velEndX, velEndY);
-            ctx.stroke();
-            
-            // Velocity arrow
-            drawArrow(ctx, mobileX, mobileY, velEndX, velEndY, '#ed8936');
-            
-            // Add velocity label
-            ctx.fillStyle = '#ed8936';
-            ctx.font = 'bold 12px Arial';
-            ctx.fillText('v', velEndX + 10, velEndY);
-            
-            // Draw legend
-            drawLegend(ctx, canvas.width - 120, 20);
-        }
-        
-        function drawArrow(ctx, fromX, fromY, toX, toY, color = '#48bb78') {
-            const angle = Math.atan2(toY - fromY, toX - fromX);
-            const arrowLength = 8;
-            const arrowAngle = Math.PI / 6;
-            
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(toX - arrowLength * Math.cos(angle - arrowAngle), 
-                      toY - arrowLength * Math.sin(angle - arrowAngle));
-            ctx.lineTo(toX, toY);
-            ctx.lineTo(toX - arrowLength * Math.cos(angle + arrowAngle), 
-                      toY - arrowLength * Math.sin(angle + arrowAngle));
-            ctx.stroke();
-        }
-        
-        function drawLegend(ctx, x, y) {
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-            ctx.fillRect(x - 10, y - 5, 130, 120);
-            ctx.strokeStyle = '#e2e8f0';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(x - 10, y - 5, 130, 120);
-            
-            ctx.font = '11px Arial';
-            ctx.textAlign = 'left';
-            
-            // Transmitter
-            ctx.fillStyle = '#f56565';
-            ctx.beginPath();
-            ctx.arc(x, y + 10, 4, 0, 2 * Math.PI);
-            ctx.fill();
-            ctx.fillStyle = '#2d3748';
-            ctx.fillText('Transmitter', x + 10, y + 14);
-            
-            // Receiver
-            ctx.fillStyle = '#3182ce';
-            ctx.beginPath();
-            ctx.arc(x, y + 30, 4, 0, 2 * Math.PI);
-            ctx.fill();
-            ctx.fillStyle = '#2d3748';
-            ctx.fillText('Mobile Rx', x + 10, y + 34);
-            
-            // Scatterer
-            ctx.fillStyle = '#e53e3e';
-            ctx.beginPath();
-            ctx.arc(x, y + 50, 3, 0, 2 * Math.PI);
-            ctx.fill();
-            ctx.fillStyle = '#2d3748';
-            ctx.fillText('Scatterers', x + 10, y + 54);
-            
-            // Multipath
-            ctx.strokeStyle = '#48bb78';
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.moveTo(x, y + 70);
-            ctx.lineTo(x + 15, y + 70);
-            ctx.stroke();
-            ctx.fillText('Multipath', x + 20, y + 74);
-            
-            // Velocity
-            ctx.strokeStyle = '#ed8936';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.moveTo(x, y + 90);
-            ctx.lineTo(x + 15, y + 90);
-            ctx.stroke();
-            ctx.fillText('Velocity', x + 20, y + 94);
-        }
-        
-        // Animation functions
-        function startAnimation() {
-            animationRunning = true;
-            animate();
-        }
-        
-        function stopAnimation() {
-            animationRunning = false;
-            if (animationId) {
-                cancelAnimationFrame(animationId);
-            }
-        }
-        
-        function animate() {
-            if (!animationRunning) return;
-            
-            const speed = parseFloat(document.getElementById('animationSpeed').value);
-            if (speed > 0) {
-                currentAngle = (currentAngle + speed) % 360;
-                document.getElementById('mobileAngle').value = currentAngle;
-                document.getElementById('mobileAngleValue').textContent = Math.round(currentAngle);
-                drawOneRingModel();
-            }
-            
-            animationId = requestAnimationFrame(animate);
-        }
-        function calculateAutocorrelation(a, W, Dv, numSamples) {
-            const autocorr = [];
-            const nValues = [];
-            
-            for (let n = 0; n < numSamples; n++) {
-                nValues.push(n);
-                const arg = n * Math.PI * Dv / W;
-                const R0n = 2 * a * a * Math.PI * besselJ0(arg);
-                autocorr.push(R0n);
-            }
-            
-            return { nValues, autocorr };
-        }
-        
-        // Calculate Doppler spectrum
-        function calculateDopplerSpectrum(a, W, Dv, numSamples) {
-            const spectrum = [];
-            const frequencies = [];
-            const maxFreq = Dv / (2 * W);
-            
-            for (let i = 0; i < numSamples; i++) {
-                const f = (i - numSamples/2) * (2 * maxFreq) / numSamples;
-                frequencies.push(f);
-                
-                const absF = Math.abs(f);
-                if (absF <= maxFreq) {
-                    const ratio = 2 * f * W / Dv;
-                    const denominator = Math.sqrt(1 - ratio * ratio);
-                    const Sf = (4 * a * a * W) / (Math.PI * denominator);
-                    spectrum.push(Sf);
-                } else {
-                    spectrum.push(0);
-                }
-            }
-            
-            return { frequencies, spectrum };
-        }
-        
-        // Create or update autocorrelation chart
-        function updateAutocorrelationChart(nValues, autocorr) {
-            const ctx = document.getElementById('autocorrelationChart').getContext('2d');
-            
-            if (autocorrelationChart) {
-                autocorrelationChart.destroy();
-            }
-            
-            autocorrelationChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: nValues,
-                    datasets: [{
-                        label: 'R₀[n]',
-                        data: autocorr,
-                        borderColor: '#667eea',
-                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                        borderWidth: 2,
-                        fill: true,
-                        tension: 0.4,
-                        pointRadius: 1,
-                        pointHoverRadius: 4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: true,
-                            position: 'top'
-                        }
-                    },
-                    scales: {
-                        x: {
-                            title: {
-                                display: true,
-                                text: 'Sample Index (n)',
-                                font: {
-                                    size: 12,
-                                    weight: 'bold'
-                                }
-                            },
-                            grid: {
-                                color: '#e2e8f0'
-                            }
-                        },
-                        y: {
-                            title: {
-                                display: true,
-                                text: 'R₀[n]',
-                                font: {
-                                    size: 12,
-                                    weight: 'bold'
-                                }
-                            },
-                            grid: {
-                                color: '#e2e8f0'
-                            }
-                        }
-                    },
-                    interaction: {
-                        intersect: false,
-                        mode: 'index'
-                    }
-                }
-            });
-        }
-        
-        // Create or update spectrum chart
-        function updateSpectrumChart(frequencies, spectrum) {
-            const ctx = document.getElementById('spectrumChart').getContext('2d');
-            
-            if (spectrumChart) {
-                spectrumChart.destroy();
-            }
-            
-            spectrumChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: frequencies.map(f => f.toFixed(2)),
-                    datasets: [{
-                        label: 'S(f)',
-                        data: spectrum,
-                        borderColor: '#48bb78',
-                        backgroundColor: 'rgba(72, 187, 120, 0.1)',
-                        borderWidth: 2,
-                        fill: true,
-                        tension: 0.1,
-                        pointRadius: 0,
-                        pointHoverRadius: 4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: {
-                            display: true,
-                            position: 'top'
-                        }
-                    },
-                    scales: {
-                        x: {
-                            title: {
-                                display: true,
-                                text: 'Frequency (Hz)',
-                                font: {
-                                    size: 12,
-                                    weight: 'bold'
-                                }
-                            },
-                            grid: {
-                                color: '#e2e8f0'
-                            }
-                        },
-                        y: {
-                            title: {
-                                display: true,
-                                text: 'Power Spectral Density S(f)',
-                                font: {
-                                    size: 12,
-                                    weight: 'bold'
-                                }
-                            },
-                            grid: {
-                                color: '#e2e8f0'
-                            }
-                        }
-                    },
-                    interaction: {
-                        intersect: false,
-                        mode: 'index'
-                    }
-                }
-            });
-        }
-        
-        // Main update function
-        function updatePlots() {
-            // Get parameter values
-            const a = parseFloat(document.getElementById('amplitude').value);
-            const W = parseFloat(document.getElementById('bandwidth').value);
-            const Dv = parseFloat(document.getElementById('dopplerSpread').value);
-            const numSamples = parseInt(document.getElementById('numSamples').value);
-            
-            // Calculate autocorrelation
-            const { nValues, autocorr } = calculateAutocorrelation(a, W, Dv, numSamples);
-            updateAutocorrelationChart(nValues, autocorr);
-            
-            // Calculate Doppler spectrum
-            const { frequencies, spectrum } = calculateDopplerSpectrum(a, W, Dv, numSamples);
-            updateSpectrumChart(frequencies, spectrum);
-        }
-        
-        // Initialize the application
-        window.onload = function() {
-            initializeControls();
-            drawOneRingModel();
-            updatePlots();
+        const scaledBaseAttenuation = baseAttenuationDb * lateralScale;
+
+        return { 
+            isShadowed: lateralScale > 0.001, 
+            baseAttenuation: scaledBaseAttenuation, 
+            distanceInShadow: distanceInShadow,
+            lateralScale: lateralScale 
         };
-    </script>
+    }
+
+    function getEffectiveShadowProperties(targetRow, targetCol, allObstacles) {
+        let strongestEffectiveAttenuation = 0;
+        let isVisuallyShadowedByAny = false;
+        let distanceForTingeVisual = MAX_SHADOW_FADE_DISTANCE_GRID_UNITS + 1;
+        let strongestLateralScaleForTinge = 0; 
+
+        for (const obs of allObstacles) {
+            const shadowDetails = isPointShadowed(targetCol, targetRow, obs.x, obs.y, obs.type);
+
+            if (shadowDetails.isShadowed) { 
+                isVisuallyShadowedByAny = true; 
+
+                const distanceFadeFactor = Math.max(0, 1 - (shadowDetails.distanceInShadow / MAX_SHADOW_FADE_DISTANCE_GRID_UNITS));
+                const currentEffectiveAttenuation = shadowDetails.baseAttenuation * distanceFadeFactor;
+
+                if (currentEffectiveAttenuation > strongestEffectiveAttenuation) {
+                    strongestEffectiveAttenuation = currentEffectiveAttenuation;
+                    distanceForTingeVisual = shadowDetails.distanceInShadow;
+                    strongestLateralScaleForTinge = shadowDetails.lateralScale;
+                } else if (currentEffectiveAttenuation === strongestEffectiveAttenuation) {
+                    if (shadowDetails.lateralScale > strongestLateralScaleForTinge) {
+                        distanceForTingeVisual = shadowDetails.distanceInShadow;
+                        strongestLateralScaleForTinge = shadowDetails.lateralScale;
+                    } else if (shadowDetails.lateralScale === strongestLateralScaleForTinge && shadowDetails.distanceInShadow < distanceForTingeVisual) {
+                        distanceForTingeVisual = shadowDetails.distanceInShadow;
+                    }
+                }
+            }
+        }
+        return {
+            attenuation: strongestEffectiveAttenuation,
+            isVisuallyShadowed: isVisuallyShadowedByAny,
+            distanceForTinge: distanceForTingeVisual,
+            lateralScaleForTinge: strongestLateralScaleForTinge 
+        };
+    }
+
+    function powerToColor(Pr) {
+        const weakPowerThreshold = -80;    
+        const strongPowerThreshold = -60;  
+        const mediumPowerPoint = (weakPowerThreshold + strongPowerThreshold) / 2; 
+
+        const R_RED = 255, G_RED = 0, B_RED = 0;         
+        const R_YELLOW = 255, G_YELLOW = 255, B_YELLOW = 0; 
+        const R_GREEN = 0, G_GREEN = 255, B_GREEN = 0;    
+
+        let r, g, b;
+
+        if (Pr <= weakPowerThreshold) { 
+            [r, g, b] = [R_RED, G_RED, B_RED];
+        } else if (Pr < mediumPowerPoint) { 
+            const t = (Pr - weakPowerThreshold) / (mediumPowerPoint - weakPowerThreshold);
+            r = Math.round(R_RED * (1 - t) + R_YELLOW * t);
+            g = Math.round(G_RED * (1 - t) + G_YELLOW * t);
+            b = Math.round(B_RED * (1 - t) + B_YELLOW * t);
+        } else if (Pr < strongPowerThreshold) { 
+            const t = (Pr - mediumPowerPoint) / (strongPowerThreshold - mediumPowerPoint);
+            r = Math.round(R_YELLOW * (1 - t) + R_GREEN * t);
+            g = Math.round(G_YELLOW * (1 - t) + G_GREEN * t);
+            b = Math.round(B_YELLOW * (1 - t) + B_GREEN * t);
+        } else { 
+            [r, g, b] = [R_GREEN, G_GREEN, B_GREEN];
+        }
+        return `rgb(${Math.max(0, Math.min(255, r))},${Math.max(0, Math.min(255, g))},${Math.max(0, Math.min(255, b))})`;
+    }
+
+
+    function updateCellPathloss(row, col, obstaclesData) {
+      const cell = cells[row][col];
+      const Pt = parseFloat(document.getElementById('Pt').value); 
+
+      cell.isVisuallyShadowed = false; 
+      cell.distanceForTinge = MAX_SHADOW_FADE_DISTANCE_GRID_UNITS + 1; 
+      cell.lateralScaleForTinge = 0;
+
+      if (row === transmitter.y && col === transmitter.x) {
+        cell.receivedPower = Pt; cell.currentPathloss = 0; cell.isOutage = false; cell.distance = 0;
+        cell.lossComponents = { base: 0, obstacleShadow: 0 };
+        updateCellAppearance(cell); return cell;
+      }
+      
+      if (cell.obstacleType) {
+        cell.receivedPower = -200; cell.currentPathloss = Pt - cell.receivedPower; cell.isOutage = true; 
+        cell.distance = Math.sqrt((col - transmitter.x)**2 + (row - transmitter.y)**2) * CELL_SIZE_METERS;
+        cell.lossComponents = { base: cell.currentPathloss, obstacleShadow: 0 };
+        updateCellAppearance(cell); return cell;
+      }
+
+      const distanceGrid = Math.sqrt((col - transmitter.x)**2 + (row - transmitter.y)**2);
+      const distanceM = distanceGrid * CELL_SIZE_METERS;
+      cell.distance = distanceM;
+
+      const Pmin = parseFloat(document.getElementById('Pmin').value);
+      const frequencyVal = parseFloat(document.getElementById('frequency').value);
+      const environmentVal = document.getElementById('setting').value;
+
+      cell.basePathloss = calculatePathLoss(distanceM, frequencyVal, environmentVal);
+      cell.lossComponents.base = cell.basePathloss;
+
+      const shadowProps = getEffectiveShadowProperties(row, col, obstaclesData);
+      const obstacleShadowAttenuation = shadowProps.attenuation;
+      cell.isVisuallyShadowed = shadowProps.isVisuallyShadowed;
+      cell.distanceForTinge = shadowProps.distanceForTinge; 
+      cell.lateralScaleForTinge = shadowProps.lateralScaleForTinge;
+
+      cell.lossComponents.obstacleShadow = obstacleShadowAttenuation;
+      
+      cell.currentPathloss = cell.basePathloss + obstacleShadowAttenuation;
+      cell.receivedPower = Pt - cell.currentPathloss;
+      cell.isOutage = cell.receivedPower < Pmin;
+
+      updateCellAppearance(cell);
+      return cell;
+    }
+
+    function updateCellAppearance(cell) {
+      const cellElement = cell.element;
+      cellElement.classList.remove('outage-cell', 'shadowed-cell');
+      cellElement.style.removeProperty('--shadow-alpha'); 
+
+      if (cellElement.classList.contains("transmitter")) return; 
+      
+      if (cell.obstacleType) {
+        cellElement.classList.add('outage-cell'); 
+        return;
+      }
+
+      cellElement.style.backgroundColor = powerToColor(cell.receivedPower);
+
+      if (cell.isVisuallyShadowed && cell.lateralScaleForTinge > 0.001) {
+          cellElement.classList.add('shadowed-cell');
+          
+          const distanceFadeRatio = Math.max(0, 1 - (cell.distanceForTinge / MAX_SHADOW_FADE_DISTANCE_GRID_UNITS));
+          const maxAlphaAtThisDistance = MIN_VISUAL_ALPHA + (MAX_VISUAL_ALPHA - MIN_VISUAL_ALPHA) * (1 - (1 - distanceFadeRatio) * (1 - distanceFadeRatio));
+          const currentAlpha = maxAlphaAtThisDistance * cell.lateralScaleForTinge;
+
+          cellElement.style.setProperty('--shadow-alpha', Math.max(0, currentAlpha).toFixed(3)); 
+      }
+
+      if (cell.isOutage) {
+        cellElement.classList.add("outage-cell"); 
+      }
+    }
+
+    function updatePathlossAndMetrics() {
+      const obstaclesData = [];
+      let totalPathlossSum = 0, totalReceivedPowerSum = 0, totalObstacleShadowSum = 0;
+      let simulatedCellsCount = 0, outageCellsCount = 0;
+      let minRxPowerCovered = Infinity, maxRxPowerCovered = -Infinity, maxCoverageDist = 0;
+      let obstacleCount = 0;
+
+      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+        if (cells[r][c].obstacleType) {
+          obstaclesData.push({ x: c, y: r, type: cells[r][c].obstacleType });
+          obstacleCount++;
+        }
+      }
+
+      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+        const cellData = updateCellPathloss(r, c, obstaclesData); 
+        if ((r === transmitter.y && c === transmitter.x) || cellData.obstacleType) continue; 
+
+        simulatedCellsCount++;
+        totalPathlossSum += cellData.currentPathloss;
+        if (cellData.lossComponents) {
+            totalObstacleShadowSum += cellData.lossComponents.obstacleShadow;
+        }
+        
+        if (cellData.isOutage) outageCellsCount++;
+        else {
+          totalReceivedPowerSum += cellData.receivedPower; 
+          minRxPowerCovered = Math.min(minRxPowerCovered, cellData.receivedPower);
+          maxRxPowerCovered = Math.max(maxRxPowerCovered, cellData.receivedPower);
+          maxCoverageDist = Math.max(maxCoverageDist, cellData.distance);
+        }
+      }
+      
+      const coveredCellsCount = simulatedCellsCount - outageCellsCount; 
+      const outageProb = simulatedCellsCount > 0 ? (outageCellsCount / simulatedCellsCount) * 100 : 0;
+      const coverageArea = simulatedCellsCount > 0 ? (coveredCellsCount / simulatedCellsCount) * 100 : 0;
+      const avgPathloss = simulatedCellsCount > 0 ? totalPathlossSum / simulatedCellsCount : 0;
+      const avgReceivedPower = coveredCellsCount > 0 ? totalReceivedPowerSum / coveredCellsCount : (simulatedCellsCount > 0 ? NaN : 0);
+      const avgObstacleShadow = simulatedCellsCount > 0 ? totalObstacleShadowSum / simulatedCellsCount : 0;
+      const signalRange = (maxRxPowerCovered !== -Infinity && minRxPowerCovered !== Infinity && maxRxPowerCovered > minRxPowerCovered) ? (maxRxPowerCovered - minRxPowerCovered) : 0;
+
+      updateMetricDisplays({
+        outageProb, coverageArea, 
+        outageCells: outageCellsCount, 
+        totalSimulatedCells: simulatedCellsCount, 
+        avgPathloss, avgReceivedPower, 
+        avgShadowLoss: avgObstacleShadow, 
+        minRxPower: minRxPowerCovered === Infinity ? NaN : minRxPowerCovered,
+        maxRxPower: maxRxPowerCovered === -Infinity ? NaN : maxRxPowerCovered,
+        signalRange, maxCoverageDist: maxCoverageDist / 1000, obstacleCount
+      });
+    }
+
+    function updateMetricDisplays(metrics) {
+      document.getElementById('outageProb').textContent = `${metrics.outageProb.toFixed(2)}%`;
+      document.getElementById('outageProgress').style.width = `${metrics.outageProb.toFixed(2)}%`;
+      document.getElementById('coverageArea').textContent = `${metrics.coverageArea.toFixed(2)}%`;
+      document.getElementById('outageCells').textContent = `${metrics.outageCells} / ${metrics.totalSimulatedCells}`; 
+      document.getElementById('avgReceivedPower').textContent = `${isNaN(metrics.avgReceivedPower) ? 'N/A' : metrics.avgReceivedPower.toFixed(2)} dBm`;
+      document.getElementById('minReceivedPower').textContent = `${isNaN(metrics.minRxPower) ? 'N/A' : metrics.minRxPower.toFixed(2)} dBm`;
+      document.getElementById('maxReceivedPower').textContent = `${isNaN(metrics.maxRxPower) ? 'N/A' : metrics.maxRxPower.toFixed(2)} dBm`;
+      document.getElementById('signalRange').textContent = `${metrics.signalRange.toFixed(2)} dB`;
+      document.getElementById('avgPathloss').textContent = `${metrics.avgPathloss.toFixed(2)} dB`;
+      document.getElementById('avgShadowLoss').textContent = `${metrics.avgShadowLoss.toFixed(2)} dB`; 
+      document.getElementById('maxDistance').textContent = `${metrics.maxCoverageDist.toFixed(2)} km`;
+      const environment = document.getElementById('setting').value;
+      document.getElementById('envFactor').textContent = environmentFactors[environment].name;
+      document.getElementById('obstacleCount').textContent = metrics.obstacleCount;
+      document.getElementById('shadowingFactor').textContent = "Cone (Fading w/ Penumbra)"; 
+      const statusIndicator = document.getElementById('systemStatus');
+      statusIndicator.classList.remove('status-excellent', 'status-good', 'status-fair', 'status-poor');
+      if (metrics.outageProb <= 5) { statusIndicator.textContent = "System Status: Excellent Coverage"; statusIndicator.classList.add('status-excellent');}
+      else if (metrics.outageProb <= 15) { statusIndicator.textContent = "System Status: Good Coverage"; statusIndicator.classList.add('status-good');}
+      else if (metrics.outageProb <= 30) { statusIndicator.textContent = "System Status: Fair Coverage"; statusIndicator.classList.add('status-fair');}
+      else { statusIndicator.textContent = "System Status: Poor Coverage"; statusIndicator.classList.add('status-poor');}
+    }
+
+    function handleCellClick(row, col) {
+      if (row === transmitter.y && col === transmitter.x) return; 
+      const cell = cells[row][col];
+      const cellElement = cell.element;
+      cellElement.classList.remove('obstacle-normal', 'obstacle-heavy', 'outage-cell', 'shadowed-cell');
+      cellElement.style.removeProperty('--shadow-alpha'); 
+      cellElement.style.backgroundColor = ''; 
+      if (currentMode === 'erase' || cell.obstacleType === currentMode) cell.obstacleType = null;
+      else if (currentMode === 'normal') { cell.obstacleType = 'normal'; cellElement.classList.add('obstacle-normal'); }
+      else if (currentMode === 'heavy') { cell.obstacleType = 'heavy'; cellElement.classList.add('obstacle-heavy'); }
+      updatePathlossAndMetrics();
+    }
+
+    function showTooltip(event, row, col) {
+        const cell = cells[row][col];
+        if (!cell) return;
+        let content = `Cell (${col}, ${row})<br>`;
+        if (row === transmitter.y && col === transmitter.x) {
+            content += `Type: Transmitter<br>Power: ${document.getElementById('Pt').value} dBm`;
+        } else if (cell.obstacleType) {
+            content += `Type: ${cell.obstacleType.charAt(0).toUpperCase() + cell.obstacleType.slice(1)} Obstacle`;
+        } else {
+            content += `Rx Power: ${cell.receivedPower.toFixed(2)} dBm<br>`;
+            content += `Total PL: ${cell.currentPathloss.toFixed(2)} dB<br>`;
+            if (cell.lossComponents) {
+                content += `  Base Model PL: ${cell.lossComponents.base.toFixed(2)} dB<br>`;
+                content += `  Obstacle Shadow: ${cell.lossComponents.obstacleShadow.toFixed(2)} dB<br>`;
+            }
+            content += `Distance: ${(cell.distance / 1000).toFixed(2)} km<br>`;
+            
+            // --- MODIFICATION FOR STATUS COLOR ---
+            if (cell.isOutage) {
+                content += `Status: <span style="color: #ff6b6b; font-weight: bold;">Outage</span>`; // Lighter Red
+            } else {
+                content += `Status: <span style="color: #69f0ae; font-weight: bold;">Covered</span>`; // Lighter Green
+            }
+            // --- END OF MODIFICATION ---
+
+            if(cell.isVisuallyShadowed && cell.lateralScaleForTinge > 0.001) {
+                const alpha = cell.element.style.getPropertyValue('--shadow-alpha');
+                content += `<br><i>(In shadow, Tinge Alpha: ${alpha ? parseFloat(alpha).toFixed(3) : 'N/A'})</i>`;
+            }
+        }
+        tooltip.innerHTML = content;
+        tooltip.style.display = "block";
+        const offset = 15; 
+        let newX = event.clientX + offset, newY = event.clientY + offset;
+        const tooltipRect = tooltip.getBoundingClientRect(), bodyRect = document.body.getBoundingClientRect();
+        if (newX + tooltipRect.width > bodyRect.right) newX = event.clientX - tooltipRect.width - offset;
+        if (newY + tooltipRect.height > bodyRect.bottom) newY = event.clientY - tooltipRect.height - offset;
+        tooltip.style.left = `${Math.max(0, newX)}px`;
+        tooltip.style.top = `${Math.max(0, newY)}px`;
+        }
+
+    function hideTooltip() { tooltip.style.display = "none"; }
+    function setMode(mode) {
+      currentMode = mode;
+      document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelector(`.mode-btn[onclick="setMode('${mode}')"]`).classList.add('active');
+    }
+
+    function clearAll() {
+      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+        if (cells[r][c].obstacleType) {
+          cells[r][c].obstacleType = null;
+          cells[r][c].element.classList.remove('obstacle-normal', 'obstacle-heavy');
+        }
+      }
+      updatePathlossAndMetrics();
+    }
+
+    function randomObstacles() {
+      clearAll(); 
+      const numObstacles = Math.floor(Math.random() * (rows*cols*0.05)) + Math.floor(rows*cols*0.02); 
+      for (let i = 0; i < numObstacles; i++) {
+        let r, c;
+        do { r = Math.floor(Math.random()*rows); c = Math.floor(Math.random()*cols); }
+        while ((r === transmitter.y && c === transmitter.x) || cells[r][c].obstacleType);
+        const type = Math.random() < 0.7 ? 'normal' : 'heavy'; 
+        cells[r][c].obstacleType = type;
+        cells[r][c].element.classList.add(type === 'normal' ? 'obstacle-normal' : 'obstacle-heavy');
+      }
+      updatePathlossAndMetrics();
+    }
+
+    function setupInputListeners() {
+      const inputsToWatch = ['Pt', 'Pmin', 'frequency', 'setting']; 
+      inputsToWatch.forEach(id => {
+        const element = document.getElementById(id);
+        element.addEventListener('change', updatePathlossAndMetrics);
+        if (element.type === 'number') element.addEventListener('input', updatePathlossAndMetrics);
+      });
+    }
+
+    function initialize() {
+      createGrid(); 
+      setupInputListeners();
+      setMode('normal'); 
+      updatePathlossAndMetrics(); 
+    }
+    document.addEventListener('DOMContentLoaded', initialize);
+  </script>
 </body>
 </html>
