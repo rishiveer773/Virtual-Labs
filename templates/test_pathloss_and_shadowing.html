@@ -3,376 +3,757 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Interactive Pathloss & Spatial Shadowing</title>
+    <title>Enhanced Pathloss & Spatial Shadowing Simulator</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; display: flex; flex-direction: column; align-items: center; margin: 0; padding: 15px; background-color: #f4f7f6; color: #333; }
-        .main-container { display: flex; gap: 15px; width: 100%; max-width: 1400px; }
-        .panel { padding: 15px; border-radius: 8px; background-color: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .input-panel { flex: 1; min-width: 280px; }
-        .simulation-panel { flex: 1.5; display: flex; flex-direction: column; align-items: center; min-width: 400px; }
-        .graph-panel { flex: 1.5; min-width: 400px; }
-        .input-group { margin-bottom: 12px; }
-        .input-group label { display: block; margin-bottom: 4px; font-weight: bold; font-size: 0.9em; }
-        .input-group input[type="number"], .input-group input[type="range"] { width: calc(100% - 16px); padding: 7px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-        .input-group input[type="range"] { width: calc(70% - 10px); vertical-align: middle; }
-        .input-group .value-display { display: inline-block; width: 28%; text-align: right; font-size: 0.9em; vertical-align: middle; }
-        button { padding: 9px 14px; background-color: #2c82c9; color: white; border: none; border-radius: 4px; cursor: pointer; margin-top: 10px; transition: background-color 0.2s; font-size:0.9em; }
-        button:hover { background-color: #2368a2; }
-        #simulationCanvas { border: 1px solid #ddd; border-radius: 4px; background-color: #e9f0f4; }
-        #pathlossGraph { width: 100% !important; height: 380px !important; }
-        h1, h2, h3 { color: #2c3e50; margin-top:0; }
-        .output-text p { margin: 6px 0; font-size: 0.95em; }
-        .output-text strong { color: #1a5276; }
-        details { margin-bottom: 15px; background: #eef; padding: 10px; border: 1px solid #cce; border-radius: 4px;}
-        summary { font-weight: bold; cursor: pointer; color: #34495e; }
+        :root {
+            --primary-color: #2c82c9; /* Main blue */
+            --primary-dark: #2368a2; /* Darker blue */
+            --secondary-color: #34495e; /* Dark grey-blue for text */
+            --accent-color: #ff7f0e; /* Orange for profile line */
+            --danger-color-strong: #e53e3e; /* Strong red for important warnings */
+            --danger-color-light: #f56565; /* Lighter red for general issues */
+            --success-color: #48bb78; /* Green */
+            --warning-color: #ed8936; /* Yellow-orange */
+            --processing-color: #3b82f6; /* Info blue for processing */
+            --background-color: #f8fafc; /* Very light grey */
+            --card-background: #ffffff; /* White */
+            --border-color: #e2e8f0; /* Light grey border */
+            --text-primary: #2d3748; /* Darker text */
+            --text-secondary: #4a5568; /* Lighter text */
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            margin: 0; padding: 20px;
+            background: linear-gradient(135deg, var(--background-color) 0%, #e6f3ff 100%);
+            color: var(--text-primary); min-height: 100vh;
+        }
+        .header { text-align: center; margin-bottom: 25px; }
+        .header h1 { color: var(--primary-color); margin: 0 0 8px 0; font-size: 2.2rem; font-weight: 700; }
+        .header p { color: var(--text-secondary); font-size: 1.05rem; margin: 0; }
+
+        .main-layout-container { display: flex; flex-direction: column; gap: 25px; max-width: 1600px; margin: 0 auto; }
+        .top-section { display: flex; flex-direction: row; gap: 25px; }
+        .input-controls-panel { flex: 0 0 350px; }
+        .simulation-area-panel { flex: 1; display: flex; flex-direction: column; align-items: center; }
+        .graph-display-panel { width: 100%; }
+
+        .panel { background: var(--card-background); border-radius: 12px; padding: 20px; box-shadow: var(--shadow); border: 1px solid var(--border-color); }
+        .panel h3 { margin: 0 0 18px 0; color: var(--secondary-color); font-size: 1.2rem; font-weight: 600; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;}
+        
+        .input-group { margin-bottom: 18px; }
+        .input-group label { display: block; margin-bottom: 6px; font-weight: 500; color: var(--text-primary); font-size: 0.9rem; }
+        .input-group input[type="number"] { width: 100%; padding: 9px 10px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 0.9rem; transition: border-color 0.2s, box-shadow 0.2s; }
+        .input-group input[type="number"]:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 2px rgba(44, 130, 201, 0.2); }
+        
+        .slider-container { display: flex; align-items: center; gap: 10px; }
+        .slider-container input[type="range"] { flex: 1; height: 5px; background: var(--border-color); border-radius: 3px; outline: none; -webkit-appearance: none; margin: 0; }
+        .slider-container input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; background: var(--primary-color); border-radius: 50%; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+        .slider-container input[type="range"]::-moz-range-thumb { width: 18px; height: 18px; background: var(--primary-color); border-radius: 50%; cursor: pointer; border: none; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+        .value-display { min-width: 50px; text-align: right; font-weight: 500; color: var(--primary-color); background: #edf2f7; padding: 3px 6px; border-radius: 4px; font-size: 0.85rem; }
+        
+        .section-divider { height: 1px; background: var(--border-color); margin: 20px 0; }
+        
+        .btn { display: block; width: 100%; padding: 10px 15px; background: linear-gradient(135deg, var(--primary-color), var(--primary-dark)); color: white; border: none; border-radius: 6px; font-size: 0.9rem; font-weight: 500; cursor: pointer; transition: all 0.15s ease-out; margin-top: 8px; }
+        .btn:first-of-type { margin-top: 0; }
+        .btn:hover { transform: translateY(-1px); box-shadow: 0 3px 6px rgba(44, 130, 201, 0.3); }
+        .btn:disabled { background: #cbd5e0; box-shadow: none; transform: none; cursor: not-allowed; }
+        .btn.btn-success { background: linear-gradient(135deg, var(--success-color), #38a169); }
+        .btn.btn-success:hover { box-shadow: 0 3px 6px rgba(72, 187, 120, 0.3); }
+        .btn.btn-warning { background: linear-gradient(135deg, var(--warning-color), #dd6b20); }
+        .btn.btn-warning:hover { box-shadow: 0 3px 6px rgba(237, 137, 54, 0.3); }
+        .btn.btn-processing { background: linear-gradient(135deg, var(--processing-color), #2563eb); cursor: wait; }
+        
+        #simulationCanvas { max-width: 100%; border: 1px solid var(--border-color); border-radius: 8px; background-color: #f7fafc; /* Lighter than gradient for clarity */ margin-bottom: 15px; }
+        
+        .status-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; width: 100%; }
+        .status-card { background: var(--card-background); padding: 12px; border-radius: 6px; border-left: 3px solid var(--primary-color); box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        .status-card.warning { border-left-color: var(--warning-color); background: #fffbeb; }
+        .status-card.danger { border-left-color: var(--danger-color-light); background: #fff5f5; }
+        .status-card.success { border-left-color: var(--success-color); background: #f0fff4; }
+        .status-label { font-size: 0.8rem; font-weight: 500; color: var(--text-secondary); margin-bottom: 3px; }
+        .status-value { font-size: 1rem; font-weight: 600; color: var(--text-primary); }
+        
+        .legend { background: #f8fafc; border-radius: 6px; padding: 12px; margin-top: 15px; border: 1px solid var(--border-color); }
+        .legend h4 { margin: 0 0 10px 0; font-size: 0.9rem; color: var(--secondary-color); font-weight: 600; }
+        .legend-item { display: flex; align-items: center; margin-bottom: 6px; font-size: 0.85rem; }
+        .legend-color { width: 14px; height: 14px; border-radius: 3px; margin-right: 8px; border: 1px solid rgba(0,0,0,0.1);}
+        
+        .instructions { background: #e6f0ff; border: 1px solid #c3dafe; border-radius: 8px; padding: 15px 20px; margin-bottom: 25px; }
+        .instructions summary { font-weight: 600; color: var(--primary-color); cursor: pointer; font-size: 1.05rem; list-style-type: 'ℹ️ '; }
+        .instructions ul { margin: 10px 0 0 0; padding-left: 20px; font-size: 0.9rem; }
+        .instructions li { margin-bottom: 6px; line-height: 1.5; }
+        
+        #pathlossGraph { width: 100% !important; height: 450px !important; } /* Adjusted height */
+        
+        .performance-info { position: fixed; bottom: 10px; right: 10px; background: rgba(45,55,72,0.85); color: white; padding: 6px 10px; border-radius: 4px; font-size: 0.75rem; z-index: 1000; }
     </style>
 </head>
 <body>
-    <h1>Interactive Pathloss & Spatial Shadowing</h1>
-    <details open>
+    <div class="header">
+        <h1>📡 Pathloss & Spatial Shadowing Simulator</h1>
+        <p>Interactive visualization of wireless signal propagation with obstacles</p>
+    </div>
+
+    <details class="instructions" open>
         <summary>How to Use This Simulation</summary>
         <ul>
-            <li>Set pathloss parameters (K, γ, d₀). The <strong>blue dashed line</strong> on the graph shows pathloss without shadowing (as Pr/Pt).</li>
-            <li>Adjust <strong>Current Distance (d)</strong>: This sets the radius of the receiver's circular path.</li>
-            <li>Set obstacle properties (Number, Max Attenuation, Max Radius). Click <strong>"Randomize Obstacles"</strong> to place circular obstacles within the current receiver distance `d`.</li>
-            <li>Adjust <strong>Receiver Angle (θ)</strong>: Moves the receiver (green dot) along its path.</li>
-            <li>If the Line-of-Sight (LoS) to the receiver is blocked by an obstacle, the LoS line turns red, and additional attenuation is applied.</li>
-            <li>The <strong>red dot</strong> on the graph shows the total received power (Pr/Pt) at the receiver.</li>
+            <li><strong>Pathloss Model:</strong> Adjust K, γ, and d₀. The blue dashed line on the graph shows theoretical power.</li>
+            <li><strong>Receiver:</strong> Use distance & angle sliders to move the green/red receiver.</li>
+            <li><strong>Obstacles:</strong> Configure properties & click "🎲 Randomize Obstacles" (Spacebar).</li>
+            <li><strong>Profile:</strong> Click "📊 Generate Shadowing Profile" (Ctrl+G) for a sample path trace.</li>
+            <li><strong>Line-of-Sight (LoS):</strong> Red LoS line indicates occlusion.</li>
+            <li><strong>Graph:</strong> Red dot is current Rx power. Orange dotted line is the generated profile.</li>
         </ul>
     </details>
 
-    <div class="main-container">
-        <div class="panel input-panel">
-            <h3>Controls</h3>
-            <div class="input-group">
-                <label for="k_val">K (Pathloss at d₀, dB):</label>
-                <input type="number" id="k_val" value="31.54" step="0.1">
+    <div class="main-layout-container">
+        <div class="top-section">
+            <div class="panel input-controls-panel">
+                <h3>🎛️ Control Panel</h3>
+                <div class="input-group">
+                    <label for="k_val">K - Pathloss at d₀ (dB)</label>
+                    <input type="number" id="k_val" value="31.54" step="0.1" min="0" max="100">
+                </div>
+                <div class="input-group">
+                    <label for="gamma_val">γ - Pathloss Exponent</label>
+                    <input type="number" id="gamma_val" value="3.71" step="0.01" min="1" max="6">
+                </div>
+                <div class="input-group">
+                    <label for="d0_val">d₀ - Reference Distance (m)</label>
+                    <input type="number" id="d0_val" value="1" step="0.1" min="0.1" max="10">
+                </div>
+                <div class="section-divider"></div>
+                <div class="input-group">
+                    <label for="current_distance">📏 Receiver Distance (m)</label>
+                    <div class="slider-container">
+                        <input type="range" id="current_distance_slider" min="5" max="200" value="50" step="1">
+                        <span id="current_distance_val" class="value-display">50</span>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label for="receiver_angle">🔄 Receiver Angle (°)</label>
+                    <div class="slider-container">
+                        <input type="range" id="receiver_angle_slider" min="0" max="360" value="0" step="1">
+                        <span id="receiver_angle_val" class="value-display">0</span>
+                    </div>
+                </div>
+                <div class="section-divider"></div>
+                <div class="input-group">
+                    <label for="num_obstacles">🚧 Number of Obstacles</label>
+                    <input type="number" id="num_obstacles" value="8" min="0" max="50">
+                </div>
+                <div class="input-group">
+                    <label for="max_obstacle_attenuation">📉 Max Attenuation (dB)</label>
+                    <input type="number" id="max_obstacle_attenuation" value="10" min="1" max="50">
+                </div>
+                <div class="input-group">
+                    <label for="max_obstacle_radius">📐 Max Obstacle Radius (m)</label>
+                    <input type="number" id="max_obstacle_radius" value="5" min="0.5" max="25" step="0.5">
+                </div>
+                <button id="randomize_obstacles_btn" class="btn">🎲 Randomize Obstacles</button>
+                <button id="generate_profile_btn" class="btn btn-success">📊 Generate Shadowing Profile</button>
+                <div class="legend">
+                    <h4>Canvas Legend</h4>
+                    <div class="legend-item"><div class="legend-color" style="background: rgba(75, 128, 232, 1);"></div>Tx</div>
+                    <div class="legend-item"><div class="legend-color" style="background: rgba(72, 187, 120, 1);"></div>Rx (Clear LoS)</div>
+                    <div class="legend-item"><div class="legend-color" style="background: rgba(239, 68, 68, 1);"></div>Rx (Occluded)</div>
+                    <div class="legend-item"><div class="legend-color" style="background: rgba(110, 70, 30, 0.7);"></div>Obstacle</div>
+                </div>
             </div>
-            <div class="input-group">
-                <label for="gamma_val">Pathloss Exponent (γ):</label>
-                <input type="number" id="gamma_val" value="3.71" step="0.01">
+
+            <div class="panel simulation-area-panel">
+                <h3>🌐 Simulation Environment</h3>
+                <canvas id="simulationCanvas" width="500" height="500"></canvas>
+                <div class="status-grid">
+                    <div id="status_card" class="status-card success">
+                        <div class="status-label">Signal Status</div>
+                        <div class="status-value" id="out_status">Line of Sight</div>
+                    </div>
+                    <div class="status-card">
+                        <div class="status-label">Mean Pathloss</div>
+                        <div class="status-value" id="out_mean_pl_val">0.00 dB</div>
+                    </div>
+                    <div class="status-card warning">
+                        <div class="status-label">Obstacle Shadowing</div>
+                        <div class="status-value" id="out_shadowing_val">0.00 dB</div>
+                    </div>
+                    <div class="status-card">
+                        <div class="status-label">Receiver Distance</div>
+                        <div class="status-value" id="out_distance_val">50.0 m</div>
+                    </div>
+                </div>
             </div>
-            <div class="input-group">
-                <label for="d0_val">Reference Distance (d₀, m):</label>
-                <input type="number" id="d0_val" value="1" step="0.1" min="0.1">
-            </div>
-            <hr>
-            <div class="input-group">
-                <label for="current_distance">Current Rx Distance (d, m): <span id="current_distance_val" class="value-display">50</span></label>
-                <input type="range" id="current_distance_slider" min="10" max="200" value="50" step="1">
-            </div>
-            <div class="input-group">
-                <label for="receiver_angle">Receiver Angle (θ, deg): <span id="receiver_angle_val" class="value-display">0</span></label>
-                <input type="range" id="receiver_angle_slider" min="0" max="360" value="0" step="1">
-            </div>
-            <hr>
-            <div class="input-group">
-                <label for="num_obstacles">Number of Obstacles:</label>
-                <input type="number" id="num_obstacles" value="8" min="0" max="30">
-            </div>
-            <div class="input-group">
-                <label for="max_obstacle_attenuation">Max Obstacle Attenuation (dB):</label>
-                <input type="number" id="max_obstacle_attenuation" value="10" min="1" max="30">
-            </div>
-            <div class="input-group">
-                <label for="max_obstacle_radius">Max Obstacle Radius (m):</label>
-                <input type="number" id="max_obstacle_radius" value="5" min="0.5" max="20" step="0.5">
-            </div>
-            <button id="randomize_obstacles_btn">Randomize Obstacles</button>
         </div>
 
-        <div class="panel simulation-panel">
-            <h3>Simulation Area</h3>
-            <canvas id="simulationCanvas" width="400" height="400"></canvas>
-            <div class="output-text">
-                <p><strong>Status:</strong> <span id="out_status">Line of Sight</span></p>
-                <p><strong>Mean Pathloss at d:</strong> <span id="out_mean_pl_val">0</span> dB</p>
-                <p><strong>Obstacle Shadowing:</strong> <span id="out_shadowing_val">0</span> dB</p>
-            </div>
-        </div>
-
-        <div class="panel graph-panel">
-            <h3>Received Power (Pr/Pt) vs. Distance</h3>
+        <div class="panel graph-display-panel">
             <canvas id="pathlossGraph"></canvas>
-            <div class="output-text">
-                 <p><strong>Total Pathloss:</strong> <span id="out_total_pl_val">0</span> dB</p>
-                 <p><strong>Pr/Pt at Rx:</strong> <span id="out_pr_pt_val">0</span> dB</p>
+            <div class="status-grid" style="margin-top: 20px;">
+                <div class="status-card danger">
+                    <div class="status-label">Total Pathloss</div>
+                    <div class="status-value" id="out_total_pl_val">0.00 dB</div>
+                </div>
+                <div class="status-card success">
+                    <div class="status-label">Received Power (Pr/Pt)</div>
+                    <div class="status-value" id="out_pr_pt_val">0.00 dB</div>
+                </div>
             </div>
         </div>
     </div>
 
-    <script>
-        // DOM Elements
-        const kInput = document.getElementById('k_val');
-        const gammaInput = document.getElementById('gamma_val');
-        const d0Input = document.getElementById('d0_val');
-        const distanceSlider = document.getElementById('current_distance_slider');
-        const distanceDisplay = document.getElementById('current_distance_val');
-        const angleSlider = document.getElementById('receiver_angle_slider');
-        const angleDisplay = document.getElementById('receiver_angle_val');
-        const numObstaclesInput = document.getElementById('num_obstacles');
-        const maxAttenuationInput = document.getElementById('max_obstacle_attenuation');
-        const maxObsRadiusInput = document.getElementById('max_obstacle_radius');
-        const randomizeBtn = document.getElementById('randomize_obstacles_btn');
+    <div class="performance-info" id="performance_info" style="display: none;">
+        FPS: <span id="fps">0</span> | Update: <span id="update_time">0</span>ms
+    </div>
 
-        const simCanvas = document.getElementById('simulationCanvas');
-        const simCtx = simCanvas.getContext('2d');
-        const graphCanvas = document.getElementById('pathlossGraph');
-
-        const outStatus = document.getElementById('out_status');
-        const outMeanPl = document.getElementById('out_mean_pl_val');
-        const outShadowing = document.getElementById('out_shadowing_val');
-        const outTotalPl = document.getElementById('out_total_pl_val');
-        const outPrPt = document.getElementById('out_pr_pt_val');
-
-        let pathlossChart;
-        let obstacles = []; // Stores {x_m, y_m, radius_m, attenuationDb, color, x_px, y_px, radius_px}
-        let currentK, currentGamma, currentD0, currentRxDistance_m, currentRxAngleRad;
-        
-        // Simulation Canvas Constants
-        const canvasWidth = simCanvas.width;
-        const canvasHeight = simCanvas.height;
-        const txPos_px = { x: canvasWidth / 2, y: canvasHeight / 2 }; // Tx is at center of canvas
-        const maxCanvasDisplayRadius_px = Math.min(canvasWidth, canvasHeight) / 2 * 0.9; // Max visual radius for scaling
-        let worldScale_pxPerMeter; // Scale to map meters to pixels
-
-        function init() {
-            setupEventListeners();
-            initializeChart();
-            readAllInputs(); // Read initial values
-            calculateWorldScale(); // Calculate scale based on slider's max distance
-            placeObstacles();    // Initial placement
-            updateSimulation();
-        }
-
-        function setupEventListeners() {
-            [kInput, gammaInput, d0Input, numObstaclesInput, maxAttenuationInput, maxObsRadiusInput].forEach(el => {
-                el.addEventListener('input', () => { readAllInputs(); updateSimulation(); });
-            });
-            distanceSlider.addEventListener('input', () => {
-                readAllInputs();
-                // World scale is fixed, but obstacle field changes with Rx distance
-                placeObstacles(); 
-                updateSimulation();
-            });
-            angleSlider.addEventListener('input', () => { readAllInputs(); updateSimulation(); });
-            randomizeBtn.addEventListener('click', () => {
-                readAllInputs(); 
-                placeObstacles();
-                updateSimulation();
-            });
-        }
-        
-        function readAllInputs() {
-            currentK = parseFloat(kInput.value);
-            currentGamma = parseFloat(gammaInput.value);
-            currentD0 = parseFloat(d0Input.value);
-            currentRxDistance_m = parseFloat(distanceSlider.value);
-            distanceDisplay.textContent = currentRxDistance_m.toFixed(0);
-            currentRxAngleRad = parseFloat(angleSlider.value) * Math.PI / 180;
-            angleDisplay.textContent = (currentRxAngleRad * 180 / Math.PI).toFixed(0);
-        }
-
-        function calculateWorldScale() {
-            // The world displayed on canvas goes up to the max distance of the Rx slider
-            worldScale_pxPerMeter = maxCanvasDisplayRadius_px / parseFloat(distanceSlider.max);
-        }
-
-        function placeObstacles() {
-            obstacles = [];
-            const numObs = parseInt(numObstaclesInput.value);
-            const maxAtt = parseFloat(maxAttenuationInput.value);
-            const maxObsRadius_m = parseFloat(maxObsRadiusInput.value);
-
-            for (let i = 0; i < numObs; i++) {
-                // Place obstacles within the *current* Rx distance
-                const obsDistFromTx_m = Math.random() * (currentRxDistance_m * 0.85) + (currentRxDistance_m * 0.1); // 10% to 95% of Rx dist
-                const obsAngleRad = Math.random() * 2 * Math.PI;
-                const obsRadius_m = Math.random() * maxObsRadius_m * 0.8 + maxObsRadius_m * 0.2; // 20% to 100% of maxObsRadius_m
-                
-                // Meter-based coordinates relative to Tx (Tx is at 0,0 in world space)
-                const obsX_m = obsDistFromTx_m * Math.cos(obsAngleRad);
-                const obsY_m = obsDistFromTx_m * Math.sin(obsAngleRad);
-
-                const attenuation = Math.random() * maxAtt + 1;
-                obstacles.push({
-                    x_m: obsX_m, 
-                    y_m: obsY_m,
-                    radius_m: obsRadius_m,
-                    attenuationDb: attenuation,
-                    color: `rgba(100, 60, 20, ${0.4 + (attenuation / maxAtt) * 0.5})`, // Brownish
-                    // Pixel values will be calculated during drawing/occlusion check
-                    x_px: txPos_px.x + obsX_m * worldScale_pxPerMeter,
-                    y_px: txPos_px.y + obsY_m * worldScale_pxPerMeter, // Canvas Y is often inverted if math Y is up
-                    radius_px: obsRadius_m * worldScale_pxPerMeter
-                });
-            }
-        }
-        
-        // Line segment P1-P2, Circle C with radius R
-        function isLineSegmentIntersectingCircle(P1, P2, C, R_sq) { // R_sq is R*R
-            let dX = P2.x - P1.x;
-            let dY = P2.y - P1.y;
-            let t;
-
-            // Check if P1 or P2 is inside the circle
-            if (Math.hypot(P1.x - C.x, P1.y - C.y) <= Math.sqrt(R_sq)) return true;
-            if (Math.hypot(P2.x - C.x, P2.y - C.y) <= Math.sqrt(R_sq)) return true;
-
-            let lenSq = dX * dX + dY * dY;
-            if (lenSq === 0) return false; // P1 and P2 are same point, already checked
-
-            t = ((C.x - P1.x) * dX + (C.y - P1.y) * dY) / lenSq;
-
-            let closestX, closestY;
-            if (t < 0) { // Closest to P1, but P1 is outside (checked above)
-                return false;
-            } else if (t > 1) { // Closest to P2, but P2 is outside (checked above)
-                return false;
-            } else { // Closest point is on the segment
-                closestX = P1.x + t * dX;
-                closestY = P1.y + t * dY;
-            }
-            return ( (C.x - closestX) * (C.x - closestX) + (C.y - closestY) * (C.y - closestY) ) <= R_sq;
-        }
-
-
-        function calculateCurrentShadowing(rxPos_px) {
-            let totalShadowingDb = 0;
-            let occluded = false;
+<script>
+    class PathlossSimulator {
+        constructor() {
+            console.log("Simulator constructor starting...");
+            this.initializeElements();
+            this.initializeState();
             
-            for (const obs of obstacles) {
-                const obsCenter_px = { x: obs.x_px, y: obs.y_px };
-                if (isLineSegmentIntersectingCircle(txPos_px, rxPos_px, obsCenter_px, obs.radius_px * obs.radius_px)) {
-                    totalShadowingDb += obs.attenuationDb; // Summing for simplicity if multiple obstacles hit
-                    occluded = true;
-                }
-            }
-            outStatus.textContent = occluded ? "Occluded" : "Line of Sight";
-            return { shadowingDb: totalShadowingDb, isOccluded: occluded };
-        }
-        
-        function calculateMeanPathloss(distance, K, gamma, d0) {
-            if (distance <= 0) distance = 0.1;
-            if (d0 <= 0) d0 = 0.1;
-            return (distance < d0) ? K : K + 10 * gamma * Math.log10(distance / d0);
+            this.canvasWidth = parseInt(this.elements.simCanvas.getAttribute('width')) || 500;
+            this.canvasHeight = parseInt(this.elements.simCanvas.getAttribute('height')) || 500;
+            console.log(`Canvas HTML attributes: width=${this.canvasWidth}, height=${this.canvasHeight}`);
+            
+            this.initializeCanvasAndContext();
+            
+            this.readAllInputs(); 
+            this.initializeChart();
+            this.setupEventListeners();
+            this.initializePerformanceMonitor();
+            
+            this.calculateWorldScale();
+            console.log("Initial worldScale_pxPerMeter:", this.worldScale_pxPerMeter);
+
+            this.placeObstacles(); 
+            this.updateSimulation(); 
+            console.log("Simulator constructor finished.");
         }
 
-        function updateSimulation() {
-            const currentRxRadius_px = currentRxDistance_m * worldScale_pxPerMeter;
-            const rxPos_px = {
-                x: txPos_px.x + currentRxRadius_px * Math.cos(currentRxAngleRad),
-                y: txPos_px.y + currentRxRadius_px * Math.sin(currentRxAngleRad)
+        initializeElements() {
+            this.elements = {
+                kInput: document.getElementById('k_val'),
+                gammaInput: document.getElementById('gamma_val'),
+                d0Input: document.getElementById('d0_val'),
+                distanceSlider: document.getElementById('current_distance_slider'),
+                distanceDisplay: document.getElementById('current_distance_val'),
+                angleSlider: document.getElementById('receiver_angle_slider'),
+                angleDisplay: document.getElementById('receiver_angle_val'),
+                numObstaclesInput: document.getElementById('num_obstacles'),
+                maxAttenuationInput: document.getElementById('max_obstacle_attenuation'),
+                maxObsRadiusInput: document.getElementById('max_obstacle_radius'),
+                randomizeBtn: document.getElementById('randomize_obstacles_btn'),
+                generateProfileBtn: document.getElementById('generate_profile_btn'),
+                simCanvas: document.getElementById('simulationCanvas'),
+                graphCanvas: document.getElementById('pathlossGraph'),
+                outStatus: document.getElementById('out_status'),
+                outMeanPl: document.getElementById('out_mean_pl_val'),
+                outShadowing: document.getElementById('out_shadowing_val'),
+                outTotalPl: document.getElementById('out_total_pl_val'),
+                outPrPt: document.getElementById('out_pr_pt_val'),
+                outDistance: document.getElementById('out_distance_val'),
+                statusCard: document.getElementById('status_card'),
+                performanceInfo: document.getElementById('performance_info'),
+                fpsDisplay: document.getElementById('fps'),
+                updateTimeDisplay: document.getElementById('update_time')
             };
-
-            const meanPlDb = calculateMeanPathloss(currentRxDistance_m, currentK, currentGamma, currentD0);
-            const { shadowingDb, isOccluded } = calculateCurrentShadowing(rxPos_px);
-            const totalPlDb = meanPlDb + shadowingDb;
-            const prPtDb = -totalPlDb;
-
-            outMeanPl.textContent = meanPlDb.toFixed(2);
-            outShadowing.textContent = shadowingDb.toFixed(2);
-            outTotalPl.textContent = totalPlDb.toFixed(2);
-            outPrPt.textContent = prPtDb.toFixed(2);
-
-            drawSimulationCanvas(rxPos_px, currentRxRadius_px, isOccluded);
-            updateChartData(prPtDb);
+        }
+        initializeState() {
+            this.obstacles = []; this.animationFrameId = null; this.lastUpdateTime = 0;
+            this.frameCount = 0; this.fps = 0;
         }
 
-        function drawSimulationCanvas(rxPos_px, currentRxRadius_px, isOccluded) {
-            simCtx.clearRect(0, 0, canvasWidth, canvasHeight);
+        initializeCanvasAndContext() {
+            const canvas = this.elements.simCanvas;
+            const logicalWidth = this.canvasWidth;
+            const logicalHeight = this.canvasHeight;
 
-            // Draw Rx Path (current distance circle)
-            simCtx.beginPath();
-            simCtx.arc(txPos_px.x, txPos_px.y, currentRxRadius_px, 0, 2 * Math.PI);
-            simCtx.strokeStyle = '#ccc';
-            simCtx.lineWidth = 1;
-            simCtx.setLineDash([2,3]);
-            simCtx.stroke();
-            simCtx.setLineDash([]);
+            this.txPos_px = { x: logicalWidth / 2, y: logicalHeight / 2 };
+            this.maxCanvasDisplayRadius_px = Math.min(logicalWidth, logicalHeight) / 2 * 0.85;
 
-
-            // Draw Obstacles
-            obstacles.forEach(obs => {
-                simCtx.beginPath();
-                simCtx.arc(obs.x_px, obs.y_px, Math.max(1, obs.radius_px), 0, 2 * Math.PI); // Ensure min 1px radius
-                simCtx.fillStyle = obs.color;
-                simCtx.fill();
-            });
-
-            // Draw Tx
-            simCtx.beginPath();
-            simCtx.arc(txPos_px.x, txPos_px.y, 6 * worldScale_pxPerMeter / (maxCanvasDisplayRadius_px / parseFloat(distanceSlider.max)) , 0, 2 * Math.PI); // Scale Tx size a bit
-            simCtx.fillStyle = 'blue';
-            simCtx.fill();
+            const devicePixelRatio = window.devicePixelRatio || 1;
+            canvas.width = logicalWidth * devicePixelRatio;
+            canvas.height = logicalHeight * devicePixelRatio;
+            canvas.style.width = `${logicalWidth}px`;
+            canvas.style.height = `${logicalHeight}px`;
             
-            // Draw Rx
-            simCtx.beginPath();
-            simCtx.arc(rxPos_px.x, rxPos_px.y, 5 * worldScale_pxPerMeter / (maxCanvasDisplayRadius_px / parseFloat(distanceSlider.max)), 0, 2 * Math.PI);
-            simCtx.fillStyle = 'green';
-            simCtx.fill();
-
-            // Draw LoS Line
-            simCtx.beginPath();
-            simCtx.moveTo(txPos_px.x, txPos_px.y);
-            simCtx.lineTo(rxPos_px.x, rxPos_px.y);
-            simCtx.strokeStyle = isOccluded ? 'red' : 'lightgreen';
-            simCtx.lineWidth = 2;
-            simCtx.stroke();
+            this.simCtx = canvas.getContext('2d');
+            if (!this.simCtx) {
+                console.error("FATAL: Could not get 2D context for simulation canvas.");
+                return;
+            }
+            this.simCtx.scale(devicePixelRatio, devicePixelRatio);
+            this.simCtx.imageSmoothingEnabled = true;
+            this.simCtx.imageSmoothingQuality = 'high';
         }
 
-        function initializeChart() {
-            pathlossChart = new Chart(graphCanvas, {
+        initializeChart() {
+            const ctx = this.elements.graphCanvas.getContext('2d');
+            const initialMinD = parseFloat(this.elements.distanceSlider.min) || 5;
+            const initialMaxD = parseFloat(this.elements.distanceSlider.max) || 200;
+            const initialRxDist = this.currentRxDistance_m || initialMinD;
+            
+            this.pathlossChart = new Chart(ctx, {
                 type: 'scatter',
                 data: {
                     datasets: [
                         { 
-                            label: 'Pr/Pt (Path Loss Alone)', data: [], borderColor: 'blue',
-                            borderDash: [5, 5], type: 'line', fill: false, showLine: true,
-                            pointRadius: 0, borderWidth: 2
+                            label: 'Theoretical Pathloss', data: [], borderColor: 'rgba(75, 128, 232, 0.9)', 
+                            backgroundColor: 'transparent', borderWidth: 2.5, borderDash: [6, 3], type: 'line', 
+                            fill: false, showLine: true, pointRadius: 0, tension: 0.1, order: 1
                         },
-                        {
-                            label: 'Pr/Pt at Rx (incl. Shadowing)', data: [{x: 0, y: 0}], 
-                            borderColor: 'red', backgroundColor: 'red', pointRadius: 7,
-                            borderWidth: 2, type: 'scatter'
+                        { 
+                            label: 'Actual Rx Power', data: [{x: initialRxDist, y: 0}], 
+                            borderColor: 'rgba(239, 68, 68, 1)', backgroundColor: 'rgba(239, 68, 68, 0.8)', 
+                            pointRadius: 7, borderWidth: 2, pointStyle: 'circle', hoverRadius: 9, 
+                            hoverBorderWidth: 3, type: 'scatter', order: 3
+                        },
+                        { 
+                            label: 'Shadowing Profile', data: [], borderColor: 'rgba(245, 158, 11, 0.8)', 
+                            backgroundColor: 'transparent', borderWidth: 2, borderDash: [3, 3], type: 'line', 
+                            fill: false, showLine: true, pointRadius: 0, tension: 0.2, order: 2
                         }
                     ]
                 },
                 options: {
-                    responsive: true, maintainAspectRatio: false,
+                    responsive: true, maintainAspectRatio: false, animation: { duration: 0 },
+                    elements: { line: { tension: 0.1 }, point: { hoverRadius: 8, hoverBorderWidth: 2 } },
                     scales: {
                         x: {
-                            type: 'logarithmic', title: { display: true, text: 'Distance (d, meters)' },
-                            min: parseFloat(distanceSlider.min) > 0 ? parseFloat(distanceSlider.min) : 1,
-                            max: parseFloat(distanceSlider.max)
+                            type: 'logarithmic',
+                            title: { display: true, text: 'Distance (meters)', font: { size: 14, weight: '600', family: 'inherit' }, color: 'var(--text-secondary)' },
+                            min: initialMinD, max: initialMaxD,
+                            grid: { color: 'rgba(0, 0, 0, 0.07)', drawBorder: false },
+                            ticks: { color: 'var(--text-secondary)', font: { family: 'inherit' } }
                         },
-                        y: { title: { display: true, text: 'Pr/Pt (dB)' } }
+                        y: {
+                            title: { display: true, text: 'Received Power Pr/Pt (dB)', font: { size: 14, weight: '600', family: 'inherit' }, color: 'var(--text-secondary)' },
+                            grid: { color: 'rgba(0, 0, 0, 0.07)', drawBorder: false },
+                            ticks: { color: 'var(--text-secondary)', font: { family: 'inherit' }, callback: function(value) { return value.toFixed(0) + ' dB'; } },
+                            grace: '10%'
+                        }
                     },
                     plugins: {
-                        tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${ctx.parsed.x.toFixed(1)}m, ${ctx.parsed.y.toFixed(2)} dB` } }
-                    }
+                        legend: { position: 'bottom', align: 'center', labels: { usePointStyle: true, pointStyle: 'circle', padding: 20, boxWidth: 12, font: { size: 13, family: 'inherit' }, color: 'var(--text-primary)' } },
+                        tooltip: {
+                            enabled: true, mode: 'index', intersect: false, backgroundColor: 'rgba(45, 55, 72, 0.9)',
+                            titleColor: '#E2E8F0', titleFont: { weight: 'bold', family: 'inherit' },
+                            bodyColor: '#CBD5E0', bodyFont: { family: 'inherit' }, padding: 12, cornerRadius: 6,
+                            borderColor: 'rgba(255,255,255,0.1)', borderWidth: 1,
+                            callbacks: {
+                                title: (tooltipItems) => tooltipItems.length > 0 ? `Distance: ${tooltipItems[0].parsed.x.toFixed(1)} m` : '',
+                                label: (context) => `${context.dataset.label || ''}: ${context.parsed.y.toFixed(2)} dB`,
+                                labelColor: (context) => ({ borderColor: context.dataset.borderColor, backgroundColor: context.dataset.borderColor, borderWidth: 2, borderRadius: 2 })
+                            }
+                        },
+                        title: { display: true, text: 'Signal Power vs. Distance Analysis', font: { size: 18, weight: 'bold', family: 'inherit'}, color: 'var(--secondary-color)', padding: { top: 5, bottom: 25 } }
+                    },
+                    interaction: { mode: 'nearest', axis: 'x', intersect: false }
                 }
             });
         }
 
-        function updateChartData(currentPrPtDb) {
-            const meanPrPtData = [];
-            const minD = parseFloat(distanceSlider.min) > 0 ? parseFloat(distanceSlider.min) : 1;
-            const maxD = parseFloat(distanceSlider.max);
-            const numPoints = 50;
-            for (let i = 0; i <= numPoints; i++) {
-                const dist = minD + (i / numPoints) * (maxD - minD);
-                if (dist <= 0) continue;
-                const meanPl = calculateMeanPathloss(dist, currentK, currentGamma, currentD0);
-                meanPrPtData.push({ x: dist, y: -meanPl });
-            }
-            pathlossChart.data.datasets[0].data = meanPrPtData;
-            pathlossChart.data.datasets[1].data = [{ x: currentRxDistance_m, y: currentPrPtDb }];
-            pathlossChart.update('none');
+        setupEventListeners() {
+            const inputElements = [
+                this.elements.kInput, this.elements.gammaInput, this.elements.d0Input,
+                this.elements.numObstaclesInput, this.elements.maxAttenuationInput, 
+                this.elements.maxObsRadiusInput
+            ];
+            inputElements.forEach(el => el.addEventListener('input', this.debounce(() => {
+                this.readAllInputs(); this.updateSimulation();
+            }, 150)));
+
+            this.elements.distanceSlider.addEventListener('input', () => {
+                this.readAllInputs(); 
+                this.placeObstacles(); 
+                this.updateSimulation();
+            });
+            this.elements.angleSlider.addEventListener('input', () => {
+                this.readAllInputs(); this.updateSimulation();
+            });
+            this.elements.randomizeBtn.addEventListener('click', () => {
+                this.readAllInputs(); this.placeObstacles(); this.updateSimulation();
+            });
+            this.elements.generateProfileBtn.addEventListener('click', () => {
+                 this.generateShadowingProfile();
+            });
+            document.addEventListener('keydown', (e) => {
+                if (e.code === 'Space' && document.activeElement.tagName !== 'INPUT') {
+                    e.preventDefault(); this.elements.randomizeBtn.click();
+                }
+                if (e.ctrlKey && (e.key === 'g' || e.key === 'G')) {
+                    e.preventDefault(); this.elements.generateProfileBtn.click();
+                }
+                if (e.ctrlKey && (e.key === 'p' || e.key === 'P')) { 
+                    e.preventDefault();
+                    const display = this.elements.performanceInfo.style.display;
+                    this.elements.performanceInfo.style.display = display === 'none' || display === '' ? 'block' : 'none';
+                }
+            });
+            window.addEventListener('resize', this.debounce(() => {
+                if (this.pathlossChart) this.pathlossChart.resize();
+            }, 200));
         }
 
-        document.addEventListener('DOMContentLoaded', init);
-    </script>
+        initializePerformanceMonitor() {
+            // No change, already correct
+        }
+        debounce(func, wait) {
+            let timeout;
+            return (...args) => {
+                const later = () => { clearTimeout(timeout); func.apply(this, args); };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+        readAllInputs() {
+            this.currentK = parseFloat(this.elements.kInput.value);
+            this.currentGamma = parseFloat(this.elements.gammaInput.value);
+            this.currentD0 = parseFloat(this.elements.d0Input.value);
+            this.currentRxDistance_m = parseFloat(this.elements.distanceSlider.value);
+            this.currentRxAngleRad = parseFloat(this.elements.angleSlider.value) * Math.PI / 180;
+
+            this.elements.distanceDisplay.textContent = this.currentRxDistance_m.toFixed(0);
+            this.elements.angleDisplay.textContent = (this.currentRxAngleRad * 180 / Math.PI).toFixed(0);
+            this.elements.outDistance.textContent = `${this.currentRxDistance_m.toFixed(1)} m`;
+        }
+
+        calculateWorldScale() {
+            if (!this.elements.simCanvas || !this.elements.distanceSlider) {
+                console.error("CRITICAL: SimCanvas or DistanceSlider element not found for world scale calculation.");
+                this.worldScale_pxPerMeter = 1; return;
+            }
+            const sliderMax = parseFloat(this.elements.distanceSlider.max);
+            if (isNaN(sliderMax) || sliderMax <= 0) {
+                 console.error(`CRITICAL: Invalid distanceSlider.max value: ${this.elements.distanceSlider.max}.`);
+                 this.worldScale_pxPerMeter = 1; return;
+            }
+            if (this.maxCanvasDisplayRadius_px <= 0 || !isFinite(this.maxCanvasDisplayRadius_px)) {
+                console.error(`CRITICAL: Invalid maxCanvasDisplayRadius_px: ${this.maxCanvasDisplayRadius_px}.`);
+                 this.worldScale_pxPerMeter = 1; return;
+            }
+            this.worldScale_pxPerMeter = this.maxCanvasDisplayRadius_px / sliderMax;
+        }
+
+        placeObstacles() {
+            this.obstacles = [];
+            const numObs = parseInt(this.elements.numObstaclesInput.value);
+            if (numObs === 0) {
+                 if (this.pathlossChart && this.pathlossChart.data.datasets[2]) {
+                    this.pathlossChart.data.datasets[2].data = [];
+                    this.pathlossChart.update('none');
+                }
+                return;
+            }
+
+            const maxAtt = parseFloat(this.elements.maxAttenuationInput.value);
+            const maxObsRadius_m = parseFloat(this.elements.maxObsRadiusInput.value);
+            const maxPlacementDistance_m = parseFloat(this.elements.distanceSlider.max); 
+            const minDistanceBetweenObstacles = maxObsRadius_m * 1.1; 
+            const attemptsPerObstacle = 30;
+
+            console.log(`Placing ${numObs} obstacles. Max Radius (m): ${maxObsRadius_m}, Max Placement Dist (m): ${maxPlacementDistance_m}, World Scale: ${this.worldScale_pxPerMeter}`);
+
+            for (let i = 0; i < numObs; i++) {
+                let placed = false;
+                for (let attempt = 0; attempt < attemptsPerObstacle && !placed; attempt++) {
+                    const obsDistFromTx_m = Math.random() * (maxPlacementDistance_m * 0.9) + (maxPlacementDistance_m * 0.05); 
+                    const obsAngleRad = Math.random() * 2 * Math.PI;
+                    const obsRadius_m = Math.max(0.5, Math.random() * maxObsRadius_m * 0.8 + maxObsRadius_m * 0.2);
+                    const obsX_m = obsDistFromTx_m * Math.cos(obsAngleRad);
+                    const obsY_m = obsDistFromTx_m * Math.sin(obsAngleRad);
+
+                    const tooClose = this.obstacles.some(existing => 
+                        Math.hypot(existing.x_m - obsX_m, existing.y_m - obsY_m) < 
+                        (existing.radius_m + obsRadius_m + minDistanceBetweenObstacles)
+                    );
+
+                    if (!tooClose) {
+                        const attenuation = Math.random() * maxAtt * 0.8 + maxAtt * 0.2;
+                        const opacity = 0.6 + (attenuation / maxAtt) * 0.3;
+                        const radius_px = obsRadius_m * this.worldScale_pxPerMeter;
+
+                        if (isNaN(radius_px) || radius_px <= 0 || !isFinite(radius_px)) {
+                            console.warn("Skipping obstacle due to invalid pixel radius:", radius_px, "from obsRadius_m:", obsRadius_m, "worldScale:", this.worldScale_pxPerMeter);
+                            continue; 
+                        }
+
+                        this.obstacles.push({
+                            x_m, y_m, radius_m, attenuationDb: attenuation,
+                            color: `rgba(110, 70, 30, ${opacity})`,
+                            x_px: this.txPos_px.x + obsX_m * this.worldScale_pxPerMeter,
+                            y_px: this.txPos_px.y + obsY_m * this.worldScale_pxPerMeter,
+                            radius_px: Math.max(1, radius_px)
+                        });
+                        placed = true;
+                    }
+                }
+            }
+            console.log(`Placed ${this.obstacles.length} obstacles.`);
+            if (this.pathlossChart && this.pathlossChart.data.datasets[2]) {
+                this.pathlossChart.data.datasets[2].data = []; 
+                this.pathlossChart.update('none');
+            }
+        }
+        
+        generateShadowingProfile() {
+             if (!this.obstacles.length && parseInt(this.elements.numObstaclesInput.value) > 0) {
+                this.elements.generateProfileBtn.textContent = "Place Obstacles First!";
+                this.elements.generateProfileBtn.classList.add('btn-warning');
+                setTimeout(() => {
+                    this.elements.generateProfileBtn.textContent = "📊 Generate Shadowing Profile";
+                    this.elements.generateProfileBtn.classList.remove('btn-warning');
+                    this.elements.generateProfileBtn.classList.add('btn-success'); // Restore original class
+                }, 2500);
+                return;
+            }
+            if (parseInt(this.elements.numObstaclesInput.value) === 0 && this.obstacles.length === 0) {
+                 this.elements.generateProfileBtn.textContent = "No Obstacles to Profile";
+                 setTimeout(() => {this.elements.generateProfileBtn.textContent = "📊 Generate Shadowing Profile";}, 2500);
+                if (this.pathlossChart.data.datasets[2]) this.pathlossChart.data.datasets[2].data = [];
+                this.pathlossChart.update();
+                return;
+            }
+
+            this.elements.generateProfileBtn.disabled = true;
+            this.elements.generateProfileBtn.textContent = "⚙️ Generating...";
+            this.elements.generateProfileBtn.classList.add('btn-processing');
+            this.elements.generateProfileBtn.classList.remove('btn-success', 'btn-warning');
+
+
+            requestAnimationFrame(() => { 
+                const profileData = [];
+                const minD_m = parseFloat(this.elements.distanceSlider.min);
+                const maxD_m = parseFloat(this.elements.distanceSlider.max);
+                const numProfilePoints = 120; 
+
+                for (let i = 0; i <= numProfilePoints; i++) {
+                    const d_m = minD_m * Math.pow(maxD_m / minD_m, i / numProfilePoints);
+                    const meanPlAt_d_Db = this.calculateMeanPathloss(d_m, this.currentK, this.currentGamma, this.currentD0);
+                    const randomAngleRad = Math.random() * 2 * Math.PI;
+                    const rxRadius_px = d_m * this.worldScale_pxPerMeter;
+                    const rxPosAtProfilePoint_px = {
+                        x: this.txPos_px.x + rxRadius_px * Math.cos(randomAngleRad),
+                        y: this.txPos_px.y + rxRadius_px * Math.sin(randomAngleRad)
+                    };
+                    const { shadowingDb } = this.calculateCurrentShadowing(rxPosAtProfilePoint_px, true); 
+                    const totalPlAtProfilePoint_Db = meanPlAt_d_Db + shadowingDb;
+                    profileData.push({ x: d_m, y: -totalPlAtProfilePoint_Db });
+                }
+
+                if (this.pathlossChart && this.pathlossChart.data.datasets[2]) {
+                    this.pathlossChart.data.datasets[2].data = profileData;
+                    this.pathlossChart.update(); 
+                }
+                this.elements.generateProfileBtn.disabled = false;
+                this.elements.generateProfileBtn.textContent = "📊 Generate Shadowing Profile";
+                this.elements.generateProfileBtn.classList.remove('btn-processing', 'btn-warning');
+                this.elements.generateProfileBtn.classList.add('btn-success');
+            });
+        }
+
+        isLineSegmentIntersectingCircle(P1, P2, C, R_sq) { 
+            const dx = P2.x - P1.x;
+            const dy = P2.y - P1.y;
+            const fx = P1.x - C.x;
+            const fy = P1.y - C.y;
+
+            if (fx * fx + fy * fy <= R_sq) return true;
+            const ex = P2.x - C.x;
+            const ey = P2.y - C.y;
+            if (ex * ex + ey * ey <= R_sq) return true;
+
+            const lenSq = dx * dx + dy * dy;
+            if (lenSq === 0.0) return false;
+
+            const t = Math.max(0, Math.min(1, -(fx * dx + fy * dy) / lenSq));
+            
+            const closestX = P1.x + t * dx;
+            const closestY = P1.y + t * dy;
+            
+            const distSqToClosest = (closestX - C.x) * (closestX - C.x) + (closestY - C.y) * (closestY - C.y);
+            return distSqToClosest <= R_sq;
+        }
+        
+        calculateCurrentShadowing(rxPos_px, isProfileGeneration = false) { 
+            let totalShadowingDb = 0;
+            let occludingObstacles = []; 
+            for (const obs of this.obstacles) {
+                if (isNaN(obs.x_px) || isNaN(obs.y_px) || isNaN(obs.radius_px) || obs.radius_px <= 0) continue;
+                
+                if (this.isLineSegmentIntersectingCircle(this.txPos_px, rxPos_px, {x: obs.x_px, y: obs.y_px}, obs.radius_px * obs.radius_px)) {
+                    totalShadowingDb += obs.attenuationDb;
+                    if (!isProfileGeneration) occludingObstacles.push(obs);
+                }
+            }
+            const isOccluded = totalShadowingDb > 0;
+            
+            if (!isProfileGeneration) {
+                const statusCard = this.elements.statusCard;
+                statusCard.className = `status-card ${isOccluded ? 'danger' : 'success'}`;
+                this.elements.outStatus.textContent = isOccluded ? 
+                    `Occluded (${occludingObstacles.length > 0 ? occludingObstacles.length : ''} obs)` : 
+                    "Clear Line of Sight";
+            }
+            return { shadowingDb: totalShadowingDb, isOccluded, occludingObstacles };
+        }
+        
+        calculateMeanPathloss(distance, K, gamma, d0) {
+            if (distance <= 0) distance = 0.1;
+            if (d0 <= 0) d0 = 0.1; 
+            if (K === undefined || gamma === undefined || isNaN(K) || isNaN(gamma)) {
+                return 0; 
+            }
+            return (distance < d0) ? K : K + 10 * gamma * Math.log10(distance / d0);
+        }
+
+        updateSimulation() {
+            if (!this.simCtx || !this.worldScale_pxPerMeter || !isFinite(this.worldScale_pxPerMeter) || this.worldScale_pxPerMeter <=0) {
+                console.warn(`Simulation update skipped: simCtx=${!!this.simCtx}, worldScale=${this.worldScale_pxPerMeter}`);
+                if (!this.worldScale_pxPerMeter || !isFinite(this.worldScale_pxPerMeter) || this.worldScale_pxPerMeter <=0) {
+                    console.log("Attempting to recalculate world scale in updateSimulation...");
+                    this.calculateWorldScale();
+                    if (!this.worldScale_pxPerMeter || !isFinite(this.worldScale_pxPerMeter) || this.worldScale_pxPerMeter <=0) {
+                         console.error("CRITICAL: World scale still invalid after re-calculation. Cannot update simulation.");
+                         return;
+                    }
+                }
+            }
+
+            const startTime = performance.now();
+            const currentRxRadius_px = this.currentRxDistance_m * this.worldScale_pxPerMeter;
+            const rxPos_px = {
+                x: this.txPos_px.x + currentRxRadius_px * Math.cos(this.currentRxAngleRad),
+                y: this.txPos_px.y + currentRxRadius_px * Math.sin(this.currentRxAngleRad)
+            };
+
+            const meanPlDb = this.calculateMeanPathloss(this.currentRxDistance_m, this.currentK, this.currentGamma, this.currentD0);
+            const { shadowingDb, isOccluded, occludingObstacles } = this.calculateCurrentShadowing(rxPos_px);
+            const totalPlDb = meanPlDb + shadowingDb;
+            const prPtDb = -totalPlDb;
+
+            this.elements.outMeanPl.textContent = `${meanPlDb.toFixed(2)} dB`;
+            this.elements.outShadowing.textContent = `${shadowingDb.toFixed(2)} dB`;
+            this.elements.outTotalPl.textContent = `${totalPlDb.toFixed(2)} dB`;
+            this.elements.outPrPt.textContent = `${prPtDb.toFixed(2)} dB`;
+
+            this.drawSimulationCanvas(rxPos_px, currentRxRadius_px, isOccluded, occludingObstacles);
+            this.updateChartData(prPtDb);
+
+            const endTime = performance.now();
+            const updateTime = endTime - startTime;
+            this.frameCount++;
+            if (endTime - this.lastUpdateTime >= 1000) {
+                this.fps = Math.round(this.frameCount * 1000 / (endTime - this.lastUpdateTime));
+                this.frameCount = 0; this.lastUpdateTime = endTime;
+                if (this.elements.fpsDisplay) this.elements.fpsDisplay.textContent = this.fps;
+            }
+             if (this.elements.updateTimeDisplay) this.elements.updateTimeDisplay.textContent = updateTime.toFixed(1);
+        }
+
+        drawSimulationCanvas(rxPos_px, currentRxRadius_px, isOccluded, occludingObstacles) {
+            const ctx = this.simCtx;
+            if (!ctx) { console.error("No simCtx in drawSimulationCanvas"); return; }
+            
+            ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+            this.drawGrid(ctx);
+            
+            ctx.beginPath();
+            ctx.arc(Math.round(this.txPos_px.x), Math.round(this.txPos_px.y), Math.round(currentRxRadius_px), 0, 2 * Math.PI);
+            ctx.strokeStyle = 'rgba(108, 117, 125, 0.3)'; ctx.lineWidth = 1;
+            ctx.setLineDash([5, 2.5]); ctx.stroke(); ctx.setLineDash([]);
+
+            this.obstacles.forEach(obs => {
+                if (isNaN(obs.x_px) || isNaN(obs.y_px) || isNaN(obs.radius_px) || obs.radius_px <= 0) return; 
+                const isCurrentlyOccluding = occludingObstacles.includes(obs);
+                ctx.beginPath();
+                ctx.arc(Math.round(obs.x_px), Math.round(obs.y_px), Math.round(obs.radius_px), 0, 2 * Math.PI);
+                if (isCurrentlyOccluding) {
+                    const pulse = Math.sin(Date.now() * 0.006) * 0.15 + 0.85; 
+                    ctx.fillStyle = `rgba(220, 38, 127, ${0.65 * pulse})`; 
+                    ctx.strokeStyle = 'rgba(190, 28, 107, 0.9)'; ctx.lineWidth = 1.5;
+                } else {
+                    ctx.fillStyle = obs.color;
+                    ctx.strokeStyle = 'rgba(80, 40, 0, 0.6)'; ctx.lineWidth = 0.5;
+                }
+                ctx.fill(); ctx.stroke();
+            });
+
+            ctx.beginPath(); 
+            ctx.moveTo(Math.round(this.txPos_px.x), Math.round(this.txPos_px.y));
+            ctx.lineTo(Math.round(rxPos_px.x), Math.round(rxPos_px.y));
+            if (isOccluded) {
+                ctx.strokeStyle = 'rgba(239, 68, 68, 0.85)'; ctx.lineWidth = 2.5; 
+                ctx.setLineDash([3, 3]); ctx.shadowColor = 'rgba(239, 68, 68, 0.4)'; ctx.shadowBlur = 5;
+            } else {
+                ctx.strokeStyle = 'rgba(72, 187, 120, 0.85)'; ctx.lineWidth = 2;
+                ctx.shadowColor = 'rgba(72, 187, 120, 0.3)'; ctx.shadowBlur = 3;
+            }
+            ctx.stroke(); ctx.shadowBlur = 0; ctx.setLineDash([]);
+            
+            this.drawTransmitter(ctx);
+            this.drawReceiver(ctx, rxPos_px, isOccluded);
+        }
+
+        drawGrid(ctx) {
+            const gridSpacing = 50 * this.worldScale_pxPerMeter;
+            if (!isFinite(gridSpacing) || gridSpacing <= 0) return; 
+
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.04)'; 
+            ctx.lineWidth = 0.5;
+            for (let x = this.txPos_px.x % gridSpacing; x < this.canvasWidth; x += gridSpacing) {
+                ctx.beginPath(); ctx.moveTo(Math.round(x) + 0.5, 0); ctx.lineTo(Math.round(x) + 0.5, this.canvasHeight); ctx.stroke();
+            }
+            for (let y = this.txPos_px.y % gridSpacing; y < this.canvasHeight; y += gridSpacing) {
+                ctx.beginPath(); ctx.moveTo(0, Math.round(y) + 0.5); ctx.lineTo(this.canvasWidth, Math.round(y) + 0.5); ctx.stroke();
+            }
+        }
+        
+        drawTransmitter(ctx) {
+            const txSize = Math.max(7, 10 * this.worldScale_pxPerMeter);
+            if (!isFinite(txSize) || txSize <=0) return;
+            ctx.beginPath(); ctx.arc(Math.round(this.txPos_px.x), Math.round(this.txPos_px.y), Math.round(txSize), 0, 2 * Math.PI);
+            ctx.fillStyle = 'rgba(75, 128, 232, 1)'; ctx.fill();
+            ctx.strokeStyle = 'rgba(50, 88, 182, 1)'; ctx.lineWidth = 1.5; ctx.stroke();
+        }
+
+        drawReceiver(ctx, rxPos_px, isOccluded) {
+            const rxSize = Math.max(6, 8 * this.worldScale_pxPerMeter);
+            if (!isFinite(rxSize) || rxSize <=0) return;
+            ctx.beginPath(); ctx.arc(Math.round(rxPos_px.x), Math.round(rxPos_px.y), Math.round(rxSize), 0, 2 * Math.PI);
+            ctx.fillStyle = isOccluded ? 'rgba(239, 68, 68, 1)' : 'rgba(72, 187, 120, 1)'; ctx.fill();
+            ctx.strokeStyle = isOccluded ? 'rgba(190, 48, 48, 1)' : 'rgba(52, 147, 90, 1)';
+            ctx.lineWidth = 1.5; ctx.stroke();
+        }
+        
+        updateChartData(currentPrPtDb) {
+            if (!this.pathlossChart) return;
+
+            const meanPrPtData = [];
+            const minD = parseFloat(this.elements.distanceSlider.min);
+            const maxD = parseFloat(this.elements.distanceSlider.max);
+            const numPoints = 100;
+            for (let i = 0; i <= numPoints; i++) {
+                const dist = minD * Math.pow(maxD / minD, i / numPoints);
+                const meanPl = this.calculateMeanPathloss(dist, this.currentK, this.currentGamma, this.currentD0);
+                meanPrPtData.push({ x: dist, y: -meanPl });
+            }
+            
+            this.pathlossChart.data.datasets[0].data = meanPrPtData;
+            this.pathlossChart.data.datasets[1].data = [{ x: this.currentRxDistance_m, y: currentPrPtDb }];
+            
+            if (this.pathlossChart.options.scales.x.min !== minD || this.pathlossChart.options.scales.x.max !== maxD) {
+                this.pathlossChart.options.scales.x.min = minD;
+                this.pathlossChart.options.scales.x.max = maxD;
+            }
+            
+            this.pathlossChart.update('none');
+        }
+    }
+    document.addEventListener('DOMContentLoaded', () => { new PathlossSimulator(); });
+</script>
 </body>
 </html>
