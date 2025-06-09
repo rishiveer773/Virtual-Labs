@@ -1,743 +1,477 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Advanced Shadowing and Outage Probability Lab</title>
-  <style>
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      margin: 0;
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      display: grid;
-      grid-template-columns: 320px 1fr 350px;
-      height: 100vh;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      overflow: hidden; 
-    }
-
-    #inputs, #simulation, #outputs {
-      border: none;
-      margin: 10px;
-      border-radius: 15px;
-      background: rgba(255, 255, 255, 0.95);
-      backdrop-filter: blur(20px);
-      box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
-      overflow: auto; 
-    }
-
-    #inputs, #outputs {
-      padding: 20px;
-    }
-
-    #simulation {
-      display: flex; 
-      justify-content: center;
-      align-items: center;
-      position: relative; 
-      padding: 15px; 
-    }
-
-    h3 {
-      color: #333;
-      margin: 0 0 20px 0;
-      text-align: center;
-      font-size: 1.3em;
-      font-weight: 600;
-      text-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-
-    .input-group {
-      margin-bottom: 20px;
-      padding: 15px;
-      background: rgba(255, 255, 255, 0.8);
-      border-radius: 10px;
-      border: 1px solid rgba(102, 126, 234, 0.2);
-      transition: all 0.3s ease;
-    }
-
-    .input-group:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-    }
-
-    label {
-      display: block;
-      margin-bottom: 8px;
-      font-weight: 600;
-      color: #444;
-      font-size: 0.9em;
-    }
-
-    input, select {
-      width: 100%;
-      padding: 10px 12px;
-      border: 2px solid #e0e0e0;
-      border-radius: 8px;
-      font-size: 14px;
-      transition: all 0.3s ease;
-      background: white;
-    }
-
-    input:focus, select:focus {
-      border-color: #667eea;
-      outline: none;
-      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-    }
-
-    .grid-container {
-      border: 3px solid #333;
-      border-radius: 12px;
-      overflow: hidden; 
-      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-      background: #333; 
-    }
-
-    .cell {
-      width: 18px; 
-      height: 18px; 
-      border: none; 
-      cursor: pointer;
-      transition: background-color 0.1s ease, transform 0.2s ease; 
-      position: relative; /* Needed for ::after pseudo-element */
-    }
-
-    .cell:hover {
-      transform: scale(1.15); 
-      z-index: 10;
-      box-shadow: 0 0 10px rgba(0,0,0,0.6); 
-    }
-
-    .transmitter {
-      border-radius: 50%;
-      border: 3px solid #000 !important;
-      background: radial-gradient(circle, #ffeb3b, #ff9800) !important;
-      box-shadow: 0 0 12px rgba(255, 193, 7, 0.8);
-      animation: pulse 2s infinite;
-    }
-
-    @keyframes pulse {
-      0%, 100% { box-shadow: 0 0 12px rgba(255, 193, 7, 0.8); transform: scale(1); }
-      50% { box-shadow: 0 0 20px rgba(255, 193, 7, 1); transform: scale(1.05); }
-    }
-
-    .obstacle-normal {
-      background: linear-gradient(45deg, #555, #777) !important; 
-      border: 1px solid #222 !important; 
-    }
-
-    .obstacle-heavy {
-      background: linear-gradient(45deg, #7A0000, #C01030) !important; 
-      border: 1px solid #500 !important; 
-      box-shadow: inset 0 1px 3px rgba(0,0,0,0.4);
-    }
-
-    .outage-cell {
-      box-shadow: inset 0 0 0 1px #dd0033, 0 0 4px rgba(255, 23, 68, 0.5);
-      animation: blink-outage 1.5s infinite alternate; 
-    }
-    
-    .obstacle-normal.outage-cell, 
-    .obstacle-heavy.outage-cell {
-         box-shadow: inset 0 0 0 1px #dd0033, 0 0 4px rgba(255, 23, 68, 0.5);
-    }
-
-    @keyframes blink-outage { 
-      from { box-shadow: inset 0 0 0 1px #dd0033, 0 0 4px rgba(255, 23, 68, 0.5); }
-      to   { box-shadow: inset 0 0 0 1px #ff4466, 0 0 7px rgba(255, 87, 34, 0.7); }
-    }
-
-    /* Style for shadowed cells */
-    .cell.shadowed-cell::after {
-        content: '';
-        position: absolute;
-        top: 0; left: 0; right: 0; bottom: 0;
-        /* Use a CSS variable for dynamic alpha. Default to a very light base. */
-        background-color: rgba(0, 0, 0, var(--shadow-alpha, 0.02)); /* Default alpha if var not set, very light */
-        pointer-events: none; 
-        z-index: 1; 
-        transition: background-color 0.1s ease-in-out; /* Smooth alpha changes if needed */
-    }
-    .transmitter.shadowed-cell::after { display: none; } 
-    .obstacle-normal.shadowed-cell::after,
-    .obstacle-heavy.shadowed-cell::after {
-        display: none; 
-    }
-
-
-    .tooltip {
-      position: absolute;
-      background: linear-gradient(135deg, #2c3e50, #34495e); 
-      color: white;
-      padding: 10px 15px;
-      border-radius: 8px;
-      font-size: 12px;
-      pointer-events: none;
-      white-space: nowrap;
-      transform: translate(-50%, -120%); 
-      z-index: 1000;
-      box-shadow: 0 5px 25px rgba(0,0,0,0.5);
-      border: 1px solid rgba(255,255,255,0.15);
-    }
-
-    .output-section {
-      margin-bottom: 20px;
-      padding: 15px;
-      background: rgba(255, 255, 255, 0.85); 
-      border-radius: 10px;
-      border-left: 4px solid #667eea;
-    }
-
-    .output-section h4 { margin: 0 0 12px 0; color: #2c3e50; font-size: 1.1em; font-weight: 600; }
-    .metric { display: flex; justify-content: space-between; align-items: center; margin: 8px 0; padding: 6px 0; border-bottom: 1px solid rgba(0,0,0,0.08); }
-    .metric:last-child { border-bottom: none; }
-    .metric-label { font-weight: 500; color: #34495e; font-size: 0.9em; }
-    .metric-value { font-family: 'Courier New', monospace; font-weight: bold; color: #2c3e50; font-size: 0.95em; }
-
-    .status-indicator { padding: 12px; border-radius: 8px; text-align: center; font-weight: 600; margin-top: 10px; transition: all 0.3s ease; text-shadow: 0 1px 1px rgba(0,0,0,0.2); }
-    .status-excellent { background: linear-gradient(135deg, #2ecc71, #27ae60); color: white; }
-    .status-good { background: linear-gradient(135deg, #f1c40f, #f39c12); color: white; }
-    .status-fair { background: linear-gradient(135deg, #e67e22, #d35400); color: white; }
-    .status-poor { background: linear-gradient(135deg, #e74c3c, #c0392b); color: white; }
-
-    .legend { margin-top: 20px; padding: 15px; background: rgba(255, 255, 255, 0.85); border-radius: 10px; border: 1px solid rgba(102, 126, 234, 0.15); }
-    .legend h4 { margin: 0 0 12px 0; color: #2c3e50; font-size: 1em; font-weight: 600; }
-    .legend-item { display: flex; align-items: center; margin: 8px 0; font-size: 0.85em; color: #34495e;}
-    .legend-color { width: 20px; height: 20px; border-radius: 4px; margin-right: 10px; border: 1px solid #bdc3c7; flex-shrink: 0; }
-
-    .instructions { font-size: 0.85em; color: #34495e; margin-top: 15px; padding: 12px; background: linear-gradient(135deg, #ecf0f1, #e0e6e8); border-radius: 8px; border-left: 4px solid #f39c12; line-height: 1.4; }
-    button { width: 100%; padding: 12px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.95em; margin-top: 15px; transition: all 0.3s ease; text-shadow: 0 1px 1px rgba(0,0,0,0.2); }
-    button:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); filter: brightness(1.1); }
-    .mode-buttons { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 10px; }
-    .mode-btn { padding: 8px 4px; margin: 0; font-size: 0.8em; border-radius: 6px; }
-    .mode-btn.active { background: linear-gradient(135deg, #2ecc71, #27ae60); transform: scale(0.97); box-shadow: inset 0 1px 3px rgba(0,0,0,0.2); }
-    .progress-bar { width: 100%; height: 8px; background: rgba(0,0,0,0.08); border-radius: 4px; overflow: hidden; margin: 5px 0; }
-    .progress-fill { height: 100%; transition: width 0.3s ease; }
-    #outageProgress.progress-fill { background: linear-gradient(90deg, #e74c3c, #c0392b); } 
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Pathloss & Shadowing Simulator</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Roboto', Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+            background-color: #eef2f3;
+            color: #333;
+        }
+        h1 {
+            background: linear-gradient(45deg, #3a7bd5, #3a6073);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 2.5em;
+            margin-bottom: 15px;
+        }
+        .main-container { display: flex; gap: 20px; width: 100%; max-width: 1500px; }
+        .panel { padding: 20px; border-radius: 10px; background-color: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.08); border: 1px solid #dbe2e8; }
+        .input-panel { flex: 1; min-width: 300px; }
+        .simulation-panel { flex: 2; display: flex; flex-direction: column; align-items: center; min-width: 450px; }
+        .graph-panel { flex: 2; min-width: 450px; }
+        .input-group { margin-bottom: 15px; }
+        .input-group label { display: block; margin-bottom: 6px; font-weight: bold; font-size: 0.9em; color: #555; }
+        .input-group input[type="number"], .input-group input[type="range"] { width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 5px; box-sizing: border-box; }
+        .input-group input[type="range"] { width: calc(70% - 12px); vertical-align: middle; padding: 0; }
+        .input-group .value-display { display: inline-block; width: 28%; text-align: right; font-size: 0.9em; vertical-align: middle; font-weight: bold; color: #3a7bd5; }
+        button {
+            width: 100%; padding: 12px 18px; background: linear-gradient(45deg, #3a7bd5, #00d2ff); color: white;
+            border: none; border-radius: 5px; cursor: pointer; margin-top: 10px; transition: transform 0.2s, box-shadow 0.2s;
+            font-size: 1em; font-weight: bold;
+        }
+        button:hover { transform: translateY(-2px); box-shadow: 0 6px 15px rgba(58, 123, 213, 0.3); }
+        #simulationCanvas { border: 1px solid #dbe2e8; border-radius: 8px; background-color: #f9fbfd; }
+        h2, h3 { color: #2c3e50; margin-top:0; border-bottom: 2px solid #eef2f3; padding-bottom: 8px; }
+        .output-text p { margin: 8px 0; font-size: 0.95em; }
+        .output-text strong { color: #3a6073; }
+        details { margin-bottom: 15px; background: #e8f4f8; padding: 12px; border: 1px solid #bde0eb; border-radius: 5px;}
+        summary { font-weight: bold; cursor: pointer; color: #34495e; }
+    </style>
 </head>
 <body>
-  <div id="inputs">
-    <h3>🎛️ System Parameters</h3>
-    <div class="input-group"> <label for="setting">📡 Environment Type:</label> <select id="setting"> <option value="urban">Urban (High Interference)</option> <option value="suburban">Suburban (Medium)</option> <option value="rural">Rural (Low Interference)</option> </select> </div>
-    <div class="input-group"> <label for="Pt">🔋 Transmitter Power (dBm):</label> <input type="number" id="Pt" value="30" min="0" max="50" step="1"> </div>
-    <div class="input-group"> <label for="Pmin">📶 Min Required Power (dBm):</label> <input type="number" id="Pmin" value="-85" min="-120" max="-50" step="1"> </div>
-    <div class="input-group"> <label for="frequency">📻 Frequency (MHz):</label> <input type="number" id="frequency" value="900" min="400" max="6000" step="50"> </div>
-    <!-- Path Loss Exponent and Shadow Fading Std Dev Inputs REMOVED -->
-    <div class="input-group"> <label>🖱️ Click Mode:</label> <div class="mode-buttons"> <button class="mode-btn active" onclick="setMode('normal')">Normal</button> <button class="mode-btn" onclick="setMode('heavy')">Heavy</button> <button class="mode-btn" onclick="setMode('erase')">Erase</button> </div> </div>
-    <button onclick="clearAll()">🗑️ Clear All Obstacles</button> <button onclick="randomObstacles()">🎲 Random Obstacles</button>
-    <div class="instructions"> <strong>📋 Instructions:</strong><br> • Yellow circle = Transmitter<br> • Click cells to place obstacles<br> • Red outlined cells = Outage<br> • Tinged cells = Shadowed by obstacle<br> • Hover for detailed cell info<br> • Adjust parameters to see effects </div>
-    <div class="legend"> <h4>🎨 Legend</h4> <div class="legend-item"> <div class="legend-color" style="background: radial-gradient(circle, #ffeb3b, #ff9800); border-radius: 50%;"></div> <span>Transmitter</span> </div>     <!-- ... other legend items ... -->
-    <div class="legend-item"> 
-        <div class="legend-color" style="background: linear-gradient(45deg, #555, #777);"></div> 
-        <!-- MODIFIED Legend Text -->
-        <span>Normal Obstacle (18dB Max Shadow)</span> 
-    </div> 
-    <div class="legend-item"> 
-        <div class="legend-color" style="background: linear-gradient(45deg, #7A0000, #C01030);"></div> 
-        <!-- MODIFIED Legend Text -->
-        <span>Heavy Obstacle (35dB Max Shadow)</span> 
+    <h1>Advanced Pathloss & Shadowing Simulator</h1>
+    <details open>
+        <summary>How to Use This Simulation</summary>
+        <ul>
+            <li>Set the mean pathloss parameters (K, γ, d₀). The <strong>blue dashed line</strong> on the graph shows this mean value.</li>
+            <li>Use <strong>Obstacle Density</strong> to control how cluttered the environment is. Obstacles are generated *within the current receiver distance* to maintain this density.</li>
+            <li><strong>Shadowing Std. Dev.</strong> introduces log-normal shadowing. This statistical effect causes the received power to fluctuate around the mean, allowing it to go <strong>above or below</strong> the blue line.</li>
+            <li>Move the receiver using the <strong>Distance</strong> and <strong>Angle</strong> sliders. If the line-of-sight (green) is blocked by a building, it turns red and large-scale attenuation is applied.</li>
+            <li>The <strong>red dot</strong> on the graph shows the final received power, including mean pathloss, blockage, and statistical shadowing.</li>
+        </ul>
+    </details>
+
+    <div class="main-container">
+        <div class="panel input-panel">
+            <h3>Controls</h3>
+            <h4>Mean Pathloss Model</h4>
+            <div class="input-group">
+                <label for="k_val">K (Pathloss at d₀, dB):</label>
+                <input type="number" id="k_val" value="31.54" step="0.1">
+            </div>
+            <div class="input-group">
+                <label for="gamma_val">Pathloss Exponent (γ):</label>
+                <input type="number" id="gamma_val" value="3.71" step="0.01">
+            </div>
+            <div class="input-group">
+                <label for="d0_val">Reference Distance (d₀, m):</label>
+                <input type="number" id="d0_val" value="1" step="0.1" min="0.1">
+            </div>
+            <hr>
+            <h4>Environment & Shadowing</h4>
+            <div class="input-group">
+                <label for="obstacle_density">Obstacle Density (per km²):</label>
+                <input type="number" id="obstacle_density" value="80" min="0" max="500">
+            </div>
+            <div class="input-group">
+                <label for="shadowing_std_dev">Shadowing Std. Dev. (σ, dB):</label>
+                <input type="number" id="shadowing_std_dev" value="6" min="0" max="20" step="0.5">
+            </div>
+             <button id="randomize_obstacles_btn">Generate New Environment</button>
+            <hr>
+            <h4>Receiver Position</h4>
+            <div class="input-group">
+                <label for="current_distance">Current Rx Distance (d, m): <span id="current_distance_val" class="value-display">50</span></label>
+                <input type="range" id="current_distance_slider" min="10" max="250" value="50" step="1">
+            </div>
+            <div class="input-group">
+                <label for="receiver_angle">Receiver Angle (θ, deg): <span id="receiver_angle_val" class="value-display">0</span></label>
+                <input type="range" id="receiver_angle_slider" min="0" max="360" value="0" step="1">
+            </div>
+        </div>
+
+        <div class="panel simulation-panel">
+            <h3>Simulation Area</h3>
+            <canvas id="simulationCanvas" width="500" height="500"></canvas>
+            <div class="output-text">
+                <p><strong>Status:</strong> <span id="out_status">Line of Sight</span></p>
+                <p><strong>Mean Pathloss at d:</strong> <span id="out_mean_pl_val">0</span> dB</p>
+                <p><strong>Blockage Attenuation:</strong> <span id="out_blockage_val">0</span> dB</p>
+                <p><strong>Statistical Shadowing:</strong> <span id="out_stat_shadow_val">0.00</span> dB</p>
+            </div>
+        </div>
+
+        <div class="panel graph-panel">
+            <h3>Received Power (Pr/Pt) vs. Distance</h3>
+            <canvas id="pathlossGraph"></canvas>
+            <div class="output-text">
+                 <p><strong>Total Pathloss:</strong> <span id="out_total_pl_val">0</span> dB</p>
+                 <p><strong>Pr/Pt at Rx:</strong> <span id="out_pr_pt_val">0</span> dB</p>
+            </div>
+        </div>
     </div>
-    <!-- ... other legend items ... --> <div class="legend-item"> <div class="legend-color" style="background: #00ff00;"></div> <span>Strong Signal (>-60dBm)</span> </div> <div class="legend-item"> <div class="legend-color" style="background: #ffff00;"></div> <span>Medium Signal (-60 to -80dBm)</span> </div> <div class="legend-item"> <div class="legend-color" style="background: #ff0000;"></div> <span>Weak Signal (<-80dBm)</span> </div> <div class="legend-item"> <div class="legend-color" style="box-shadow: inset 0 0 0 1px #dd0033;"></div> <span>Outage Indication</span> </div> <div class="legend-item"> <div class="legend-color" style="background-color: rgba(0,0,0,0.15); border: 1px dashed #555;"></div> <span>Shadowed Cell (Tinge)</span> </div> </div>
-  </div>
 
-  <div id="simulation"> <div class="grid-container" id="grid-container"></div> </div>
+<script>
+    // DOM Elements
+    const kInput = document.getElementById('k_val');
+    const gammaInput = document.getElementById('gamma_val');
+    const d0Input = document.getElementById('d0_val');
+    const distanceSlider = document.getElementById('current_distance_slider');
+    const distanceDisplay = document.getElementById('current_distance_val');
+    const angleSlider = document.getElementById('receiver_angle_slider');
+    const angleDisplay = document.getElementById('receiver_angle_val');
+    const obstacleDensityInput = document.getElementById('obstacle_density');
+    const shadowingStdDevInput = document.getElementById('shadowing_std_dev');
+    const randomizeBtn = document.getElementById('randomize_obstacles_btn');
 
-  <div id="outputs">
-    <h3>📊 Results & Analysis</h3>
-    <div class="output-section"> <h4>🎯 Coverage Metrics</h4> <div class="metric"> <span class="metric-label">Outage Probability:</span> <span class="metric-value" id="outageProb">0.00%</span> </div> <div class="progress-bar"> <div class="progress-fill" id="outageProgress" style="width: 0%;"></div> </div> <div class="metric"> <span class="metric-label">Coverage Area:</span> <span class="metric-value" id="coverageArea">100.00%</span> </div> <div class="metric"> <span class="metric-label">Cells in Outage:</span> <span class="metric-value" id="outageCells">0 / 929</span> </div> </div>
-    <div class="output-section"> <h4>📡 Signal Analysis</h4> <div class="metric"> <span class="metric-label">Avg Rx Power (Covered):</span> <span class="metric-value" id="avgReceivedPower">0.00 dBm</span> </div> <div class="metric"> <span class="metric-label">Min Rx Power (Covered):</span> <span class="metric-value" id="minReceivedPower">0.00 dBm</span> </div> <div class="metric"> <span class="metric-label">Max Rx Power (Covered):</span> <span class="metric-value" id="maxReceivedPower">0.00 dBm</span> </div> <div class="metric"> <span class="metric-label">Signal Dynamic Range:</span> <span class="metric-value" id="signalRange">0.00 dB</span> </div> </div>
-    <div class="output-section"> <h4>🌐 Path Loss Analysis</h4> <div class="metric"> <span class="metric-label">Avg Total Path Loss:</span> <span class="metric-value" id="avgPathloss">0.00 dB</span> </div>
-      <!-- Avg Shadow Loss (Obstacle + Random) changed to Avg Obstacle Shadow (dB) -->
-      <div class="metric"> <span class="metric-label">Avg Obstacle Shadow (dB):</span> <span class="metric-value" id="avgShadowLoss">0.00 dB</span> </div> 
-      <div class="metric"> <span class="metric-label">Max Coverage Distance:</span> <span class="metric-value" id="maxDistance">0.00 km</span> </div> </div>
-    <div class="output-section"> <h4>🏢 Environment Impact</h4> <div class="metric"> <span class="metric-label">Environment Factor:</span> <span class="metric-value" id="envFactor">Urban</span> </div> <div class="metric"> <span class="metric-label">Obstacle Count:</span> <span class="metric-value" id="obstacleCount">0</span> </div>
-      <!-- Shadowing Factor (from Std) changed to Shadowing Model -->
-      <div class="metric"> <span class="metric-label">Shadowing Model:</span> <span class="metric-value" id="shadowingFactor">Obstacle-based</span> </div> 
-    </div>
-    <div class="status-indicator" id="systemStatus"> System Status: Excellent Coverage </div>
-  </div>
+    const simCanvas = document.getElementById('simulationCanvas');
+    const simCtx = simCanvas.getContext('2d');
+    const graphCanvas = document.getElementById('pathlossGraph');
 
-    <script>
-    // Configuration
-    const gridSize = 18; 
-    const rows = 31;
-    const cols = 31;
-    const transmitter = { x: Math.floor(cols / 2), y: Math.floor(rows / 2) }; 
-    const CELL_SIZE_METERS = 100; 
-    
-    let currentMode = 'normal'; 
-    let cells = [];
+    const outStatus = document.getElementById('out_status');
+    const outMeanPl = document.getElementById('out_mean_pl_val');
+    const outBlockage = document.getElementById('out_blockage_val');
+    const outStatShadow = document.getElementById('out_stat_shadow_val');
+    const outTotalPl = document.getElementById('out_total_pl_val');
+    const outPrPt = document.getElementById('out_pr_pt_val');
 
-    // Shadow Fading Effect Constants
-    const MAX_SHADOW_FADE_DISTANCE_GRID_UNITS = 12; 
-    const MAX_VISUAL_ALPHA = 0.03; // Max alpha for the tinge (center of cone, close to obs)
-    const MIN_VISUAL_ALPHA = 0.002; // Min alpha for tinge (far edge of cone, far from obs)
+    let pathlossChart;
+    let obstacles = [];
+    let currentK, currentGamma, currentD0, currentRxDistance_m, currentRxAngleRad;
+    let obstacleDensity_per_km2, shadowingStdDevDb;
 
+    const canvasWidth = simCanvas.width;
+    const canvasHeight = simCanvas.height;
+    const txPos_px = { x: canvasWidth / 2, y: canvasHeight / 2 };
+    const maxCanvasDisplayRadius_px = Math.min(canvasWidth, canvasHeight) / 2 * 0.9;
+    let worldScale_pxPerMeter;
 
-    const environmentFactors = {
-      urban: { pathLossOffset: 5, name: "Urban" },     
-      suburban: { pathLossOffset: 2, name: "Suburban" }, 
-      rural: { pathLossOffset: 0, name: "Rural" }      
-    };
+    let spareRandom = null;
 
-    const gridContainer = document.getElementById("grid-container");
-    gridContainer.style.display = 'grid';
-    gridContainer.style.gridTemplateRows = `repeat(${rows}, ${gridSize}px)`;
-    gridContainer.style.gridTemplateColumns = `repeat(${cols}, ${gridSize}px)`;
-    gridContainer.style.width = `${cols * gridSize}px`; 
-    gridContainer.style.height = `${rows * gridSize}px`; 
-
-    const tooltip = document.createElement("div");
-    tooltip.className = "tooltip";
-    tooltip.style.display = "none";
-    document.body.appendChild(tooltip);
-
-    function createGrid() {
-      gridContainer.innerHTML = ''; 
-      cells = [];
-      
-      for (let row = 0; row < rows; row++) {
-        cells[row] = [];
-        for (let col = 0; col < cols; col++) {
-          const cellElement = document.createElement("div");
-          cellElement.classList.add("cell");
-          cellElement.dataset.row = row;
-          cellElement.dataset.col = col;
-
-          if (row === transmitter.y && col === transmitter.x) {
-            cellElement.classList.add("transmitter");
-          }
-
-          gridContainer.appendChild(cellElement); 
-          cells[row][col] = {
-            element: cellElement, basePathloss: 0, currentPathloss: 0, receivedPower: 0,
-            lossComponents: { base: 0, obstacleShadow: 0 }, 
-            obstacleType: null, isOutage: false, distance: 0,
-            isVisuallyShadowed: false, 
-            distanceForTinge: MAX_SHADOW_FADE_DISTANCE_GRID_UNITS + 1,
-            lateralScaleForTinge: 0 // Initialize
-          };
-
-          cellElement.addEventListener('click', () => handleCellClick(row, col));
-          cellElement.addEventListener('mouseover', (e) => showTooltip(e, row, col));
-          cellElement.addEventListener('mouseout', () => hideTooltip());
-        }
-      }
+    function init() {
+        setupEventListeners();
+        initializeChart();
+        readAllInputs();
+        calculateWorldScale();
+        placeObstacles();
+        updateSimulation();
     }
 
-    function calculateFreeSpacePathLoss(distanceM, frequencyMHz) {
-      if (distanceM <= 0) return 0; 
-      return 20 * Math.log10(distanceM) + 20 * Math.log10(frequencyMHz) - 27.55;
+    function setupEventListeners() {
+        [kInput, gammaInput, d0Input, obstacleDensityInput, shadowingStdDevInput].forEach(el => {
+            el.addEventListener('input', () => { readAllInputs(); placeObstacles(); updateSimulation(); });
+        });
+        distanceSlider.addEventListener('input', () => {
+            readAllInputs();
+            placeObstacles(); // Re-calculate obstacle count based on new area
+            updateSimulation();
+        });
+        angleSlider.addEventListener('input', () => {
+            readAllInputs();
+            updateSimulation();
+        });
+        randomizeBtn.addEventListener('click', () => {
+            readAllInputs();
+            placeObstacles();
+            updateSimulation();
+        });
     }
-    
-    function calculatePathLoss(distanceM, frequencyMHz, environment) {
-      if (distanceM <= 0) return 0;
-      const freeSpacePL = calculateFreeSpacePathLoss(Math.max(1, distanceM), frequencyMHz); 
-      const envData = environmentFactors[environment];
-      return freeSpacePL + envData.pathLossOffset; 
+
+    function readAllInputs() {
+        currentK = parseFloat(kInput.value);
+        currentGamma = parseFloat(gammaInput.value);
+        currentD0 = parseFloat(d0Input.value);
+        obstacleDensity_per_km2 = parseFloat(obstacleDensityInput.value);
+        shadowingStdDevDb = parseFloat(shadowingStdDevInput.value);
+
+        currentRxDistance_m = parseFloat(distanceSlider.value);
+        distanceDisplay.textContent = currentRxDistance_m.toFixed(0);
+        currentRxAngleRad = parseFloat(angleSlider.value) * Math.PI / 180;
+        angleDisplay.textContent = (currentRxAngleRad * 180 / Math.PI).toFixed(0);
     }
 
-    // --- MODIFIED isPointShadowed for a smoother-edged triangular/cone-like shadow ---
-    // --- AND INCREASED BASE ATTENUATION FOR BOTH OBSTACLE TYPES ---
-    function isPointShadowed(targetCol, targetRow, obstacleCol, obstacleRow, obstacleType) {
-        const tx = transmitter.x;
-        const ty = transmitter.y;
+    function calculateWorldScale() {
+        worldScale_pxPerMeter = maxCanvasDisplayRadius_px / parseFloat(distanceSlider.max);
+    }
 
-        const vec_tx_obs_x = obstacleCol - tx;
-        const vec_tx_obs_y = obstacleRow - ty;
-        const vec_tx_target_x = targetCol - tx;
-        const vec_tx_target_y = targetRow - ty;
-
-        const dist_tx_obs_sq = vec_tx_obs_x * vec_tx_obs_x + vec_tx_obs_y * vec_tx_obs_y;
-        const dist_tx_target_sq = vec_tx_target_x * vec_tx_target_x + vec_tx_target_y * vec_tx_target_y;
-
-        if (dist_tx_target_sq <= dist_tx_obs_sq) {
-            return { isShadowed: false, baseAttenuation: 0, distanceInShadow: 0, lateralScale: 0 };
+    function randomNormal(mean, stdDev) {
+        if (spareRandom !== null) {
+            const val = spareRandom;
+            spareRandom = null;
+            return mean + stdDev * val;
         }
+        let u, v, s;
+        do {
+            u = Math.random() * 2 - 1; v = Math.random() * 2 - 1; s = u * u + v * v;
+        } while (s >= 1 || s === 0);
+        s = Math.sqrt(-2.0 * Math.log(s) / s);
+        spareRandom = v * s;
+        return mean + stdDev * (u * s);
+    }
 
-        const dotProduct = vec_tx_obs_x * vec_tx_target_x + vec_tx_obs_y * vec_tx_target_y;
-        if (dotProduct <= 0 || dotProduct < dist_tx_obs_sq) {
-            return { isShadowed: false, baseAttenuation: 0, distanceInShadow: 0, lateralScale: 0 };
-        }
-
-        const dist_tx_obs = Math.sqrt(dist_tx_obs_sq);
-        if (dist_tx_obs < 0.1) {
-            return { isShadowed: false, baseAttenuation: 0, distanceInShadow: 0, lateralScale: 0 };
-        }
+    function placeObstacles() {
+        obstacles = [];
+        // *** FIX: Calculate area and number of obstacles based on CURRENT Rx distance ***
+        const simArea_m2 = Math.PI * Math.pow(currentRxDistance_m, 2);
+        const simArea_km2 = simArea_m2 / 1e6;
+        const numObs = Math.round(obstacleDensity_per_km2 * simArea_km2);
         
-        const perpendicularDistance = Math.abs(vec_tx_obs_x * vec_tx_target_y - vec_tx_obs_y * vec_tx_target_x) / dist_tx_obs;
-        const distanceInShadow = Math.sqrt(dist_tx_target_sq) - dist_tx_obs;
+        const minBuildingSize_m = 4;
+        const maxBuildingSize_m = 15;
 
-        const INITIAL_SHADOW_WIDTH = 0.6; 
-        const SHADOW_SPREAD_FACTOR = 0.35; // This controls the angle/spread of the cone
-        const CORE_PERCENTAGE_OF_CONE = 0.3; 
-        const PENUMBRA_TOTAL_PERCENTAGE_OF_CONE = 1.0; 
-        const currentMaxConeHalfWidth = INITIAL_SHADOW_WIDTH + (distanceInShadow * SHADOW_SPREAD_FACTOR);
+        for (let i = 0; i < numObs; i++) {
+            // *** FIX: Use sqrt of random for uniform areal distribution within current radius ***
+            const obsDistFromTx_m = Math.sqrt(Math.random()) * currentRxDistance_m;
+            const obsAngleRad = Math.random() * 2 * Math.PI;
 
-        let lateralScale = 0; 
-
-        if (perpendicularDistance <= currentMaxConeHalfWidth * CORE_PERCENTAGE_OF_CONE) {
-            lateralScale = 1.0;
-        } else if (perpendicularDistance <= currentMaxConeHalfWidth * PENUMBRA_TOTAL_PERCENTAGE_OF_CONE) {
-            const coreEdge = currentMaxConeHalfWidth * CORE_PERCENTAGE_OF_CONE;
-            const penumbraEdge = currentMaxConeHalfWidth * PENUMBRA_TOTAL_PERCENTAGE_OF_CONE;
-            if (penumbraEdge > coreEdge) {
-                lateralScale = 1.0 - (perpendicularDistance - coreEdge) / (penumbraEdge - coreEdge);
-                lateralScale = Math.max(0, Math.min(1, lateralScale)); 
-            } else { 
-                lateralScale = (coreEdge === 0 && penumbraEdge === 0 && perpendicularDistance === 0) ? 1.0 : 0;
-            }
-        } else {
-            return { isShadowed: false, baseAttenuation: 0, distanceInShadow: 0, lateralScale: 0 };
-        }
-
-        let baseAttenuationDb = 0;
-        if (obstacleType === "heavy") {
-            // --- INCREASED for heavy obstacles ---
-            baseAttenuationDb = 35; // Was 25 dB
-            // --- END OF CHANGE ---
-        } else if (obstacleType === "normal") {
-            // --- INCREASED for normal obstacles ---
-            baseAttenuationDb = 18; // Was 12 dB
-            // --- END OF CHANGE ---
-        }
-        
-        const scaledBaseAttenuation = baseAttenuationDb * lateralScale;
-
-        return { 
-            isShadowed: lateralScale > 0.001, 
-            baseAttenuation: scaledBaseAttenuation, 
-            distanceInShadow: distanceInShadow,
-            lateralScale: lateralScale 
-        };
-    }
-
-    function getEffectiveShadowProperties(targetRow, targetCol, allObstacles) {
-        let strongestEffectiveAttenuation = 0;
-        let isVisuallyShadowedByAny = false;
-        let distanceForTingeVisual = MAX_SHADOW_FADE_DISTANCE_GRID_UNITS + 1;
-        let strongestLateralScaleForTinge = 0; 
-
-        for (const obs of allObstacles) {
-            const shadowDetails = isPointShadowed(targetCol, targetRow, obs.x, obs.y, obs.type);
-
-            if (shadowDetails.isShadowed) { 
-                isVisuallyShadowedByAny = true; 
-
-                const distanceFadeFactor = Math.max(0, 1 - (shadowDetails.distanceInShadow / MAX_SHADOW_FADE_DISTANCE_GRID_UNITS));
-                const currentEffectiveAttenuation = shadowDetails.baseAttenuation * distanceFadeFactor;
-
-                if (currentEffectiveAttenuation > strongestEffectiveAttenuation) {
-                    strongestEffectiveAttenuation = currentEffectiveAttenuation;
-                    distanceForTingeVisual = shadowDetails.distanceInShadow;
-                    strongestLateralScaleForTinge = shadowDetails.lateralScale;
-                } else if (currentEffectiveAttenuation === strongestEffectiveAttenuation) {
-                    if (shadowDetails.lateralScale > strongestLateralScaleForTinge) {
-                        distanceForTingeVisual = shadowDetails.distanceInShadow;
-                        strongestLateralScaleForTinge = shadowDetails.lateralScale;
-                    } else if (shadowDetails.lateralScale === strongestLateralScaleForTinge && shadowDetails.distanceInShadow < distanceForTingeVisual) {
-                        distanceForTingeVisual = shadowDetails.distanceInShadow;
-                    }
-                }
-            }
-        }
-        return {
-            attenuation: strongestEffectiveAttenuation,
-            isVisuallyShadowed: isVisuallyShadowedByAny,
-            distanceForTinge: distanceForTingeVisual,
-            lateralScaleForTinge: strongestLateralScaleForTinge 
-        };
-    }
-
-    function powerToColor(Pr) {
-        const weakPowerThreshold = -80;    
-        const strongPowerThreshold = -60;  
-        const mediumPowerPoint = (weakPowerThreshold + strongPowerThreshold) / 2; 
-
-        const R_RED = 255, G_RED = 0, B_RED = 0;         
-        const R_YELLOW = 255, G_YELLOW = 255, B_YELLOW = 0; 
-        const R_GREEN = 0, G_GREEN = 255, B_GREEN = 0;    
-
-        let r, g, b;
-
-        if (Pr <= weakPowerThreshold) { 
-            [r, g, b] = [R_RED, G_RED, B_RED];
-        } else if (Pr < mediumPowerPoint) { 
-            const t = (Pr - weakPowerThreshold) / (mediumPowerPoint - weakPowerThreshold);
-            r = Math.round(R_RED * (1 - t) + R_YELLOW * t);
-            g = Math.round(G_RED * (1 - t) + G_YELLOW * t);
-            b = Math.round(B_RED * (1 - t) + B_YELLOW * t);
-        } else if (Pr < strongPowerThreshold) { 
-            const t = (Pr - mediumPowerPoint) / (strongPowerThreshold - mediumPowerPoint);
-            r = Math.round(R_YELLOW * (1 - t) + R_GREEN * t);
-            g = Math.round(G_YELLOW * (1 - t) + G_GREEN * t);
-            b = Math.round(B_YELLOW * (1 - t) + B_GREEN * t);
-        } else { 
-            [r, g, b] = [R_GREEN, G_GREEN, B_GREEN];
-        }
-        return `rgb(${Math.max(0, Math.min(255, r))},${Math.max(0, Math.min(255, g))},${Math.max(0, Math.min(255, b))})`;
-    }
-
-
-    function updateCellPathloss(row, col, obstaclesData) {
-      const cell = cells[row][col];
-      const Pt = parseFloat(document.getElementById('Pt').value); 
-
-      cell.isVisuallyShadowed = false; 
-      cell.distanceForTinge = MAX_SHADOW_FADE_DISTANCE_GRID_UNITS + 1; 
-      cell.lateralScaleForTinge = 0;
-
-      if (row === transmitter.y && col === transmitter.x) {
-        cell.receivedPower = Pt; cell.currentPathloss = 0; cell.isOutage = false; cell.distance = 0;
-        cell.lossComponents = { base: 0, obstacleShadow: 0 };
-        updateCellAppearance(cell); return cell;
-      }
-      
-      if (cell.obstacleType) {
-        cell.receivedPower = -200; cell.currentPathloss = Pt - cell.receivedPower; cell.isOutage = true; 
-        cell.distance = Math.sqrt((col - transmitter.x)**2 + (row - transmitter.y)**2) * CELL_SIZE_METERS;
-        cell.lossComponents = { base: cell.currentPathloss, obstacleShadow: 0 };
-        updateCellAppearance(cell); return cell;
-      }
-
-      const distanceGrid = Math.sqrt((col - transmitter.x)**2 + (row - transmitter.y)**2);
-      const distanceM = distanceGrid * CELL_SIZE_METERS;
-      cell.distance = distanceM;
-
-      const Pmin = parseFloat(document.getElementById('Pmin').value);
-      const frequencyVal = parseFloat(document.getElementById('frequency').value);
-      const environmentVal = document.getElementById('setting').value;
-
-      cell.basePathloss = calculatePathLoss(distanceM, frequencyVal, environmentVal);
-      cell.lossComponents.base = cell.basePathloss;
-
-      const shadowProps = getEffectiveShadowProperties(row, col, obstaclesData);
-      const obstacleShadowAttenuation = shadowProps.attenuation;
-      cell.isVisuallyShadowed = shadowProps.isVisuallyShadowed;
-      cell.distanceForTinge = shadowProps.distanceForTinge; 
-      cell.lateralScaleForTinge = shadowProps.lateralScaleForTinge;
-
-      cell.lossComponents.obstacleShadow = obstacleShadowAttenuation;
-      
-      cell.currentPathloss = cell.basePathloss + obstacleShadowAttenuation;
-      cell.receivedPower = Pt - cell.currentPathloss;
-      cell.isOutage = cell.receivedPower < Pmin;
-
-      updateCellAppearance(cell);
-      return cell;
-    }
-
-    function updateCellAppearance(cell) {
-      const cellElement = cell.element;
-      cellElement.classList.remove('outage-cell', 'shadowed-cell');
-      cellElement.style.removeProperty('--shadow-alpha'); 
-
-      if (cellElement.classList.contains("transmitter")) return; 
-      
-      if (cell.obstacleType) {
-        cellElement.classList.add('outage-cell'); 
-        return;
-      }
-
-      cellElement.style.backgroundColor = powerToColor(cell.receivedPower);
-
-      if (cell.isVisuallyShadowed && cell.lateralScaleForTinge > 0.001) {
-          cellElement.classList.add('shadowed-cell');
-          
-          const distanceFadeRatio = Math.max(0, 1 - (cell.distanceForTinge / MAX_SHADOW_FADE_DISTANCE_GRID_UNITS));
-          const maxAlphaAtThisDistance = MIN_VISUAL_ALPHA + (MAX_VISUAL_ALPHA - MIN_VISUAL_ALPHA) * (1 - (1 - distanceFadeRatio) * (1 - distanceFadeRatio));
-          const currentAlpha = maxAlphaAtThisDistance * cell.lateralScaleForTinge;
-
-          cellElement.style.setProperty('--shadow-alpha', Math.max(0, currentAlpha).toFixed(3)); 
-      }
-
-      if (cell.isOutage) {
-        cellElement.classList.add("outage-cell"); 
-      }
-    }
-
-    function updatePathlossAndMetrics() {
-      const obstaclesData = [];
-      let totalPathlossSum = 0, totalReceivedPowerSum = 0, totalObstacleShadowSum = 0;
-      let simulatedCellsCount = 0, outageCellsCount = 0;
-      let minRxPowerCovered = Infinity, maxRxPowerCovered = -Infinity, maxCoverageDist = 0;
-      let obstacleCount = 0;
-
-      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-        if (cells[r][c].obstacleType) {
-          obstaclesData.push({ x: c, y: r, type: cells[r][c].obstacleType });
-          obstacleCount++;
-        }
-      }
-
-      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-        const cellData = updateCellPathloss(r, c, obstaclesData); 
-        if ((r === transmitter.y && c === transmitter.x) || cellData.obstacleType) continue; 
-
-        simulatedCellsCount++;
-        totalPathlossSum += cellData.currentPathloss;
-        if (cellData.lossComponents) {
-            totalObstacleShadowSum += cellData.lossComponents.obstacleShadow;
-        }
-        
-        if (cellData.isOutage) outageCellsCount++;
-        else {
-          totalReceivedPowerSum += cellData.receivedPower; 
-          minRxPowerCovered = Math.min(minRxPowerCovered, cellData.receivedPower);
-          maxRxPowerCovered = Math.max(maxRxPowerCovered, cellData.receivedPower);
-          maxCoverageDist = Math.max(maxCoverageDist, cellData.distance);
-        }
-      }
-      
-      const coveredCellsCount = simulatedCellsCount - outageCellsCount; 
-      const outageProb = simulatedCellsCount > 0 ? (outageCellsCount / simulatedCellsCount) * 100 : 0;
-      const coverageArea = simulatedCellsCount > 0 ? (coveredCellsCount / simulatedCellsCount) * 100 : 0;
-      const avgPathloss = simulatedCellsCount > 0 ? totalPathlossSum / simulatedCellsCount : 0;
-      const avgReceivedPower = coveredCellsCount > 0 ? totalReceivedPowerSum / coveredCellsCount : (simulatedCellsCount > 0 ? NaN : 0);
-      const avgObstacleShadow = simulatedCellsCount > 0 ? totalObstacleShadowSum / simulatedCellsCount : 0;
-      const signalRange = (maxRxPowerCovered !== -Infinity && minRxPowerCovered !== Infinity && maxRxPowerCovered > minRxPowerCovered) ? (maxRxPowerCovered - minRxPowerCovered) : 0;
-
-      updateMetricDisplays({
-        outageProb, coverageArea, 
-        outageCells: outageCellsCount, 
-        totalSimulatedCells: simulatedCellsCount, 
-        avgPathloss, avgReceivedPower, 
-        avgShadowLoss: avgObstacleShadow, 
-        minRxPower: minRxPowerCovered === Infinity ? NaN : minRxPowerCovered,
-        maxRxPower: maxRxPowerCovered === -Infinity ? NaN : maxRxPowerCovered,
-        signalRange, maxCoverageDist: maxCoverageDist / 1000, obstacleCount
-      });
-    }
-
-    function updateMetricDisplays(metrics) {
-      document.getElementById('outageProb').textContent = `${metrics.outageProb.toFixed(2)}%`;
-      document.getElementById('outageProgress').style.width = `${metrics.outageProb.toFixed(2)}%`;
-      document.getElementById('coverageArea').textContent = `${metrics.coverageArea.toFixed(2)}%`;
-      document.getElementById('outageCells').textContent = `${metrics.outageCells} / ${metrics.totalSimulatedCells}`; 
-      document.getElementById('avgReceivedPower').textContent = `${isNaN(metrics.avgReceivedPower) ? 'N/A' : metrics.avgReceivedPower.toFixed(2)} dBm`;
-      document.getElementById('minReceivedPower').textContent = `${isNaN(metrics.minRxPower) ? 'N/A' : metrics.minRxPower.toFixed(2)} dBm`;
-      document.getElementById('maxReceivedPower').textContent = `${isNaN(metrics.maxRxPower) ? 'N/A' : metrics.maxRxPower.toFixed(2)} dBm`;
-      document.getElementById('signalRange').textContent = `${metrics.signalRange.toFixed(2)} dB`;
-      document.getElementById('avgPathloss').textContent = `${metrics.avgPathloss.toFixed(2)} dB`;
-      document.getElementById('avgShadowLoss').textContent = `${metrics.avgShadowLoss.toFixed(2)} dB`; 
-      document.getElementById('maxDistance').textContent = `${metrics.maxCoverageDist.toFixed(2)} km`;
-      const environment = document.getElementById('setting').value;
-      document.getElementById('envFactor').textContent = environmentFactors[environment].name;
-      document.getElementById('obstacleCount').textContent = metrics.obstacleCount;
-      document.getElementById('shadowingFactor').textContent = "Cone (Fading w/ Penumbra)"; 
-      const statusIndicator = document.getElementById('systemStatus');
-      statusIndicator.classList.remove('status-excellent', 'status-good', 'status-fair', 'status-poor');
-      if (metrics.outageProb <= 5) { statusIndicator.textContent = "System Status: Excellent Coverage"; statusIndicator.classList.add('status-excellent');}
-      else if (metrics.outageProb <= 15) { statusIndicator.textContent = "System Status: Good Coverage"; statusIndicator.classList.add('status-good');}
-      else if (metrics.outageProb <= 30) { statusIndicator.textContent = "System Status: Fair Coverage"; statusIndicator.classList.add('status-fair');}
-      else { statusIndicator.textContent = "System Status: Poor Coverage"; statusIndicator.classList.add('status-poor');}
-    }
-
-    function handleCellClick(row, col) {
-      if (row === transmitter.y && col === transmitter.x) return; 
-      const cell = cells[row][col];
-      const cellElement = cell.element;
-      cellElement.classList.remove('obstacle-normal', 'obstacle-heavy', 'outage-cell', 'shadowed-cell');
-      cellElement.style.removeProperty('--shadow-alpha'); 
-      cellElement.style.backgroundColor = ''; 
-      if (currentMode === 'erase' || cell.obstacleType === currentMode) cell.obstacleType = null;
-      else if (currentMode === 'normal') { cell.obstacleType = 'normal'; cellElement.classList.add('obstacle-normal'); }
-      else if (currentMode === 'heavy') { cell.obstacleType = 'heavy'; cellElement.classList.add('obstacle-heavy'); }
-      updatePathlossAndMetrics();
-    }
-
-    function showTooltip(event, row, col) {
-        const cell = cells[row][col];
-        if (!cell) return;
-        let content = `Cell (${col}, ${row})<br>`;
-        if (row === transmitter.y && col === transmitter.x) {
-            content += `Type: Transmitter<br>Power: ${document.getElementById('Pt').value} dBm`;
-        } else if (cell.obstacleType) {
-            content += `Type: ${cell.obstacleType.charAt(0).toUpperCase() + cell.obstacleType.slice(1)} Obstacle`;
-        } else {
-            content += `Rx Power: ${cell.receivedPower.toFixed(2)} dBm<br>`;
-            content += `Total PL: ${cell.currentPathloss.toFixed(2)} dB<br>`;
-            if (cell.lossComponents) {
-                content += `  Base Model PL: ${cell.lossComponents.base.toFixed(2)} dB<br>`;
-                content += `  Obstacle Shadow: ${cell.lossComponents.obstacleShadow.toFixed(2)} dB<br>`;
-            }
-            content += `Distance: ${(cell.distance / 1000).toFixed(2)} km<br>`;
+            const obsX_m = obsDistFromTx_m * Math.cos(obsAngleRad);
+            const obsY_m = obsDistFromTx_m * Math.sin(obsAngleRad);
             
-            // --- MODIFICATION FOR STATUS COLOR ---
-            if (cell.isOutage) {
-                content += `Status: <span style="color: #ff6b6b; font-weight: bold;">Outage</span>`; // Lighter Red
-            } else {
-                content += `Status: <span style="color: #69f0ae; font-weight: bold;">Covered</span>`; // Lighter Green
+            const width_m = minBuildingSize_m + Math.random() * (maxBuildingSize_m - minBuildingSize_m);
+            const height_m = minBuildingSize_m + Math.random() * (maxBuildingSize_m - minBuildingSize_m);
+            const attenuation = 5 + Math.random() * 15;
+
+            obstacles.push({
+                x_m: obsX_m, y_m: obsY_m,
+                width_m: width_m, height_m: height_m,
+                attenuationDb: attenuation,
+                color: `hsl(25, 15%, ${50 + Math.random() * 20}%)`,
+                x_px: txPos_px.x + obsX_m * worldScale_pxPerMeter,
+                y_px: txPos_px.y - obsY_m * worldScale_pxPerMeter,
+                width_px: width_m * worldScale_pxPerMeter,
+                height_px: height_m * worldScale_pxPerMeter
+            });
+        }
+    }
+        
+    function isLineIntersectingRect(p1, p2, rect) {
+        const r_x = rect.x_px - rect.width_px / 2;
+        const r_y = rect.y_px - rect.height_px / 2;
+        const r_w = rect.width_px;
+        const r_h = rect.height_px;
+        return lineLine(p1.x, p1.y, p2.x, p2.y, r_x, r_y, r_x, r_y + r_h) ||
+               lineLine(p1.x, p1.y, p2.x, p2.y, r_x + r_w, r_y, r_x + r_w, r_y + r_h) ||
+               lineLine(p1.x, p1.y, p2.x, p2.y, r_x, r_y, r_x + r_w, r_y) ||
+               lineLine(p1.x, p1.y, p2.x, p2.y, r_x, r_y + r_h, r_x + r_w, r_y + r_h);
+    }
+    
+    function lineLine(x1, y1, x2, y2, x3, y3, x4, y4) {
+      const den = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+      if (den === 0) return false;
+      const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / den;
+      const u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / den;
+      return t > 0 && t < 1 && u > 0 && u < 1;
+    }
+
+    function calculateBlockageAttenuation(rxPos_px) {
+        let totalAttenuationDb = 0;
+        let occluded = false;
+        for (const obs of obstacles) {
+            if (isLineIntersectingRect(txPos_px, rxPos_px, obs)) {
+                totalAttenuationDb += obs.attenuationDb;
+                occluded = true;
             }
-            // --- END OF MODIFICATION ---
+        }
+        outStatus.textContent = occluded ? "Blocked" : "Line of Sight";
+        return { blockageDb: totalAttenuationDb, isOccluded: occluded };
+    }
+    
+    function calculateMeanPathloss(distance, K, gamma, d0) {
+        if (distance <= 0) distance = 0.1;
+        if (d0 <= 0) d0 = 0.1;
+        return (distance < d0) ? K : K + 10 * gamma * Math.log10(distance / d0);
+    }
 
-            if(cell.isVisuallyShadowed && cell.lateralScaleForTinge > 0.001) {
-                const alpha = cell.element.style.getPropertyValue('--shadow-alpha');
-                content += `<br><i>(In shadow, Tinge Alpha: ${alpha ? parseFloat(alpha).toFixed(3) : 'N/A'})</i>`;
+    function updateSimulation() {
+        const rxPos_m_y_inverted = currentRxDistance_m * Math.sin(currentRxAngleRad);
+        const rxPos_px = {
+            x: txPos_px.x + currentRxDistance_m * worldScale_pxPerMeter * Math.cos(currentRxAngleRad),
+            y: txPos_px.y - rxPos_m_y_inverted * worldScale_pxPerMeter
+        };
+
+        const meanPlDb = calculateMeanPathloss(currentRxDistance_m, currentK, currentGamma, currentD0);
+        const { blockageDb, isOccluded } = calculateBlockageAttenuation(rxPos_px);
+        const statisticalShadowingDb = shadowingStdDevDb > 0 ? randomNormal(0, shadowingStdDevDb) : 0;
+        
+        const totalPlDb = meanPlDb + blockageDb - statisticalShadowingDb;
+        const prPtDb = -totalPlDb;
+
+        outMeanPl.textContent = meanPlDb.toFixed(2);
+        outBlockage.textContent = blockageDb.toFixed(2);
+        outStatShadow.textContent = statisticalShadowingDb.toFixed(2);
+        outTotalPl.textContent = totalPlDb.toFixed(2);
+        outPrPt.textContent = prPtDb.toFixed(2);
+
+        drawSimulationCanvas(rxPos_px, isOccluded);
+        updateChartData(prPtDb);
+    }
+
+    function drawSimulationCanvas(rxPos_px, isOccluded) {
+        simCtx.clearRect(0, 0, canvasWidth, canvasHeight);
+        const currentRxRadius_px = currentRxDistance_m * worldScale_pxPerMeter;
+        simCtx.beginPath();
+        simCtx.arc(txPos_px.x, txPos_px.y, currentRxRadius_px, 0, 2 * Math.PI);
+        simCtx.strokeStyle = 'rgba(0,0,0,0.15)';
+        simCtx.lineWidth = 1;
+        simCtx.setLineDash([3, 4]);
+        simCtx.stroke();
+        simCtx.setLineDash([]);
+
+        obstacles.forEach(obs => {
+            const x = obs.x_px - obs.width_px / 2;
+            const y = obs.y_px - obs.height_px / 2;
+            const w = obs.width_px;
+            const h = obs.height_px;
+            const perspective = Math.max(2, w * 0.2);
+            simCtx.fillStyle = 'rgba(0,0,0,0.1)';
+            simCtx.beginPath();
+            simCtx.moveTo(x + perspective, y - perspective);
+            simCtx.lineTo(x + w + perspective, y - perspective);
+            simCtx.lineTo(x + w, y);
+            simCtx.lineTo(x,y);
+            simCtx.closePath();
+            simCtx.fill();
+            simCtx.fillStyle = obs.color;
+            simCtx.fillRect(x, y, w, h);
+            simCtx.fillStyle = `hsl(25, 15%, ${30 + Math.random() * 10}%)`;
+            simCtx.beginPath();
+            simCtx.moveTo(x + w, y);
+            simCtx.lineTo(x + w + perspective, y - perspective);
+            simCtx.lineTo(x + w + perspective, y + h - perspective);
+            simCtx.lineTo(x+w, y+h);
+            simCtx.closePath();
+            simCtx.fill();
+        });
+
+        simCtx.save();
+        simCtx.translate(txPos_px.x, txPos_px.y);
+        simCtx.strokeStyle = '#3a7bd5';
+        simCtx.lineWidth = 3;
+        simCtx.fillStyle = '#3a7bd5';
+        simCtx.beginPath(); simCtx.moveTo(0, 0); simCtx.lineTo(0, -12); simCtx.stroke();
+        simCtx.beginPath(); simCtx.moveTo(0, -12); simCtx.lineTo(-6, -22); simCtx.lineTo(6, -22); simCtx.closePath(); simCtx.fill();
+        simCtx.restore();
+        
+        simCtx.beginPath();
+        simCtx.arc(rxPos_px.x, rxPos_px.y, 5, 0, 2 * Math.PI);
+        simCtx.fillStyle = '#2ecc71';
+        simCtx.fill();
+        simCtx.strokeStyle = '#27ae60';
+        simCtx.lineWidth = 2;
+        simCtx.stroke();
+
+        simCtx.beginPath();
+        simCtx.moveTo(txPos_px.x, txPos_px.y);
+        simCtx.lineTo(rxPos_px.x, rxPos_px.y);
+        simCtx.strokeStyle = isOccluded ? 'rgba(231, 76, 60, 0.9)' : 'rgba(46, 204, 113, 0.9)';
+        simCtx.lineWidth = 2.5;
+        simCtx.stroke();
+    }
+
+    function initializeChart() {
+        pathlossChart = new Chart(graphCanvas, {
+            type: 'scatter',
+            data: {
+                datasets: [
+                    { 
+                        label: 'Pr/Pt (Mean Path Loss)', data: [], borderColor: '#3a7bd5',
+                        borderDash: [6, 6], type: 'line', fill: false, showLine: true,
+                        pointRadius: 0, borderWidth: 2.5
+                    },
+                    {
+                        label: 'Pr/Pt at Rx (Total)', data: [{x: 0, y: 0}], 
+                        borderColor: '#e74c3c', backgroundColor: 'rgba(231, 76, 60, 0.8)', pointRadius: 8,
+                        pointHoverRadius: 10, borderWidth: 2, type: 'scatter'
+                    }
+                ]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        type: 'logarithmic', title: { display: true, text: 'Distance (d, meters)', font: { size: 14 }},
+                        min: parseFloat(distanceSlider.min),
+                        max: parseFloat(distanceSlider.max),
+                        ticks: {
+                            callback: function(value, index, values) {
+                                if ([10, 20, 50, 100, 150, 200, 250].includes(value)) { return value.toString(); }
+                            },
+                            autoSkip: false, maxRotation: 0
+                        }
+                    },
+                    y: { 
+                        title: { display: true, text: 'Pr/Pt (dB)', font: { size: 14 } }
+                        // Dynamic Y-axis scaling - no fixed min/max
+                    }
+                },
+                plugins: {
+                    tooltip: { 
+                        callbacks: { label: ctx => `${ctx.dataset.label}: ${ctx.parsed.x.toFixed(1)}m, ${ctx.parsed.y.toFixed(2)} dB` },
+                        titleFont: { size: 14 }, bodyFont: { size: 12 }
+                    },
+                    legend: { labels: { font: { size: 12 } } }
+                },
+                animation: { duration: 150 }
             }
+        });
+    }
+
+    function updateChartData(currentPrPtDb) {
+        const meanPrPtData = [];
+        const minD = parseFloat(distanceSlider.min);
+        const maxD = parseFloat(distanceSlider.max);
+        const numPoints = 100;
+
+        for (let i = 0; i <= numPoints; i++) {
+            const logMin = Math.log10(minD);
+            const logMax = Math.log10(maxD);
+            const dist = Math.pow(10, logMin + (i / numPoints) * (logMax - logMin));
+            const meanPl = calculateMeanPathloss(dist, currentK, currentGamma, currentD0);
+            meanPrPtData.push({ x: dist, y: -meanPl });
         }
-        tooltip.innerHTML = content;
-        tooltip.style.display = "block";
-        const offset = 15; 
-        let newX = event.clientX + offset, newY = event.clientY + offset;
-        const tooltipRect = tooltip.getBoundingClientRect(), bodyRect = document.body.getBoundingClientRect();
-        if (newX + tooltipRect.width > bodyRect.right) newX = event.clientX - tooltipRect.width - offset;
-        if (newY + tooltipRect.height > bodyRect.bottom) newY = event.clientY - tooltipRect.height - offset;
-        tooltip.style.left = `${Math.max(0, newX)}px`;
-        tooltip.style.top = `${Math.max(0, newY)}px`;
+        
+        // Calculate dynamic Y-axis range based on mean curve and current point
+        const meanValues = meanPrPtData.map(p => p.y);
+        const minMeanValue = Math.min(...meanValues);
+        const maxMeanValue = Math.max(...meanValues);
+        
+        // Include current point and add buffer for shadowing effects
+        const shadowingBuffer = shadowingStdDevDb * 3; // 3-sigma range
+        const allValues = [...meanValues, currentPrPtDb];
+        const dataMin = Math.min(...allValues) - shadowingBuffer;
+        const dataMax = Math.max(...allValues) + shadowingBuffer;
+        
+        // Add some padding (10% of range)
+        const range = dataMax - dataMin;
+        const padding = range * 0.1;
+        const yMin = dataMin - padding;
+        const yMax = dataMax + padding;
+        
+        // Update chart data
+        pathlossChart.data.datasets[0].data = meanPrPtData;
+        
+        if (!isNaN(currentRxDistance_m) && !isNaN(currentPrPtDb)) {
+           pathlossChart.data.datasets[1].data = [{ x: currentRxDistance_m, y: currentPrPtDb }];
         }
-
-    function hideTooltip() { tooltip.style.display = "none"; }
-    function setMode(mode) {
-      currentMode = mode;
-      document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
-      document.querySelector(`.mode-btn[onclick="setMode('${mode}')"]`).classList.add('active');
+        
+        // Update Y-axis range
+        pathlossChart.options.scales.y.min = yMin;
+        pathlossChart.options.scales.y.max = yMax;
+        
+        pathlossChart.update('none');
     }
 
-    function clearAll() {
-      for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-        if (cells[r][c].obstacleType) {
-          cells[r][c].obstacleType = null;
-          cells[r][c].element.classList.remove('obstacle-normal', 'obstacle-heavy');
-        }
-      }
-      updatePathlossAndMetrics();
-    }
-
-    function randomObstacles() {
-      clearAll(); 
-      const numObstacles = Math.floor(Math.random() * (rows*cols*0.05)) + Math.floor(rows*cols*0.02); 
-      for (let i = 0; i < numObstacles; i++) {
-        let r, c;
-        do { r = Math.floor(Math.random()*rows); c = Math.floor(Math.random()*cols); }
-        while ((r === transmitter.y && c === transmitter.x) || cells[r][c].obstacleType);
-        const type = Math.random() < 0.7 ? 'normal' : 'heavy'; 
-        cells[r][c].obstacleType = type;
-        cells[r][c].element.classList.add(type === 'normal' ? 'obstacle-normal' : 'obstacle-heavy');
-      }
-      updatePathlossAndMetrics();
-    }
-
-    function setupInputListeners() {
-      const inputsToWatch = ['Pt', 'Pmin', 'frequency', 'setting']; 
-      inputsToWatch.forEach(id => {
-        const element = document.getElementById(id);
-        element.addEventListener('change', updatePathlossAndMetrics);
-        if (element.type === 'number') element.addEventListener('input', updatePathlossAndMetrics);
-      });
-    }
-
-    function initialize() {
-      createGrid(); 
-      setupInputListeners();
-      setMode('normal'); 
-      updatePathlossAndMetrics(); 
-    }
-    document.addEventListener('DOMContentLoaded', initialize);
-  </script>
+    document.addEventListener('DOMContentLoaded', init);
+</script>
 </body>
 </html>
