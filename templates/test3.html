@@ -410,8 +410,10 @@
                         }
                     },
                     y: { 
-                        title: { display: true, text: 'Pr/Pt (dB)', font: { size: 14 } }
-                        // Dynamic Y-axis scaling - no fixed min/max
+                        title: { display: true, text: 'Pr/Pt (dB)', font: { size: 14 } },
+                        // *** FIX: Set a fixed range for the Y-axis to prevent extreme auto-scaling ***
+                        min: -160,
+                        max: -40
                     }
                 },
                 plugins: {
@@ -439,34 +441,11 @@
             const meanPl = calculateMeanPathloss(dist, currentK, currentGamma, currentD0);
             meanPrPtData.push({ x: dist, y: -meanPl });
         }
-        
-        // Calculate dynamic Y-axis range based on mean curve and current point
-        const meanValues = meanPrPtData.map(p => p.y);
-        const minMeanValue = Math.min(...meanValues);
-        const maxMeanValue = Math.max(...meanValues);
-        
-        // Include current point and add buffer for shadowing effects
-        const shadowingBuffer = shadowingStdDevDb * 3; // 3-sigma range
-        const allValues = [...meanValues, currentPrPtDb];
-        const dataMin = Math.min(...allValues) - shadowingBuffer;
-        const dataMax = Math.max(...allValues) + shadowingBuffer;
-        
-        // Add some padding (10% of range)
-        const range = dataMax - dataMin;
-        const padding = range * 0.1;
-        const yMin = dataMin - padding;
-        const yMax = dataMax + padding;
-        
-        // Update chart data
         pathlossChart.data.datasets[0].data = meanPrPtData;
         
         if (!isNaN(currentRxDistance_m) && !isNaN(currentPrPtDb)) {
            pathlossChart.data.datasets[1].data = [{ x: currentRxDistance_m, y: currentPrPtDb }];
         }
-        
-        // Update Y-axis range
-        pathlossChart.options.scales.y.min = yMin;
-        pathlossChart.options.scales.y.max = yMax;
         
         pathlossChart.update('none');
     }
