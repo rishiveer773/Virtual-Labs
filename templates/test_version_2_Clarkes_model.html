@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clarke's Model Fading Simulator</title>
+    <!-- Include Plotly.js for interactive plotting -->
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f9;
+            color: #333;
+        }
+        .container {
+            max-width: 1000px;
+            margin: auto;
+            background: #fff;
+            padding: 25px;
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+        }
+        h1, h2 {
+            text-align: center;
+            color: #0056b3;
+        }
+        .controls {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            flex-wrap: wrap;
+            margin-bottom: 25px;
+            padding: 15px;
+            background-color: #e9ecef;
+            border-radius: 5px;
+        }
+        .control-group {
+            margin: 10px;
+        }
+        .control-group label {
+            font-weight: bold;
+            margin-right: 5px;
+        }
+        input[type="number"] {
+            padding: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            width: 100px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #status {
+            text-align: center;
+            font-style: italic;
+            color: #666;
+            height: 20px;
+            margin-top: 10px;
+        }
+        .plot-container {
+            width: 100%;
+            height: 450px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Clarke's Model Fading Simulator</h1>
+    <p style="text-align: center;">This virtual experiment simulates flat Rayleigh fading using the frequency-domain method based on Clarke's model. It visualizes the key frequency-domain, time-domain, and statistical properties of the channel.</p>
+    
+    <div class="controls">
+        <div class="control-group">
+            <label for="speed">Speed (km/h):</label>
+            <input type="number" id="speed" value="120" min="1" max="500">
+        </div>
+        <div class="control-group">
+            <label for="fc">Carrier Freq (GHz):</label>
+            <input type="number" id="fc" value="2" min="0.1" max="6" step="0.1">
+        </div>
+        <div class="control-group">
+            <label for="n_points">FFT Points (N):</label>
+            <input type="number" id="n_points" value="8192" readonly>
+        </div>
+        <button onclick="runSimulation()">Run Simulation</button>
+    </div>
+    
+    <div id="status">Click "Run Simulation" to begin.</div>
+
+    <h2>Time-Domain Fading Envelope</h2>
+    <div id="timeDomainPlot" class="plot-container"></div>
+    
+    <h2>Statistical Distribution of the Envelope</h2>
+    <div id="pdfPlot" class="plot-container"></div>
+
+    <h2>Doppler Power Spectrum (Jakes Spectrum)</h2>
+    <div id="dopplerPlot" class="plot-container"></div>
+    
+    <h2>Baseband Power Spectral Density (After Envelope Detection)</h2>
+    <div id="basebandPlot" class="plot-container"></div>
+</div>
+
+<script>
+// --- UTILITY FUNCTIONS ---
+
+// Box-Muller transform for generating Gaussian random numbers
+function boxMullerTransform() {
+    let u1 = 0, u2 = 0;
+    while (u1 === 0) u1 = Math.random();
+    u2 = Math.random();
+    const R = Math.sqrt(-2.0 * Math.log(u1));
+    const theta = 2.0 * Math.PI * u2;
+    return [R * Math.cos(theta), R * Math.sin(theta)];
+}
+
+// Complete elliptic integral of the first kind
+function ellipticK(m) {
+    if (m >= 1) return Infinity;
+    if (m === 0) return Math.PI / 2;
+    
+    let a = 1;
+    let b = Math.sqrt(1 - m);
+    let c;
+    let iterations = 0;
+    const maxIterations = 100;
+    
+    while (Math.abs(a - b) > 1e-12 && iterations < maxIterations) {
+        c = (a + b) / 2;
+        b = Math.sqrt(a * b);
+        a = c;
+        iterations++;
+    }
+    return Math.PI / (2 * a);
+}
+
+// Simple FFT implementation
+class SimpleFFT {
+    constructor(N) {
+        this.N = N;
+        this.log2N = Math.log2(N);
+        if (this.log2N !== Math.floor(this.log2N)) {
+            throw new Error('N must be a power of 2');
+        }
+    }
+    
+    // Bit-reverse permutation
+    bitReverse(arr) {
+        const N = this.N;
+        const result = new Array(N * 2);
+        for (let i = 0; i < N; i++) {
+            let j = 0;
+            for (let k = 0; k < this.log2N; k++) {
+                j = (j << 1) | ((i >> k) & 1);
+            }
+            result[j * 2] = arr[i * 2];
+            result[j * 2 + 1] = arr[i * 2 + 1];
+        }
+        return result;
+    }
+    
+    // Forward FFT
+    forward(input) {
+        const N = this.N;
+        const x = this.bitReverse(input);
+        
+        for (let len = 2; len <= N; len *= 2) {
+            const wlen = -2 * Math.PI / len;
+            for (let i = 0; i < N; i += len) {
+                let w_real = 1, w_imag = 0;
+                for (let j = 0; j < len / 2; j++) {
+                    const u_real = x[(i + j) * 2];
+                    const u_imag = x[(i + j) * 2 + 1];
+                    const v_real = x[(i + j + len / 2) * 2] * w_real - x[(i + j + len / 2) * 2 + 1] * w_imag;
+                    const v_imag = x[(i + j + len / 2) * 2] * w_imag + x[(i + j + len / 2) * 2 + 1] * w_real;
+                    
+                    x[(i + j) * 2] = u_real + v_real;
+                    x[(i + j) * 2 + 1] = u_imag + v_imag;
+                    x[(i + j + len / 2) * 2] = u_real - v_real;
+                    x[(i + j + len / 2) * 2 + 1] = u_imag - v_imag;
+                    
+                    const next_w_real = w_real * Math.cos(wlen) - w_imag * Math.sin(wlen);
+                    const next_w_imag = w_real * Math.sin(wlen) + w_imag * Math.cos(wlen);
+                    w_real = next_w_real;
+                    w_imag = next_w_imag;
+                }
+            }
+        }
+        return x;
+    }
+    
+    // Inverse FFT
+    inverse(input) {
+        const N = this.N;
+        // Conjugate input
+        const conjugated = new Array(N * 2);
+        for (let i = 0; i < N; i++) {
+            conjugated[i * 2] = input[i * 2];
+            conjugated[i * 2 + 1] = -input[i * 2 + 1];
+        }
+        
+        // Forward FFT
+        const result = this.forward(conjugated);
+        
+        // Conjugate and normalize
+        for (let i = 0; i < N; i++) {
+            result[i * 2] = result[i * 2] / N;
+            result[i * 2 + 1] = -result[i * 2 + 1] / N;
+        }
+        
+        return result;
+    }
+}
+
+// FFT shift function
+function fftshift(arr) {
+    const mid = Math.ceil(arr.length / 2);
+    const firstHalf = arr.slice(0, mid);
+    const secondHalf = arr.slice(mid);
+    return [...secondHalf, ...firstHalf];
+}
+
+// Histogram calculation
+function calculateHistogram(data, numBins) {
+    const minVal = 0;
+    const maxVal = Math.max(...data) * 1.1;
+    const binWidth = (maxVal - minVal) / numBins;
+    
+    const bins = new Array(numBins).fill(0);
+    const binCenters = Array.from({length: numBins}, (_, i) => minVal + binWidth * (i + 0.5));
+
+    data.forEach(value => {
+        const binIndex = Math.floor((value - minVal) / binWidth);
+        if (binIndex >= 0 && binIndex < numBins) bins[binIndex]++;
+    });
+
+    const total = data.length;
+    const normalizedBins = bins.map(count => count / (total * binWidth));
+    return { binCenters, normalizedBins };
+}
+
+// --- MAIN SIMULATION LOGIC ---
+function runSimulation() {
+    const statusDiv = document.getElementById('status');
+    statusDiv.textContent = 'Running simulation... Please wait.';
+
+    setTimeout(() => {
+        try {
+            // 1. GET PARAMETERS & SETUP CONSTANTS
+            const v_kmh = parseFloat(document.getElementById('speed').value);
+            const f_carrier_ghz = parseFloat(document.getElementById('fc').value);
+            const N = parseInt(document.getElementById('n_points').value);
+            
+            const v = v_kmh / 3.6; // Convert to m/s
+            const f_carrier = f_carrier_ghz * 1e9; // Convert to Hz
+            const c = 3e8; // Speed of light
+            const lambda_ = c / f_carrier; // Wavelength
+            const fm = v / lambda_; // Maximum Doppler frequency
+            const fs = 10 * fm; // Sampling frequency
+            const t = Array.from({ length: N }, (_, i) => i / fs); // Time vector
+
+            // 2. GENERATE COMPLEX GAUSSIAN NOISE
+            const g = new Array(N * 2).fill(0);
+            
+            // Generate white Gaussian noise for positive frequencies
+            for (let i = 1; i < N / 2; i++) {
+                const [g1, g2] = boxMullerTransform();
+                g[i * 2] = g1;
+                g[i * 2 + 1] = g2;
+                // Hermitian symmetry for real IFFT result
+                g[(N - i) * 2] = g1;
+                g[(N - i) * 2 + 1] = -g2;
+            }
+            
+            // DC and Nyquist components should be real
+            const [g_dc] = boxMullerTransform();
+            g[0] = g_dc;
+            g[1] = 0;
+            
+            if (N % 2 === 0) {
+                const [g_nyq] = boxMullerTransform();
+                g[N] = g_nyq;
+                g[N + 1] = 0;
+            }
+
+            // 3. CREATE DOPPLER FILTER (Jakes spectrum)
+            const Hf = new Array(N).fill(0);
+            
+            for (let i = 0; i < N; i++) {
+                const f_eff = (i < N / 2) ? i * fs / N : (i - N) * fs / N;
+                
+                if (Math.abs(f_eff) < fm) {
+                    const ratio = f_eff / fm;
+                    if (Math.abs(ratio) < 0.9999) { // Avoid singularity
+                        Hf[i] = Math.sqrt(1.5 / (Math.PI * fm * Math.sqrt(1 - ratio * ratio)));
+                    } else {
+                        Hf[i] = Math.sqrt(1.5 / (Math.PI * fm * 0.01)); // Approximate at edges
+                    }
+                }
+            }
+            
+            // 4. APPLY FILTER
+            const S_f = new Array(N * 2);
+            for (let i = 0; i < N; i++) {
+                S_f[i * 2] = g[i * 2] * Hf[i];
+                S_f[i * 2 + 1] = g[i * 2 + 1] * Hf[i];
+            }
+
+            // 5. PERFORM IFFT
+            const fft = new SimpleFFT(N);
+            const s_t_interleaved = fft.inverse(S_f);
+
+            // 6. CALCULATE ENVELOPE AND MEAN POWER
+            const r_t = new Array(N);
+            let total_power = 0;
+            
+            for (let i = 0; i < N; i++) {
+                const real = s_t_interleaved[i * 2];
+                const imag = s_t_interleaved[i * 2 + 1];
+                r_t[i] = Math.sqrt(real * real + imag * imag);
+                total_power += (real * real + imag * imag);
+            }
+            
+            const mean_power = total_power / N;
+
+            // 7. CALCULATE SIMULATED POWER SPECTRA
+            // Doppler spectrum
+            const S_f_sim_interleaved = fft.forward(s_t_interleaved);
+            const S_f_sim_abs_sq = Array.from({length: N}, (_, i) => {
+                const real = S_f_sim_interleaved[i * 2];
+                const imag = S_f_sim_interleaved[i * 2 + 1];
+                return (real * real + imag * imag) / (N * fs);
+            });
+            const S_doppler_sim_shifted = fftshift(S_f_sim_abs_sq);
+            
+            // Baseband spectrum (envelope)
+            const r_t_padded = new Array(N * 2).fill(0);
+            for (let i = 0; i < N; i++) {
+                r_t_padded[i * 2] = r_t[i];
+            }
+            
+            const R_f_interleaved = fft.forward(r_t_padded);
+            const S_baseband_sim_abs_sq = Array.from({length: N}, (_, i) => {
+                const real = R_f_interleaved[i * 2];
+                const imag = R_f_interleaved[i * 2 + 1];
+                return (real * real + imag * imag) / (N * fs);
+            });
+            const S_baseband_sim_sliced = S_baseband_sim_abs_sq.slice(0, N / 2);
+
+            // 8. PLOT ALL RESULTS
+            plotTimeDomain(t, r_t, mean_power, fm);
+            plotPDF(r_t, mean_power);
+            plotDopplerSpectrum(fm, fs, N, S_doppler_sim_shifted);
+            plotBasebandSpectrum(fm, fs, N, S_baseband_sim_sliced, mean_power);
+
+            statusDiv.textContent = `Simulation complete. Max Doppler Shift (fm): ${fm.toFixed(2)} Hz.`;
+            
+        } catch (error) {
+            statusDiv.textContent = 'An error occurred during simulation.';
+            console.error("Simulation Error:", error);
+        }
+    }, 50);
+}
+
+// --- PLOTTING FUNCTIONS ---
+
+function plotTimeDomain(t, r_t, mean_power, fm) {
+    const rms_val = Math.sqrt(mean_power);
+    const r_t_db = r_t.map(v => 20 * Math.log10(Math.max(v / rms_val, 1e-10)));
+    
+    const trace = { 
+        x: t, 
+        y: r_t_db, 
+        mode: 'lines', 
+        name: 'Envelope', 
+        line: {color: 'green'} 
+    };
+    
+    const display_time = Math.min(t[t.length-1], fm > 0 ? 200 / fm : t[t.length-1]);
+    
+    const layout = {
+        title: 'Simulated Fading Envelope (r(t))',
+        xaxis: { title: 'Time (s)', range: [0, display_time] },
+        yaxis: { title: 'Envelope Level (dB relative to RMS)', range: [-40, 10] },
+        margin: {l: 60, r: 30, b: 50, t: 50}
+    };
+    
+    Plotly.newPlot('timeDomainPlot', [trace], layout);
+}
+
+function plotPDF(r_t, mean_power) {
+    const sigma_sq = mean_power / 2.0;
+    const { binCenters, normalizedBins } = calculateHistogram(r_t, 50);
+    
+    const trace1 = { 
+        x: binCenters, 
+        y: normalizedBins, 
+        type: 'bar', 
+        name: 'Simulated PDF', 
+        marker: {color: 'rgba(0, 123, 255, 0.7)'} 
+    };
+    
+    const theoretical_pdf_y = binCenters.map(x => (x / sigma_sq) * Math.exp(-x * x / (2 * sigma_sq)));
+    
+    const trace2 = { 
+        x: binCenters, 
+        y: theoretical_pdf_y, 
+        mode: 'lines', 
+        name: 'Theoretical Rayleigh PDF', 
+        line: {color: 'red', width: 3} 
+    };
+    
+    const layout = {
+        title: 'Probability Density Function (PDF) of the Envelope',
+        xaxis: { title: 'Envelope Amplitude r(t)' }, 
+        yaxis: { title: 'Probability Density' },
+        legend: {x: 0.5, y: 0.95}, 
+        bargap: 0.05, 
+        margin: {l: 60, r: 30, b: 50, t: 50}
+    };
+    
+    Plotly.newPlot('pdfPlot', [trace1, trace2], layout);
+}
+
+function plotDopplerSpectrum(fm, fs, N, simulated_psd_shifted) {
+    const f_axis_shifted = Array.from({length: N}, (_, i) => (i - N / 2) * fs / N);
+    const epsilon = 1e-20;
+
+    const theoretical_psd = f_axis_shifted.map(f => {
+        if (Math.abs(f) < fm * 0.9999) {
+            return 1.5 / (Math.PI * fm * Math.sqrt(1 - (f / fm) ** 2));
+        } 
+        return 0;
+    });
+
+    const theoretical_peak = 1.5 / (Math.PI * fm);
+    const simulated_peak = Math.max(...simulated_psd_shifted.filter(v => isFinite(v) && v > 0));
+    const norm_factor = (simulated_peak > 0 && theoretical_peak > 0) ? theoretical_peak / simulated_peak : 1;
+    
+    const trace1 = { 
+        x: f_axis_shifted, 
+        y: theoretical_psd.map(v => 10 * Math.log10(v + epsilon)), 
+        mode: 'lines', 
+        name: 'Theoretical (Jakes)', 
+        line: {color: 'red', width: 3} 
+    };
+    
+    const trace2 = { 
+        x: f_axis_shifted, 
+        y: simulated_psd_shifted.map(v => 10 * Math.log10(v * norm_factor + epsilon)), 
+        mode: 'lines', 
+        name: 'Simulated', 
+        line: {color: 'blue', opacity: 0.7} 
+    };
+    
+    const layout = {
+        title: 'Doppler Power Spectrum (Jakes Spectrum)',
+        xaxis: {title: 'Frequency (Hz)', range: [-1.5 * fm, 1.5 * fm]},
+        yaxis: {title: 'Power Spectral Density (dB)', autorange: true},
+        legend: {x: 0.05, y: 0.95}, 
+        margin: {l: 60, r: 30, b: 50, t: 50}
+    };
+    
+    Plotly.newPlot('dopplerPlot', [trace1, trace2], layout);
+}
+
+function plotBasebandSpectrum(fm, fs, N, simulated_psd, mean_power) {
+    const f_axis = Array.from({length: N / 2}, (_, i) => i * fs / N);
+    const epsilon = 1e-20;
+
+    const theoretical_psd = f_axis.map(f => {
+        if (f > 0 && f < 2 * fm) {
+            const m = (f / (2 * fm)) ** 2;
+            return (mean_power / (4 * Math.PI * fm)) * ellipticK(m);
+        } 
+        return 0;
+    });
+
+    const findPeak = (arr) => Math.max(...arr.filter(v => isFinite(v) && v > 0));
+    const theoretical_peak = findPeak(theoretical_psd);
+    const simulated_peak = findPeak(simulated_psd);
+    const norm_factor = (simulated_peak > 0 && theoretical_peak > 0) ? theoretical_peak / simulated_peak : 1;
+
+    const trace1 = { 
+        x: f_axis.map(f => f / fm), 
+        y: theoretical_psd.map(v => 10 * Math.log10(v + epsilon)), 
+        mode: 'lines', 
+        name: 'Theoretical', 
+        line: {color: 'red', width: 3} 
+    };
+    
+    const trace2 = { 
+        x: f_axis.map(f => f / fm), 
+        y: simulated_psd.map(v => 10 * Math.log10(v * norm_factor + epsilon)), 
+        mode: 'lines', 
+        name: 'Simulated', 
+        line: {color: 'blue', opacity: 0.7} 
+    };
+    
+    const layout = {
+        title: 'Baseband Power Spectral Density (After Envelope Detection)',
+        xaxis: {title: 'Normalized Frequency (f / f<sub>m</sub>)', type: 'log', range: [-3, 1]},
+        yaxis: {title: 'Power Spectral Density (dB)', autorange: true},
+        legend: {x: 0.05, y: 0.15}, 
+        margin: {l: 60, r: 30, b: 50, t: 50}
+    };
+    
+    Plotly.newPlot('basebandPlot', [trace1, trace2], layout);
+}
+
+// Run simulation on page load
+window.onload = runSimulation;
+</script>
+
+</body>
+</html>
