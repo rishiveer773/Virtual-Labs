@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Spatial Multiplexing Simulation</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/numeric/1.2.6/numeric.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #3498db;
+            --secondary-color: #2980b9;
+            --accent-color: #e74c3c;
+            --light-bg: #f8f9fa;
+            --dark-bg: #343a40;
+            --text-color: #333;
+            --light-text: #f8f9fa;
+            --border-color: #dee2e6;
+            --shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            background-color: var(--light-bg);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 2.2rem;
+            color: var(--primary-color);
+        }
+
+        .header p {
+            margin-top: 10px;
+            font-size: 1.1rem;
+            color: #666;
+        }
+        
+        .main-layout {
+            display: flex;
+            gap: 25px;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        .layout-column {
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: var(--shadow);
+            padding: 20px;
+        }
+        #input-section {
+            flex: 1 1 20%;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        #simulation-section {
+            flex: 1 1 50%;
+            position: relative;
+        }
+        #output-section {
+            flex: 1 1 30%;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        #input-section h3 {
+            text-align: center;
+            color: var(--primary-color);
+            margin-top: 0;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        label {
+            font-weight: 500;
+            margin-bottom: 5px;
+        }
+        input {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 8px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            text-align: center;
+            font-size: 1rem;
+            background-color: #f0f0f0;
+        }
+        button {
+            padding: 12px 20px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 500;
+            transition: background-color 0.3s, transform 0.1s;
+            width: 100%;
+        }
+        button:hover {
+            background-color: var(--secondary-color);
+        }
+        button:active {
+            transform: translateY(2px);
+        }
+        button.accent {
+            background-color: var(--accent-color);
+        }
+        button.accent:hover {
+            background-color: #c0392b;
+        }
+        button:disabled {
+            background-color: #95a5a6;
+            cursor: not-allowed;
+        }
+
+        .simulation-container {
+            display: flex;
+            justify-content: space-around;
+            gap: 20px;
+            position: relative;
+            min-height: 450px;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+        .column {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-around;
+            min-height: 400px;
+        }
+        .column-label {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: var(--primary-color);
+        }
+        .antenna {
+            width: 50px;
+            height: 50px;
+            margin: 7.5px 0;
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><g stroke='black' stroke-width='5' fill='none' stroke-linecap='round'><circle cx='50' cy='50' r='25'/><circle cx='50' cy='50' r='15'/><circle cx='50' cy='50' r='5'/><line x1='50' y1='75' x2='50' y2='90'/><line x1='35' y1='90' x2='65' y2='90'/></g></svg>");
+            background-repeat: no-repeat;
+            background-position: center;
+            background-size: contain;
+            transition: transform 0.3s;
+        }
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 0;
+            pointer-events: none;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .simulation-footer {
+            text-align: center;
+        }
+        .info-block {
+            background-color: rgba(52, 152, 219, 0.1);
+            border-left: 5px solid var(--primary-color);
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 0 4px 4px 0;
+        }
+        .error-message {
+            color: #e74c3c;
+            text-align: center;
+            font-weight: 500;
+            padding: 10px;
+            margin: 10px 0;
+            display: none;
+        }
+
+        #output-section h3 {
+            text-align: center;
+            color: var(--primary-color);
+            margin: 0 0 10px 0;
+        }
+        .matrix-display, .metrics-display {
+            margin-bottom: 15px;
+            overflow-x: auto;
+        }
+        table.matrix {
+            border-collapse: collapse;
+            margin: 0 auto;
+            font-variant-numeric: tabular-nums;
+        }
+        table.matrix td {
+            border: 1px solid var(--border-color);
+            padding: 6px 10px;
+            text-align: center;
+            min-width: 50px;
+        }
+        .metric-container {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .metric {
+            padding: 10px 15px;
+            background-color: var(--light-bg);
+            border-radius: 6px;
+            font-weight: 500;
+            text-align: center;
+            flex-grow: 1;
+        }
+        .metric span {
+            font-weight: bold;
+            color: var(--primary-color);
+            display: block;
+            font-size: 1.2rem;
+            margin-top: 5px;
+        }
+        
+        @media (max-width: 1200px) {
+            .main-layout {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Advanced Spatial Multiplexing Simulation</h1>
+        <p>Explore MIMO systems, channel matrices, and SVD-based beamforming</p>
+    </div>
+
+    <div class="main-layout">
+        <!-- LEFT COLUMN: INPUTS -->
+        <div id="input-section" class="layout-column">
+            <h3>Controls</h3>
+            <div class="control-group">
+                <label for="txCount">Transmit Antennas:</label>
+                <input type="number" id="txCount" value="6" readonly>
+            </div>
+            <div class="control-group">
+                <label for="rxCount">Receive Antennas:</label>
+                <input type="number" id="rxCount" value="6" readonly>
+            </div>
+            <div class="error-message" id="errorMessage"></div>
+            <button id="simulateBtn" onclick="simulate()">Simulate Channel</button>
+            <button id="svdBtn" onclick="performSVD()" style="display: none;">Perform SVD</button>
+            <button id="resetBtn" class="accent" onclick="resetSimulation()">Reset</button>
+        </div>
+
+        <!-- MIDDLE COLUMN: SIMULATION -->
+        <div id="simulation-section" class="layout-column">
+            <div class="simulation-container">
+                <div class="column">
+                    <div class="column-label">Transmitter</div>
+                    <div id="txColumn"></div>
+                </div>
+                <canvas id="signalCanvas"></canvas>
+                <div class="column">
+                    <div class="column-label">Receiver</div>
+                    <div id="rxColumn"></div>
+                </div>
+            </div>
+            <div class="simulation-footer">
+                <div class="info-block" id="analysisInfo" style="display: none;"></div>
+                <button id="eigenbeamBtn" class="accent" onclick="visualizeEigenbeams()" style="display: none;">Visualize Eigenbeams</button>
+            </div>
+        </div>
+
+        <!-- RIGHT COLUMN: OUTPUTS -->
+        <div id="output-section" class="layout-column">
+            <h3>Outputs</h3>
+            <div id="channelMatrixDisplay" class="matrix-display" style="display: none;">
+                <h3>Channel Matrix (H)</h3>
+                <div id="matrixContainer"></div>
+            </div>
+            <div id="svdMatrixDisplay" class="matrix-display" style="display: none;">
+                <h3>Singular Values (Σ)</h3>
+                <div id="sigmaMatrixContainer"></div>
+            </div>
+            <div id="metricsDisplay" class="metrics-display" style="display: none;">
+                <h3>System Performance</h3>
+                <div class="metric-container">
+                    <div class="metric">Rank (R)<span id="rankOutput">-</span></div>
+                    <div class="metric">Channel Capacity<span id="capacityOutput">- bps/Hz</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Global variables
+        let matrixData = [];
+        let txElements = [], rxElements = [];
+        let svdResult = null;
+        const NUM_ANTENNAS = 6;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            resetSimulation();
+        });
+        
+        function resetSimulation() {
+            document.getElementById("txCount").value = NUM_ANTENNAS;
+            document.getElementById("rxCount").value = NUM_ANTENNAS;
+            matrixData = [];
+            svdResult = null;
+            
+            document.getElementById("channelMatrixDisplay").style.display = "none";
+            document.getElementById("svdMatrixDisplay").style.display = "none";
+            document.getElementById("metricsDisplay").style.display = "none";
+            document.getElementById("analysisInfo").style.display = "none";
+            document.getElementById("eigenbeamBtn").style.display = "none";
+            
+            document.getElementById("simulateBtn").disabled = false;
+            const svdBtn = document.getElementById("svdBtn");
+            svdBtn.style.display = "none";
+            svdBtn.disabled = false;
+
+            document.getElementById("matrixContainer").innerHTML = '';
+            document.getElementById("sigmaMatrixContainer").innerHTML = '';
+            
+            renderAntennas(NUM_ANTENNAS, NUM_ANTENNAS);
+            setTimeout(() => {
+                drawChannelConnections();
+            }, 50);
+        }
+
+        function simulate() {
+            try {
+                document.getElementById("svdMatrixDisplay").style.display = "none";
+                document.getElementById("metricsDisplay").style.display = "none";
+                document.getElementById("analysisInfo").style.display = "none";
+                document.getElementById("eigenbeamBtn").style.display = "none";
+                svdResult = null;
+                
+                generateChannelMatrix(NUM_ANTENNAS, NUM_ANTENNAS);
+                
+                renderAntennas(NUM_ANTENNAS, NUM_ANTENNAS);
+                setTimeout(() => {
+                    drawChannelConnections();
+                }, 50);
+                
+                document.getElementById("channelMatrixDisplay").style.display = "block";
+                const svdButton = document.getElementById("svdBtn");
+                svdButton.style.display = "block";
+                svdButton.disabled = false;
+                
+                document.getElementById("simulateBtn").disabled = true;
+
+            } catch (error) {
+                showError(error.message);
+            }
+        }
+
+        function renderAntennas(txCount, rxCount) {
+            const txColumn = document.getElementById("txColumn");
+            const rxColumn = document.getElementById("rxColumn");
+            const canvas = document.getElementById("signalCanvas");
+            if (!txColumn || !rxColumn || !canvas) return;
+            
+            // Clear existing elements
+            txColumn.innerHTML = "";
+            rxColumn.innerHTML = "";
+            txElements = [];
+            rxElements = [];
+
+            // Create antenna elements
+            for (let i = 0; i < txCount; i++) {
+                txElements.push(txColumn.appendChild(createAntennaElement()));
+            }
+            for (let i = 0; i < rxCount; i++) {
+                rxElements.push(rxColumn.appendChild(createAntennaElement()));
+            }
+            
+            // Resize canvas after DOM update
+            setTimeout(() => {
+                const container = document.querySelector('.simulation-container');
+                canvas.width = container.offsetWidth;
+                canvas.height = container.offsetHeight;
+                
+                const ctx = canvas.getContext("2d");
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }, 10);
+        }
+
+        function createAntennaElement() {
+            const div = document.createElement("div");
+            div.className = "antenna";
+            return div;
+        }
+
+        function drawChannelConnections() {
+            const canvas = document.getElementById("signalCanvas");
+            if (!canvas) return;
+            
+            const container = document.querySelector('.simulation-container');
+            canvas.width = container.offsetWidth;
+            canvas.height = container.offsetHeight;
+            
+            const ctx = canvas.getContext("2d");
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = "rgba(100, 100, 100, 0.6)";
+            ctx.setLineDash([5, 5]);
+            ctx.lineWidth = 1;
+
+            for (let i = 0; i < txElements.length; i++) {
+                for (let j = 0; j < rxElements.length; j++) {
+                    drawLine(txElements[i], rxElements[j], ctx);
+                }
+            }
+        }
+
+        function drawLine(tx, rx, ctx) {
+            if(!tx || !rx) return;
+            const txRect = tx.getBoundingClientRect();
+            const rxRect = rx.getBoundingClientRect();
+            const canvasRect = ctx.canvas.getBoundingClientRect();
+
+            const txX = txRect.left + txRect.width / 2 - canvasRect.left;
+            const txY = txRect.top + txRect.height / 2 - canvasRect.top;
+            const rxX = rxRect.left + rxRect.width / 2 - canvasRect.left;
+            const rxY = rxRect.top + rxRect.height / 2 - canvasRect.top;
+
+            ctx.beginPath();
+            ctx.moveTo(txX, txY);
+            ctx.lineTo(rxX, rxY);
+            ctx.stroke();
+        }
+
+        function generateChannelMatrix(nr, nt) {
+            matrixData = numeric.random([nr, nt]);
+            displayMatrix(matrixData, "matrixContainer");
+        }
+
+        function performSVD() {
+            if (matrixData.length === 0) {
+                showError('Please simulate a channel first.');
+                return;
+            }
+
+            try {
+                svdResult = numeric.svd(matrixData);
+                const { S } = svdResult;
+                const threshold = 1e-10;
+                const R = S.filter(val => Math.abs(val) > threshold).length;
+                
+                document.getElementById("svdMatrixDisplay").style.display = "block";
+                document.getElementById("metricsDisplay").style.display = "block";
+
+                const Sigma = numeric.diag(S);
+                displayMatrix(Sigma, "sigmaMatrixContainer", true);
+
+                document.getElementById("rankOutput").innerText = R;
+                calculateCapacity(S);
+                
+                const analysisInfo = document.getElementById("analysisInfo");
+                analysisInfo.innerHTML = `<p>The SVD decomposes the channel into <strong>${R}</strong> independent parallel sub-channels (eigenbeams).</p>`;
+                analysisInfo.style.display = "block";
+
+                document.getElementById("eigenbeamBtn").style.display = "block";
+                document.getElementById("svdBtn").disabled = true;
+
+            } catch (error) {
+                showError('Error performing SVD: ' + error.message);
+            }
+        }
+
+        function displayMatrix(matrix, containerId, highlightDiagonal = false) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            const table = document.createElement('table');
+            table.classList.add('matrix');
+
+            for (let i = 0; i < matrix.length; i++) {
+                const row = document.createElement('tr');
+                for (let j = 0; j < matrix[0].length; j++) {
+                    const cell = document.createElement('td');
+                    cell.textContent = matrix[i][j].toFixed(2);
+                    if (highlightDiagonal && i === j) {
+                        cell.style.fontWeight = "bold";
+                        cell.style.color = "var(--primary-color)";
+                    }
+                    row.appendChild(cell);
+                }
+                table.appendChild(row);
+            }
+            container.appendChild(table);
+        }
+
+        function calculateCapacity(singularValues) {
+            const snr = 10;
+            let capacity = 0;
+            singularValues.forEach(s_i => {
+                if (s_i > 1e-10) {
+                    capacity += Math.log2(1 + (snr / singularValues.length) * Math.pow(s_i, 2));
+                }
+            });
+            document.getElementById("capacityOutput").innerText = `${capacity.toFixed(2)} bps/Hz`;
+        }
+
+        function visualizeEigenbeams() {
+            if (!svdResult) {
+                showError('Please perform SVD first.');
+                return;
+            }
+
+            try {
+                const { S } = svdResult;
+                const threshold = 1e-10;
+                const R = S.filter(val => Math.abs(val) > threshold).length;
+
+                renderAntennas(R, R);
+
+                setTimeout(() => {
+                    const canvas = document.getElementById("signalCanvas");
+                    if (!canvas) return;
+                    
+                    const container = document.querySelector('.simulation-container');
+                    canvas.width = container.offsetWidth;
+                    canvas.height = container.offsetHeight;
+                    
+                    const ctx = canvas.getContext("2d");
+                    ctx.clearRect(0, 0, canvas.width, canvas.height);
+                    ctx.setLineDash([]);
+                    
+                    const max_s = S[0] > 1e-10 ? S[0] : 1;
+                    const canvasRect = canvas.getBoundingClientRect();
+
+                    txElements.forEach((tx, i) => {
+                        const rx = rxElements[i];
+                        if (!tx || !rx) return;
+
+                        const txRect = tx.getBoundingClientRect();
+                        const rxRect = rx.getBoundingClientRect();
+                        const startX = txRect.left + txRect.width / 2 - canvasRect.left;
+                        const startY = txRect.top + txRect.height / 2 - canvasRect.top;
+                        const endX = rxRect.left + rxRect.width / 2 - canvasRect.left;
+                        
+                        const s_i = S[i];
+                        ctx.lineWidth = Math.max(1.5, 6 * (s_i / max_s));
+                        ctx.strokeStyle = "var(--accent-color)";
+                        ctx.beginPath();
+                        ctx.moveTo(startX, startY);
+                        ctx.lineTo(endX, startY);
+                        ctx.stroke();
+
+                        const midX = (startX + endX) / 2;
+                        ctx.fillStyle = "var(--primary-color)";
+                        ctx.font = "bold 14px sans-serif";
+                        ctx.textAlign = "center";
+                        ctx.textBaseline = "bottom";
+                        ctx.fillText(`λ${i+1}: ${s_i.toFixed(2)}`, midX, startY - 10);
+                    });
+
+                    const conditionNumber = (S[0] > threshold && S[R-1] > threshold) ? (S[0] / S[R - 1]).toFixed(2) : "∞";
+                    const analysisInfo = document.getElementById("analysisInfo");
+                    analysisInfo.innerHTML = `<p>Showing <strong>${R}</strong> eigenbeams. Line thickness represents the strength (singular value) of each sub-channel. Condition Number: ${conditionNumber}.</p>`;
+                    
+                    const eigenbeamBtn = document.getElementById("eigenbeamBtn");
+                    eigenbeamBtn.textContent = "Return to Channel View";
+                    eigenbeamBtn.onclick = () => {
+                        eigenbeamBtn.textContent = "Visualize Eigenbeams";
+                        eigenbeamBtn.onclick = visualizeEigenbeams;
+                        analysisInfo.innerHTML = `<p>The SVD decomposes the channel into <strong>${R}</strong> independent parallel sub-channels (eigenbeams).</p>`;
+                        renderAntennas(NUM_ANTENNAS, NUM_ANTENNAS);
+                        setTimeout(() => {
+                           drawChannelConnections();
+                        }, 50);
+                    };
+                }, 50);
+            } catch (error) {
+                showError('Error visualizing eigenbeams: ' + error.message);
+            }
+        }
+        
+        function showError(message) {
+            const errorMsg = document.getElementById('errorMessage');
+            errorMsg.textContent = message;
+            errorMsg.style.display = 'block';
+            setTimeout(() => { errorMsg.style.display = 'none'; }, 4000);
+        }
+    </script>
+</body>
+</html>
