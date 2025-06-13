@@ -110,8 +110,22 @@
             border: 1px solid #e0e0e0;
         }
 
-        .input-group { margin-bottom: 20px; }
-        .input-group label { font-weight: 600; color: #333; margin-bottom: 8px; display: block; }
+        /* --- MODIFICATION START --- */
+        .input-group {
+            margin-bottom: 15px; /* Adjusted margin */
+            display: flex;
+            align-items: center;
+        }
+
+        .input-group label {
+            font-weight: 600;
+            color: #333;
+            width: 165px; /* Fixed width for alignment */
+            text-align: right; /* Aligns the colons */
+            margin-right: 15px; /* Space between label and input */
+            flex-shrink: 0;
+        }
+        /* --- MODIFICATION END --- */
 
         .form-control {
             border-radius: 10px; border: 2px solid #e0e0e0; padding: 12px 15px;
@@ -169,7 +183,6 @@
         .error-highlight { color: #dc3545; font-weight: bold; }
         .success-highlight { color: #28a745; }
         
-        /* New styles for the comparison table */
         .comparison-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
         .comparison-table th, .comparison-table td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #dee2e6; }
         .comparison-table th { background-color: #e9ecef; font-weight: 600; }
@@ -190,7 +203,6 @@
         #loadingIndicator p, #chartLoadingIndicator p { font-weight: 600; color: #333; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        /* Styles for performance analysis tab table */
         .perf-analysis-table { background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.05); margin-top: 20px; }
         .perf-analysis-table table { width: 100%; margin: 0; }
         .perf-analysis-table th { background: #343a40; color: white; padding: 15px; font-weight: 600; }
@@ -225,17 +237,28 @@
                         <h3>Experiment Instructions</h3>
                         <ol>
                             <li>Enter a binary data string (e.g., "1011", 2-8 bits recommended).</li>
-                            <li>Click "Simulate Channel" to pass the signal through a noisy, fading channel.</li>
-                            <li>Select an equalization technique (ZF or MMSE) to see the results.</li>
-                            <li>The signal flow shows the process for your selected technique, and the table below compares both.</li>
+                            <li><strong>Set the desired Noise Variance (σ²).</strong> Higher values mean more noise.</li>
+                            <li>Click "Simulate Channel" to pass the signal through the channel.</li>
+                            <li>Select an equalization technique (ZF or MMSE) to see the results and compare them below.</li>
                         </ol>
                     </div>
 
                     <div class="row">
                         <div class="col-lg-4">
                             <div class="control-panel">
-                                <div class="input-group"><label for="inputData">Input Data String:</label><input type="text" class="form-control" id="inputData" placeholder="Enter binary string (e.g., 1010110)" pattern="[01]*" maxlength="8"><div class="invalid-feedback">Please enter only 0s and 1s (2-8 bits).</div></div>
-                                <button class="btn btn-primary w-100" id="simulateBtn" onclick="runSimulation()">Simulate Channel</button>
+                                <div class="input-group">
+                                    <label for="inputData">Input Data String:</label>
+                                    <input type="text" class="form-control" id="inputData" placeholder="e.g., 1010110" pattern="[01]*" maxlength="8">
+                                    <div class="invalid-feedback">Please enter only 0s and 1s (2-8 bits).</div>
+                                </div>
+                                
+                                <div class="input-group">
+                                    <label for="noiseVarianceInput">Noise Variance (σ²):</label>
+                                    <input type="number" class="form-control" id="noiseVarianceInput" value="0.05" min="0" max="1" step="0.01">
+                                </div>
+
+                                <button class="btn btn-primary w-100 mt-3" id="simulateBtn" onclick="runSimulation()">Simulate Channel</button>
+                                
                                 <div class="technique-selector" id="techniqueSelector" style="display: none;">
                                     <h5>Select a Technique to View Details:</h5>
                                     <div class="technique-options">
@@ -256,7 +279,6 @@
                     <div id="resultsContainer" style="display: none;">
                         <div class="row mt-4">
                             <div class="col-lg-7">
-                                <!-- New Comparison Panel -->
                                 <div class="comparison-panel">
                                     <h4>Equalizer Output Comparison</h4>
                                     <table class="comparison-table">
@@ -297,7 +319,7 @@
     <script>
         // --- Global State Variables ---
         let originalDataMatrix, channelMatrix, noisyReceivedMatrix;
-        let noiseVariance = 0.05;
+        let noiseVariance = 0.05; // Default value, will be overwritten by user input
         let performanceChart = null;
 
         // --- Helper & Matrix Math Functions (No changes here) ---
@@ -316,11 +338,22 @@
 
         // --- Simulation Flow ---
         function runSimulation() {
+            // Read and validate data string
             const input = document.getElementById('inputData').value.trim();
             if (!/^[01]{2,8}$/.test(input)) {
                 alert('Please enter a binary string with 2 to 8 bits.');
                 return;
             }
+
+            // Read and validate noise variance from the new input
+            const noiseVarianceInput = parseFloat(document.getElementById('noiseVarianceInput').value);
+            if (isNaN(noiseVarianceInput) || noiseVarianceInput < 0) {
+                alert('Please enter a valid, non-negative number for Noise Variance.');
+                return;
+            }
+            // Update the global noiseVariance variable with the user's input
+            noiseVariance = noiseVarianceInput;
+
             document.getElementById('loadingIndicator').style.display = 'flex';
             document.getElementById('simulateBtn').disabled = true;
 
@@ -330,14 +363,18 @@
                     originalDataMatrix = [dataBits];
                     const N = dataBits.length;
                     channelMatrix = generateGaussianMatrix(N, N);
+                    // Use the user-provided noise variance
                     const noiseMatrix = generateGaussianMatrix(1, N, noiseVariance);
                     const transmittedSignal = multiplyMatrices(originalDataMatrix, channelMatrix);
                     noisyReceivedMatrix = addMatrices(transmittedSignal, noiseMatrix);
                     
                     updateSignalFlow_Initial(input, noisyReceivedMatrix);
                     document.getElementById('techniqueSelector').style.display = 'block';
-                    document.getElementById('resultsContainer').style.display = 'none'; // Hide old results
-                    document.querySelector('input[name="technique"]:checked')?.removeAttribute('checked');
+                    document.getElementById('resultsContainer').style.display = 'none';
+                    const checkedRadio = document.querySelector('input[name="technique"]:checked');
+                    if (checkedRadio) {
+                        checkedRadio.checked = false;
+                    }
 
                 } catch (error) {
                     console.error("Simulation Error:", error);
@@ -349,30 +386,31 @@
             }, 500);
         }
 
-        // NEW: Function to apply and compare both equalizers
         function applyAndCompareEqualizers() {
-            const selectedTechnique = document.querySelector('input[name="technique"]:checked').value;
+            const selectedTechniqueRadio = document.querySelector('input[name="technique"]:checked');
+            if (!selectedTechniqueRadio) return; // Exit if no technique is selected
+            const selectedTechnique = selectedTechniqueRadio.value;
+            
             if (!noisyReceivedMatrix) return;
 
             document.getElementById('loadingIndicator').style.display = 'flex';
 
             setTimeout(() => {
                 try {
-                    // 1. Calculate ZF result
+                    // ZF result
                     const equalizerMatrixZF = zeroForcing(channelMatrix);
                     const recoveredSignalZF = multiplyMatrices(noisyReceivedMatrix, equalizerMatrixZF);
                     const recoveredDataZF = makeDecision(recoveredSignalZF[0]);
                     const berZF = calculateBER(originalDataMatrix[0], recoveredDataZF);
 
-                    // 2. Calculate MMSE result
+                    // MMSE result (uses the global noiseVariance, which was set by the user)
                     const equalizerMatrixMMSE = mmse(channelMatrix, noiseVariance);
                     const recoveredSignalMMSE = multiplyMatrices(noisyReceivedMatrix, equalizerMatrixMMSE);
                     const recoveredDataMMSE = makeDecision(recoveredSignalMMSE[0]);
                     const berMMSE = calculateBER(originalDataMatrix[0], recoveredDataMMSE);
 
-                    // 3. Update the main UI based on the *selected* technique
                     const input = document.getElementById('inputData').value.trim();
-                    updateSignalFlow_Initial(input, noisyReceivedMatrix); // Reset the flow
+                    updateSignalFlow_Initial(input, noisyReceivedMatrix); 
                     if (selectedTechnique === 'ZF') {
                         updateSignalFlow_Final('ZF', equalizerMatrixZF, recoveredDataZF);
                         updateResults('ZF', berZF);
@@ -381,7 +419,6 @@
                         updateResults('MMSE', berMMSE);
                     }
 
-                    // 4. Populate the new comparison table
                     updateComparisonTable(originalDataMatrix[0], recoveredDataZF, recoveredDataMMSE);
                     document.getElementById('resultsContainer').style.display = 'block';
 
@@ -401,12 +438,12 @@
         function updateSignalFlow_Initial(input, noisyMatrix) {
             const signalFlow = document.getElementById('signalFlow');
             const noisyBinary = makeDecision(noisyMatrix[0]).join('');
-            signalFlow.innerHTML = `<div class="signal-block"><h4>Original Data (x)</h4><div class="signal-value">${input}</div></div><div class="arrow">→</div><div class="signal-block"><h4>Channel (H)</h4><div class="signal-value">${formatMatrixForDisplay(channelMatrix)}</div></div><div class="arrow">+</div><div class="signal-block"><h4>Noise (n)</h4><div class="signal-value">Variance: ${noiseVariance.toFixed(2)}</div></div><div class="arrow">→</div><div class="signal-block"><h4>Received (y=xH+n)</h4><div class="signal-value" title="Received analog values: ${formatMatrixForDisplay(noisyMatrix)}">${noisyBinary} (Decision)</div></div>`;
+            // The display will now correctly show the user-set variance
+            signalFlow.innerHTML = `<div class="signal-block"><h4>Original Data (x)</h4><div class="signal-value">${input}</div></div><div class="arrow">→</div><div class="signal-block"><h4>Channel (H)</h4><div class="signal-value">${formatMatrixForDisplay(channelMatrix)}</div></div><div class="arrow">+</div><div class="signal-block"><h4>Noise (n)</h4><div class="signal-value">Variance: ${noiseVariance.toFixed(3)}</div></div><div class="arrow">→</div><div class="signal-block"><h4>Received (y=xH+n)</h4><div class="signal-value" title="Received analog values: ${formatMatrixForDisplay(noisyMatrix)}">${noisyBinary} (Decision)</div></div>`;
         }
         
         function updateSignalFlow_Final(technique, equalizerMatrix, recoveredData){
-            const signalFlow = document.getElementById('signalFlow');
-             signalFlow.innerHTML += `<div class="arrow">→</div><div class="signal-block"><h4>${technique} Equalizer (G)</h4><div class="signal-value">${formatMatrixForDisplay(equalizerMatrix)}</div></div><div class="arrow">→</div><div class="signal-block"><h4>Recovered (x̂)</h4><div class="signal-value">${recoveredData.join('')}</div></div>`;
+            document.getElementById('signalFlow').innerHTML += `<div class="arrow">→</div><div class="signal-block"><h4>${technique} Equalizer (G)</h4><div class="signal-value">${formatMatrixForDisplay(equalizerMatrix)}</div></div><div class="arrow">→</div><div class="signal-block"><h4>Recovered (x̂)</h4><div class="signal-value">${recoveredData.join('')}</div></div>`;
         }
 
         function updateResults(technique, ber) {
@@ -415,7 +452,6 @@
             document.getElementById('techniqueUsed').textContent = technique;
         }
 
-        // NEW: Function to populate the comparison table
         function updateComparisonTable(original, recoveredZF, recoveredMMSE) {
             const formatBits = (orig, rec) => {
                 let html = '';
@@ -444,14 +480,13 @@
 
 
         // --- Performance Analysis Tab (No changes here) ---
-        async function generatePerformanceChart(){document.getElementById('chartLoadingIndicator').style.display='flex';document.getElementById('generateChartBtn').disabled=true;setTimeout(async()=>{const s=[-2,0,2,4,6,8,10,12,14,16];const zB=[],mB=[];for(const snrDb of s){const bz=await runSingleSnrSimulation(snrDb,'ZF');const bm=await runSingleSnrSimulation(snrDb,'MMSE');zB.push(bz);mB.push(bm);} plotPerformanceChart(s,zB,mB);document.getElementById('chartLoadingIndicator').style.display='none';document.getElementById('generateChartBtn').disabled=false;},100);}
-        function runSingleSnrSimulation(s,t){return new Promise(r=>{const M=2,nB=10000;let tE=0;const sL=10**(s/10);const n_v=1/sL;for(let i=0;i<nB/M;i++){let tx_b=Array.from({length:M},()=>Math.round(Math.random()));let tx_s=[tx_b.map(b=>(2*b-1))];let H=generateGaussianMatrix(M,M);let n=generateGaussianMatrix(M,1,n_v);let y=addMatrices(multiplyMatrices(H,transposeMatrix(tx_s)),n);try{let H_T=transposeMatrix(H);let H_TH=multiplyMatrices(H_T,H);let G;if(t==='ZF'){let iH=invertMatrix(H_TH);G=multiplyMatrices(iH,H_T);}else{let term=addMatrices(H_TH,identityMatrix(M).map(row=>row.map(v=>v*n_v)));let iT=invertMatrix(term);G=multiplyMatrices(iT,H_T);}let xh_T=multiplyMatrices(G,y);let xh=transposeMatrix(xh_T)[0];let rx_b=xh.map(v=>v>0?1:0);for(let j=0;j<M;j++){if(tx_b[j]!==rx_b[j])tE++;}}catch(e){tE+=M;}} r(tE/nB);});}
+        async function generatePerformanceChart(){document.getElementById('chartLoadingIndicator').style.display='flex';document.getElementById('generateChartBtn').disabled=true;setTimeout(async()=>{const s=[-2,0,2,4,6,8,10,12,14,16];const zB=[],mB=[];for(const snrDb of s){const bz=await runSingleSnrsimulation(snrDb,'ZF');const bm=await runSingleSnrsimulation(snrDb,'MMSE');zB.push(bz);mB.push(bm);} plotPerformanceChart(s,zB,mB);document.getElementById('chartLoadingIndicator').style.display='none';document.getElementById('generateChartBtn').disabled=false;},100);}
+        function runSingleSnrsimulation(s,t){return new Promise(r=>{const M=2,nB=10000;let tE=0;const sL=10**(s/10);const n_v=1/sL;for(let i=0;i<nB/M;i++){let tx_b=Array.from({length:M},()=>Math.round(Math.random()));let tx_s=[tx_b.map(b=>(2*b-1))];let H=generateGaussianMatrix(M,M);let n=generateGaussianMatrix(M,1,n_v);let y=addMatrices(multiplyMatrices(H,transposeMatrix(tx_s)),n);try{let H_T=transposeMatrix(H);let H_TH=multiplyMatrices(H_T,H);let G;if(t==='ZF'){let iH=invertMatrix(H_TH);G=multiplyMatrices(iH,H_T);}else{let term=addMatrices(H_TH,identityMatrix(M).map(row=>row.map(v=>v*n_v)));let iT=invertMatrix(term);G=multiplyMatrices(iT,H_T);}let xh_T=multiplyMatrices(G,y);let xh=transposeMatrix(xh_T)[0];let rx_b=xh.map(v=>v>0?1:0);for(let j=0;j<M;j++){if(tx_b[j]!==rx_b[j])tE++;}}catch(e){tE+=M;}} r(tE/nB);});}
         function plotPerformanceChart(l,zD,mD){const c=document.getElementById('performanceChart').getContext('2d');if(performanceChart)performanceChart.destroy();performanceChart=new Chart(c,{type:'line',data:{labels:l,datasets:[{label:'Zero Forcing (ZF)',data:zD,borderColor:'#0d6efd',backgroundColor:'rgba(13,110,253,0.1)',tension:0.1},{label:'MMSE',data:mD,borderColor:'#dc3545',backgroundColor:'rgba(220,53,69,0.1)',tension:0.1}]},options:{responsive:true,plugins:{title:{display:true,text:'BER vs. SNR Performance (2x2 MIMO)',font:{size:16}},legend:{position:'top'}},scales:{x:{title:{display:true,text:'SNR (dB)'}},y:{type:'logarithmic',title:{display:true,text:'Bit Error Rate (BER)'}}}}});}
 
         // --- Initial Setup ---
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('loadingIndicator').style.display = 'none';
-            // NEW: Add event listener to radio buttons
             document.querySelectorAll('input[name="technique"]').forEach(radio => {
                 radio.addEventListener('change', applyAndCompareEqualizers);
             });
