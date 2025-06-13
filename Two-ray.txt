@@ -1,0 +1,3 @@
+Two-ray
+1) Plot the signals for each of the scenarios.
+2) David Tse (plots)
