@@ -39,10 +39,8 @@
 
         .main-container { 
             display: grid;
-            /* CHANGE 1: Increased the last column from 500px to 600px for the graph */
             grid-template-columns: 350px 1fr 600px; 
             gap: 25px;
-            /* CHANGE 2: Increased max-width to accommodate the larger graph column */
             max-width: 1500px; 
             margin: 0 auto;
         }
@@ -184,7 +182,7 @@
             background: #f8f9fa;
             border-radius: 10px;
             padding: 15px;
-            margin-bottom: 20px;
+            margin-top: 20px;
         }
 
         .status-display p {
@@ -200,6 +198,7 @@
             height: 12px; 
             border-radius: 50%; 
             margin-right: 10px;
+            margin-left: 8px;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
         }
 
@@ -283,10 +282,49 @@
         #simulationCanvas { 
             border: 3px solid #e8ecf0;
             border-radius: 15px; 
-            /* CHANGE 3: Replaced purple gradient with a solid white background */
             background-color: #ffffff;
-            margin-bottom: 20px;
             box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        }
+        
+        .simulation-legend {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 15px;
+            padding: 10px;
+            width: 100%;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9em;
+        }
+        .legend-icon {
+            width: 20px;
+            height: 20px;
+        }
+        .legend-swatch {
+            width: 15px;
+            height: 15px;
+            border: 1px solid #ccc;
+        }
+        .legend-line {
+            width: 20px;
+            height: 4px;
+            border-radius: 2px;
+        }
+        .obstacle-color {
+            background-color: hsl(40, 70%, 55%);
+        }
+        .los-color {
+            background-color: #27ae60;
+        }
+        .occluded-color {
+            background-color: #e74c3c;
         }
 
         /* Graph Panel */
@@ -298,9 +336,7 @@
 
         #pathlossGraph, #graph_placeholder {
             width: 100%;
-            /* CHANGE 4: Increased max-width to fill the new column size */
             max-width: 600px;
-            /* CHANGE 5: Increased height to make the graph taller */
             height: 450px;
         }
 
@@ -368,6 +404,10 @@
                         <label for="d0_val">Reference Distance (d₀, meters)</label>
                         <input type="number" id="d0_val" value="1" step="0.1" min="0.1">
                     </div>
+                    <div class="input-group">
+                        <label for="obstacle_density_val">Obstacle Density (per km²)</label>
+                        <input type="number" id="obstacle_density_val" value="500" step="10" min="0">
+                    </div>
                 </div>
 
                 <div class="section">
@@ -413,6 +453,22 @@
             <div class="panel-content">
                 <div class="simulation-container">
                     <canvas id="simulationCanvas" width="420" height="420"></canvas>
+                    
+                    <div class="simulation-legend">
+                        <!-- CHANGE: Using Base64 encoded SVGs to fix rendering bug -->
+                        <div class="legend-item">
+                            <img class="legend-icon" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzY2N2VlYSI+PHBhdGggZD0iTTEyIDNsNCA0aC0zdjEwaC0yVjdIOFs0LTR6TTQgOWgzdjJINGMtMnptMCA0aDN2Mkg0di0yem0xNi00aC0zdjJoM3YtMnptMCA0aC0zdjJoM3YtMnoiLz48L3N2Zz4=">
+                            <span>Transmitter</span>
+                        </div>
+                        <div class="legend-item">
+                            <img class="legend-icon" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzY2N2VlYSI+PHBhdGggZD0iTTE2IDFIOEM2LjM0IDEgNSAyLjM0IDUgNHYxNmMwIDEuNjYgMS4zNCAzIDMgM2g4YzEuNjYgMCAzLTEuMzQgMy0zVjRjMC0xLjY2LTEuMzQtMy0zLTN6TTE0IDIxaC00di0xaDR2MXptMS4yNS0zSDguNzVWNGg2LjV2MTR6Ii8+PC9zdmc+">
+                            <span>Receiver</span>
+                        </div>
+                        <div class="legend-item"><span class="legend-swatch obstacle-color"></span><span>Obstacle</span></div>
+                        <div class="legend-item"><span class="legend-line los-color"></span><span>LoS Signal</span></div>
+                        <div class="legend-item"><span class="legend-line occluded-color"></span><span>Occluded</span></div>
+                    </div>
+                    
                     <div class="status-display">
                         <p><strong>Signal Status:</strong> <span id="status_indicator" class="status-indicator status-los"></span><span id="out_status">Line of Sight</span></p>
                         <p><strong>Total Pathloss:</strong> <span id="out_total_pl_val">0</span> dB</p>
@@ -441,6 +497,7 @@
     const kInput = document.getElementById('k_val');
     const gammaInput = document.getElementById('gamma_val');
     const d0Input = document.getElementById('d0_val');
+    const densityInput = document.getElementById('obstacle_density_val');
     const distanceSlider = document.getElementById('current_distance_slider');
     const distanceDisplay = document.getElementById('current_distance_val');
     const angleSlider = document.getElementById('receiver_angle_slider');
@@ -475,7 +532,41 @@
     const maxCanvasDisplayRadius_px = Math.min(canvasWidth, canvasHeight) / 2 * 0.85;
     let worldScale_pxPerMeter;
 
-    function init() {
+    // CHANGE: Using Base64 encoded SVGs to fix rendering bug
+    const TX_ICON = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzY2N2VlYSI+PHBhdGggZD0iTTEyIDNsNCA0aC0zdjEwaC0yVjdIOFs0LTR6TTQgOWgzdjJINGMtMnptMCA0aDN2Mkg0di0yem0xNi00aC0zdjJoM3YtMnptMCA0aC0zdjJoM3YtMnoiLz48L3N2Zz4=';
+    const RX_ICON = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzY2N2VlYSI+PHBhdGggZD0iTTE2IDFIOEM2LjM0IDEgNSAyLjM0IDUgNHYxNmMwIDEuNjYgMS4zNCAzIDMgM2g4YzEuNjYgMCAzLTEuMzQgMy0zVjRjMC0xLjY2LTEuMzQtMy0zLTN6TTE0IDIxaC00di0xaDR2MXptMS4yNS0zSDguNzVWNGg2LjV2MTR6Ii8+PC9zdmc+';
+    
+    let txImage, rxImage;
+    const TX_IMG_SIZE = 38;
+    const RX_IMG_SIZE = 28;
+
+    function loadImages() {
+        return new Promise((resolve) => {
+            txImage = new Image();
+            rxImage = new Image();
+            let loadedCount = 0;
+            
+            const onImageLoad = () => {
+                loadedCount++;
+                if (loadedCount === 2) {
+                    resolve();
+                }
+            };
+            
+            txImage.onload = onImageLoad;
+            rxImage.onload = onImageLoad;
+            
+            // This fallback ensures the promise resolves even if an image fails to load
+            txImage.onerror = onImageLoad;
+            rxImage.onerror = onImageLoad;
+            
+            txImage.src = TX_ICON;
+            rxImage.src = RX_ICON;
+        });
+    }
+
+    async function init() {
+        await loadImages();
         setupEventListeners();
         initializeChart();
         readAllInputs();
@@ -486,13 +577,11 @@
     }
 
     function setupEventListeners() {
-        [kInput, gammaInput, d0Input, distanceSlider, angleSlider].forEach(el => {
+        [kInput, gammaInput, d0Input, densityInput, distanceSlider, angleSlider].forEach(el => {
             el.addEventListener('input', () => { readAllInputs(); updateSimulation(); });
         });
         randomizeBtn.addEventListener('click', () => {
-            readAllInputs(); 
             placeObstacles();
-            resetSession();
             updateSimulation();
         });
         recordBtn.addEventListener('click', recordDataPoint);
@@ -528,7 +617,6 @@
         graphPlaceholder.style.display = 'none';
         graphCanvas.style.display = 'block';
 
-        // CHANGE: Sort recorded data by distance (x values) in ascending order
         const sortedRecordedData = [...recordedData].sort((a, b) => a.x - b.x);
         pathlossChart.data.datasets[1].data = sortedRecordedData;
 
@@ -553,6 +641,8 @@
         graphPlaceholder.style.display = 'flex';
         graphCanvas.style.display = 'none';
         updateUIState();
+        placeObstacles();
+        updateSimulation();
     }
     
     function calculateCurrentSignal() {
@@ -596,7 +686,7 @@
                         data: [], 
                         borderColor: '#e74c3c', 
                         backgroundColor: '#e74c3c', 
-                        pointRadius: 6,
+                        pointRadius: 4,
                         borderWidth: 2,
                         showLine: true,
                         type: 'line'
@@ -604,11 +694,10 @@
                 ]
             },
             options: {
-                // CHANGE: Set responsive to true and maintainAspectRatio to false
                 responsive: true,
                 maintainAspectRatio: false,
                 layout: {
-                    padding: 20  // Increase padding
+                    padding: 20
                 },
                 plugins: { legend: { labels: { usePointStyle: true, font: { size: 12 } } } },
                 scales: {
@@ -627,22 +716,45 @@
         });
     }        
 
-    // --- All calculation and drawing functions are included below without change ---
-    function calculateWorldScale() { worldScale_pxPerMeter = maxCanvasDisplayRadius_px / parseFloat(distanceSlider.max); }
+    function poissonRandom(lambda) {
+        let L = Math.exp(-lambda);
+        let k = 0;
+        let p = 1;
+        do {
+            k++;
+            p *= Math.random();
+        } while (p > L);
+        return k - 1;
+    }
+
+    function calculateWorldScale() { 
+        worldScale_pxPerMeter = maxCanvasDisplayRadius_px / parseFloat(distanceSlider.max); 
+    }
+    
     function placeObstacles() {
-        obstacles = []; const densityPerKm2 = 500; const maxSimDistance_m = parseFloat(distanceSlider.max);
-        const areaKm2 = Math.PI * (maxSimDistance_m / 1000) ** 2; const numObs = Math.round(densityPerKm2 * areaKm2);
+        obstacles = [];
+        const densityPerKm2 = parseFloat(densityInput.value); 
+        const maxSimDistance_m = parseFloat(distanceSlider.max);
+        const areaKm2 = Math.PI * Math.pow(maxSimDistance_m / 1000, 2);
+        const lambda = densityPerKm2 * areaKm2;
+        const numObs = poissonRandom(lambda);
+        
         for (let i = 0; i < numObs; i++) {
-            const obsDistFromTx_m = Math.sqrt(Math.random()) * maxSimDistance_m; const obsAngleRad = Math.random() * 2 * Math.PI;
-            const obsRadius_m = Math.random() * 8 * 0.6 + 8 * 0.2; const obsX_m = obsDistFromTx_m * Math.cos(obsAngleRad);
-            const obsY_m = obsDistFromTx_m * Math.sin(obsAngleRad); const attenuation = Math.max(0.5, 8 + (Math.random() - 0.5) * 2 * 5);
+            const obsDistFromTx_m = Math.sqrt(Math.random()) * maxSimDistance_m; 
+            const obsAngleRad = Math.random() * 2 * Math.PI;
+            const obsRadius_m = Math.random() * 8 * 0.6 + 8 * 0.2; 
+            const obsX_m = obsDistFromTx_m * Math.cos(obsAngleRad);
+            const obsY_m = obsDistFromTx_m * Math.sin(obsAngleRad); 
+            const attenuation = Math.max(0.5, 8 + (Math.random() - 0.5) * 2 * 5);
             obstacles.push({
                 x_m: obsX_m, y_m: obsY_m, radius_m: obsRadius_m, attenuationDb: attenuation,
                 x_px: txPos_px.x + obsX_m * worldScale_pxPerMeter, y_px: txPos_px.y + obsY_m * worldScale_pxPerMeter,
-                radius_px: Math.max(2, obsRadius_m * worldScale_pxPerMeter), color: `hsl(${30 + (attenuation / 20) * 30}, 70%, ${60 - (attenuation / 20) * 20}%)`
+                radius_px: Math.max(2, obsRadius_m * worldScale_pxPerMeter), 
+                color: `hsl(${30 + (attenuation / 20) * 30}, 70%, ${60 - (attenuation / 20) * 20}%)`
             });
         }
     }
+
     function calculateShadowingAtPosition(rxPos_px) {
         let totalShadowingDb = 0; let occluded = false;
         for (const obs of obstacles) {
@@ -653,28 +765,54 @@
         }
         totalShadowingDb += (Math.random() - 0.5) * 8; return { shadowingDb: totalShadowingDb, isOccluded: occluded };
     }
+
     function calculateMeanPathloss(distance, K, gamma, d0) {
         if (distance <= 0) distance = 0.1; if (d0 <= 0) d0 = 0.1;
         return (distance < d0) ? K : K + 10 * gamma * Math.log10(distance / d0);
     }
+
     function isLineSegmentIntersectingCircle(P1, P2, C, R_sq) {
         let dX = P2.x - P1.x; let dY = P2.y - P1.y; if ((dX === 0) && (dY === 0)) return false;
         let t = ((C.x - P1.x) * dX + (C.y - P1.y) * dY) / (dX * dX + dY * dY); t = Math.max(0, Math.min(1, t));
         let closestX = P1.x + t * dX; let closestY = P1.y + t * dY;
         return ((C.x - closestX) ** 2 + (C.y - closestY) ** 2) <= R_sq;
     }
+    
     function drawSimulationCanvas(rxPos_px, currentRxRadius_px, isOccluded) {
-        simCtx.clearRect(0, 0, canvasWidth, canvasHeight); simCtx.strokeStyle = 'rgba(74, 105, 189, 0.3)'; simCtx.lineWidth = 1; simCtx.setLineDash([3, 3]);
+        simCtx.clearRect(0, 0, canvasWidth, canvasHeight);
+        
+        // Draw distance grid
+        simCtx.strokeStyle = 'rgba(74, 105, 189, 0.3)'; simCtx.lineWidth = 1; simCtx.setLineDash([3, 3]);
         for (let i = 50; i <= 200; i += 50) {
             const r = i * worldScale_pxPerMeter; simCtx.beginPath(); simCtx.arc(txPos_px.x, txPos_px.y, r, 0, 2 * Math.PI); simCtx.stroke();
         }
+        
+        // Draw receiver's current orbit
         simCtx.setLineDash([]); simCtx.beginPath(); simCtx.arc(txPos_px.x, txPos_px.y, currentRxRadius_px, 0, 2 * Math.PI);
         simCtx.strokeStyle = isOccluded ? 'rgba(255, 87, 34, 0.8)' : 'rgba(76, 175, 80, 0.8)'; simCtx.lineWidth = 2; simCtx.setLineDash([5, 5]); simCtx.stroke(); simCtx.setLineDash([]);
+        
+        // Draw obstacles
         obstacles.forEach(obs => {
             simCtx.fillStyle = obs.color; simCtx.fillRect(obs.x_px - obs.radius_px, obs.y_px - obs.radius_px, obs.radius_px * 2, obs.radius_px * 2);
         });
-        simCtx.beginPath(); simCtx.moveTo(txPos_px.x, txPos_px.y); simCtx.lineTo(rxPos_px.x, rxPos_px.y);
-        simCtx.strokeStyle = isOccluded ? '#ff5722' : '#4caf50'; simCtx.lineWidth = 3; simCtx.stroke();
+
+        // Draw Transmitter Image (Tower)
+        if(txImage && txImage.complete) {
+            simCtx.drawImage(txImage, txPos_px.x - TX_IMG_SIZE / 2, txPos_px.y - TX_IMG_SIZE / 2, TX_IMG_SIZE, TX_IMG_SIZE);
+        }
+
+        // Draw Receiver Image (Phone)
+        if(rxImage && rxImage.complete) {
+            simCtx.drawImage(rxImage, rxPos_px.x - RX_IMG_SIZE / 2, rxPos_px.y - RX_IMG_SIZE / 2, RX_IMG_SIZE, RX_IMG_SIZE);
+        }
+        
+        // Draw signal path line on top
+        simCtx.beginPath(); 
+        simCtx.moveTo(txPos_px.x, txPos_px.y); 
+        simCtx.lineTo(rxPos_px.x, rxPos_px.y);
+        simCtx.strokeStyle = isOccluded ? '#ff5722' : '#4caf50'; 
+        simCtx.lineWidth = 3; 
+        simCtx.stroke();
     }
 
     document.addEventListener('DOMContentLoaded', init);
