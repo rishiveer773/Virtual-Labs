@@ -6,252 +6,385 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Advanced Shadowing and Outage Probability Lab</title>
   <style>
-    * {
-      box-sizing: border-box;
+        * {
+          box-sizing: border-box;
+        }
+
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: grid;
+      grid-template-columns: 320px 1fr 350px;
+      height: 100vh;
+      background-color: #f0f2f5; 
+      overflow: hidden; 
     }
 
-body {
-  margin: 0;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-  display: grid;
-  grid-template-columns: 320px 1fr 350px;
-  height: 100vh;
-  background-color: #f0f2f5; 
-  overflow: hidden; 
-}
+    #inputs, #simulation, #outputs {
+      border: none;
+      margin: 10px;
+      border-radius: 15px;
+      background: rgba(255, 255, 255, 0.98);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 32px rgba(31, 38, 135, 0.1);
+      overflow: auto; 
+    }
 
-#inputs, #simulation, #outputs {
-  border: none;
-  margin: 10px;
-  border-radius: 15px;
-  background: rgba(255, 255, 255, 0.98);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 8px 32px rgba(31, 38, 135, 0.1);
-  overflow: auto; 
-}
+    #inputs, #outputs {
+      padding: 20px;
+    }
 
-#inputs, #outputs {
-  padding: 20px;
-}
+    #simulation {
+      display: flex; 
+      flex-direction: column; 
+      justify-content: center;
+      align-items: center;
+      position: relative; 
+      padding: 15px; 
+    }
 
-#simulation {
-  display: flex; 
-  flex-direction: column; 
-  justify-content: center;
-  align-items: center;
-  position: relative; 
-  padding: 15px; 
-}
+    h3 {
+      color: #333;
+      margin: 0 0 20px 0;
+      text-align: center;
+      font-size: 1.3em;
+      font-weight: 600;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
 
-h3 {
-  color: #333;
-  margin: 0 0 20px 0;
-  text-align: center;
-  font-size: 1.3em;
-  font-weight: 600;
-  text-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
+    .input-group {
+      margin-bottom: 20px;
+      padding: 15px;
+      background: rgba(245, 245, 245, 0.9);
+      border-radius: 10px;
+      border: 1px solid rgba(102, 126, 234, 0.2);
+      transition: all 0.3s ease;
+    }
 
-.input-group {
-  margin-bottom: 20px;
-  padding: 15px;
-  background: rgba(245, 245, 245, 0.9);
-  border-radius: 10px;
-  border: 1px solid rgba(102, 126, 234, 0.2);
-  transition: all 0.3s ease;
-}
+    .input-group:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
 
-.input-group:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-}
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #444;
+      font-size: 0.9em;
+    }
 
-label {
-  display: block;
-  margin-bottom: 8px;
-  font-weight: 600;
-  color: #444;
-  font-size: 0.9em;
-}
+    input, select {
+      width: 100%;
+      padding: 10px 12px;
+      border: 2px solid #e0e0e0;
+      border-radius: 8px;
+      font-size: 14px;
+      transition: all 0.3s ease;
+      background: white;
+    }
 
-input, select {
-  width: 100%;
-  padding: 10px 12px;
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
-  font-size: 14px;
-  transition: all 0.3s ease;
-  background: white;
-}
+    input:focus, select:focus {
+      border-color: #667eea;
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
 
-input:focus, select:focus {
-  border-color: #667eea;
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-}
+    .grid-container {
+      border: 3px solid #333;
+      border-radius: 12px;
+      overflow: hidden; 
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      background: #333; 
+      flex-shrink: 0; 
+    }
 
-.grid-container {
-  border: 3px solid #333;
-  border-radius: 12px;
-  overflow: hidden; 
-  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-  background: #333; 
-  flex-shrink: 0; 
-}
+    .cell {
+      width: 18px; 
+      height: 18px; 
+      border: none; 
+      cursor: pointer;
+      transition: background-color 0.1s ease, transform 0.2s ease; 
+      position: relative;
+    }
 
-.cell {
-  width: 18px; 
-  height: 18px; 
-  border: none; 
-  cursor: pointer;
-  transition: background-color 0.1s ease, transform 0.2s ease; 
-  position: relative;
-}
+    .cell:hover {
+      transform: scale(1.15); 
+      z-index: 10;
+      box-shadow: 0 0 10px rgba(0,0,0,0.6); 
+    }
 
-.cell:hover {
-  transform: scale(1.15); 
-  z-index: 10;
-  box-shadow: 0 0 10px rgba(0,0,0,0.6); 
-}
+    .transmitter {
+      border-radius: 50%;
+      border: 3px solid #000 !important;
+      background: radial-gradient(circle, #ffeb3b, #ff9800) !important;
+      box-shadow: 0 0 12px rgba(255, 193, 7, 0.8);
+      animation: pulse 2s infinite;
+    }
 
-.transmitter {
-  border-radius: 50%;
-  border: 3px solid #000 !important;
-  background: radial-gradient(circle, #ffeb3b, #ff9800) !important;
-  box-shadow: 0 0 12px rgba(255, 193, 7, 0.8);
-  animation: pulse 2s infinite;
-}
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 12px rgba(255, 193, 7, 0.8); transform: scale(1); }
+      50% { box-shadow: 0 0 20px rgba(255, 193, 7, 1); transform: scale(1.05); }
+    }
 
-@keyframes pulse {
-  0%, 100% { box-shadow: 0 0 12px rgba(255, 193, 7, 0.8); transform: scale(1); }
-  50% { box-shadow: 0 0 20px rgba(255, 193, 7, 1); transform: scale(1.05); }
-}
+    .obstacle-normal {
+      background: linear-gradient(45deg, #555, #777) !important; 
+      border: 1px solid #222 !important; 
+    }
 
-.obstacle-normal {
-  background: linear-gradient(45deg, #555, #777) !important; 
-  border: 1px solid #222 !important; 
-}
+    .obstacle-heavy {
+      background: linear-gradient(45deg, #7A0000, #C01030) !important; 
+      border: 1px solid #500 !important; 
+      box-shadow: inset 0 1px 3px rgba(0,0,0,0.4);
+    }
 
-.obstacle-heavy {
-  background: linear-gradient(45deg, #7A0000, #C01030) !important; 
-  border: 1px solid #500 !important; 
-  box-shadow: inset 0 1px 3px rgba(0,0,0,0.4);
-}
+    .outage-cell {
+      box-shadow: inset 0 0 0 1px #dd0033, 0 0 4px rgba(255, 23, 68, 0.5);
+      animation: blink-outage 1.5s infinite alternate; 
+    }
 
-.outage-cell {
-  box-shadow: inset 0 0 0 1px #dd0033, 0 0 4px rgba(255, 23, 68, 0.5);
-  animation: blink-outage 1.5s infinite alternate; 
-}
+    .obstacle-normal.outage-cell, 
+    .obstacle-heavy.outage-cell {
+        box-shadow: inset 0 0 0 1px #dd0033, 0 0 4px rgba(255, 23, 68, 0.5);
+    }
 
-.obstacle-normal.outage-cell, 
-.obstacle-heavy.outage-cell {
-     box-shadow: inset 0 0 0 1px #dd0033, 0 0 4px rgba(255, 23, 68, 0.5);
-}
+    @keyframes blink-outage { 
+      from { box-shadow: inset 0 0 0 1px #dd0033, 0 0 4px rgba(255, 23, 68, 0.5); }
+      to   { box-shadow: inset 0 0 0 1px #ff4466, 0 0 7px rgba(255, 87, 34, 0.7); }
+    }
 
-@keyframes blink-outage { 
-  from { box-shadow: inset 0 0 0 1px #dd0033, 0 0 4px rgba(255, 23, 68, 0.5); }
-  to   { box-shadow: inset 0 0 0 1px #ff4466, 0 0 7px rgba(255, 87, 34, 0.7); }
-}
+    .cell.shadowed-cell::after {
+        content: '';
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background-color: rgba(0, 0, 0, var(--shadow-alpha, 0.02)); 
+        pointer-events: none; 
+        z-index: 1; 
+        transition: background-color 0.1s ease-in-out;
+    }
+    .transmitter.shadowed-cell::after { display: none; } 
+    .obstacle-normal.shadowed-cell::after,
+    .obstacle-heavy.shadowed-cell::after {
+        display: none; 
+    }
 
-.cell.shadowed-cell::after {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background-color: rgba(0, 0, 0, var(--shadow-alpha, 0.02)); 
-    pointer-events: none; 
-    z-index: 1; 
-    transition: background-color 0.1s ease-in-out;
-}
-.transmitter.shadowed-cell::after { display: none; } 
-.obstacle-normal.shadowed-cell::after,
-.obstacle-heavy.shadowed-cell::after {
-    display: none; 
-}
+    .tooltip {
+      position: absolute;
+      background: linear-gradient(135deg, #2c3e50, #34495e); 
+      color: white;
+      padding: 10px 15px;
+      border-radius: 8px;
+      font-size: 12px;
+      pointer-events: none;
+      white-space: nowrap;
+      transform: translate(-50%, -120%); 
+      z-index: 1000;
+      box-shadow: 0 5px 25px rgba(0,0,0,0.5);
+      border: 1px solid rgba(255,255,255,0.15);
+    }
 
-.tooltip {
-  position: absolute;
-  background: linear-gradient(135deg, #2c3e50, #34495e); 
-  color: white;
-  padding: 10px 15px;
-  border-radius: 8px;
-  font-size: 12px;
-  pointer-events: none;
-  white-space: nowrap;
-  transform: translate(-50%, -120%); 
-  z-index: 1000;
-  box-shadow: 0 5px 25px rgba(0,0,0,0.5);
-  border: 1px solid rgba(255,255,255,0.15);
-}
+    .output-section {
+      margin-bottom: 20px;
+      padding: 15px;
+      background: rgba(245, 245, 245, 0.95); 
+      border-radius: 10px;
+      border-left: 4px solid #667eea;
+    }
 
-.output-section {
-  margin-bottom: 20px;
-  padding: 15px;
-  background: rgba(245, 245, 245, 0.95); 
-  border-radius: 10px;
-  border-left: 4px solid #667eea;
-}
+    .output-section h4 { margin: 0 0 12px 0; color: #2c3e50; font-size: 1.1em; font-weight: 600; }
+    .metric { display: flex; justify-content: space-between; align-items: center; margin: 8px 0; padding: 6px 0; border-bottom: 1px solid rgba(0,0,0,0.08); }
+    .metric:last-child { border-bottom: none; }
+    .metric-label { font-weight: 500; color: #34495e; font-size: 0.9em; }
+    .metric-value { font-family: 'Courier New', monospace; font-weight: bold; color: #2c3e50; font-size: 0.95em; }
 
-.output-section h4 { margin: 0 0 12px 0; color: #2c3e50; font-size: 1.1em; font-weight: 600; }
-.metric { display: flex; justify-content: space-between; align-items: center; margin: 8px 0; padding: 6px 0; border-bottom: 1px solid rgba(0,0,0,0.08); }
-.metric:last-child { border-bottom: none; }
-.metric-label { font-weight: 500; color: #34495e; font-size: 0.9em; }
-.metric-value { font-family: 'Courier New', monospace; font-weight: bold; color: #2c3e50; font-size: 0.95em; }
+    .status-indicator { padding: 12px; border-radius: 8px; text-align: center; font-weight: 600; margin-top: 10px; transition: all 0.3s ease; text-shadow: 0 1px 1px rgba(0,0,0,0.2); }
+    .status-excellent { background: linear-gradient(135deg, #2ecc71, #27ae60); color: white; }
+    .status-good { background: linear-gradient(135deg, #f1c40f, #f39c12); color: white; }
+    .status-fair { background: linear-gradient(135deg, #e67e22, #d35400); color: white; }
+    .status-poor { background: linear-gradient(135deg, #e74c3c, #c0392b); color: white; }
 
-.status-indicator { padding: 12px; border-radius: 8px; text-align: center; font-weight: 600; margin-top: 10px; transition: all 0.3s ease; text-shadow: 0 1px 1px rgba(0,0,0,0.2); }
-.status-excellent { background: linear-gradient(135deg, #2ecc71, #27ae60); color: white; }
-.status-good { background: linear-gradient(135deg, #f1c40f, #f39c12); color: white; }
-.status-fair { background: linear-gradient(135deg, #e67e22, #d35400); color: white; }
-.status-poor { background: linear-gradient(135deg, #e74c3c, #c0392b); color: white; }
+    /* MODIFICATION: Changed legend styles for horizontal flow */
+    .legend {
+      margin-top: 20px;
+      padding: 15px;
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 10px;
+      border: 1px solid rgba(102, 126, 234, 0.15);
+      width: 558px;
+      /* Add flex properties for horizontal layout */
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center; /* Center the items */
+      gap: 15px; /* Add space between items */
+      align-items: center; /* Vertically align items */
+    }
+    .legend h4 {
+      margin: 0 0 12px 0;
+      color: #2c3e50;
+      font-size: 1em;
+      font-weight: 600;
+      /* Ensure title takes full width in flex container */
+      flex-basis: 100%;
+      text-align: center;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      margin: 0; /* Remove old margin */
+      font-size: 0.85em;
+      color: #34495e;
+    }
+    .legend-color {
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+      margin-right: 10px;
+      border: 1px solid #bdc3c7;
+      flex-shrink: 0;
+    }
 
-/* MODIFICATION: Changed legend styles for horizontal flow */
-.legend {
-  margin-top: 20px;
-  padding: 15px;
-  background: rgba(255, 255, 255, 0.9);
-  border-radius: 10px;
-  border: 1px solid rgba(102, 126, 234, 0.15);
-  width: 558px;
-  /* Add flex properties for horizontal layout */
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center; /* Center the items */
-  gap: 15px; /* Add space between items */
-  align-items: center; /* Vertically align items */
-}
-.legend h4 {
-  margin: 0 0 12px 0;
-  color: #2c3e50;
-  font-size: 1em;
-  font-weight: 600;
-  /* Ensure title takes full width in flex container */
-  flex-basis: 100%;
-  text-align: center;
-}
-.legend-item {
-  display: flex;
-  align-items: center;
-  margin: 0; /* Remove old margin */
-  font-size: 0.85em;
-  color: #34495e;
-}
-.legend-color {
-  width: 20px;
-  height: 20px;
-  border-radius: 4px;
-  margin-right: 10px;
-  border: 1px solid #bdc3c7;
-  flex-shrink: 0;
-}
+    .instructions { font-size: 0.85em; color: #34495e; margin-top: 15px; padding: 12px; background: linear-gradient(135deg, #ecf0f1, #e0e6e8); border-radius: 8px; border-left: 4px solid #f39c12; line-height: 1.4; }
+    button { width: 100%; padding: 12px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.95em; margin-top: 15px; transition: all 0.3s ease; text-shadow: 0 1px 1px rgba(0,0,0,0.2); }
+    button:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); filter: brightness(1.1); }
+    .mode-buttons { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 10px; }
+    .mode-btn { padding: 8px 4px; margin: 0; font-size: 0.8em; border-radius: 6px; }
+    .mode-btn.active { background: linear-gradient(135deg, #2ecc71, #27ae60); transform: scale(0.97); box-shadow: inset 0 1px 3px rgba(0,0,0,0.2); }
+    .progress-bar { width: 100%; height: 8px; background: rgba(0,0,0,0.08); border-radius: 4px; overflow: hidden; margin: 5px 0; }
+    .progress-fill { height: 100%; transition: width 0.3s ease; }
+    #outageProgress.progress-fill { background: linear-gradient(90deg, #e74c3c, #c0392b); }
 
-.instructions { font-size: 0.85em; color: #34495e; margin-top: 15px; padding: 12px; background: linear-gradient(135deg, #ecf0f1, #e0e6e8); border-radius: 8px; border-left: 4px solid #f39c12; line-height: 1.4; }
-button { width: 100%; padding: 12px; background: linear-gradient(135deg, #667eea, #764ba2); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 0.95em; margin-top: 15px; transition: all 0.3s ease; text-shadow: 0 1px 1px rgba(0,0,0,0.2); }
-button:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4); filter: brightness(1.1); }
-.mode-buttons { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 10px; }
-.mode-btn { padding: 8px 4px; margin: 0; font-size: 0.8em; border-radius: 6px; }
-.mode-btn.active { background: linear-gradient(135deg, #2ecc71, #27ae60); transform: scale(0.97); box-shadow: inset 0 1px 3px rgba(0,0,0,0.2); }
-.progress-bar { width: 100%; height: 8px; background: rgba(0,0,0,0.08); border-radius: 4px; overflow: hidden; margin: 5px 0; }
-.progress-fill { height: 100%; transition: width 0.3s ease; }
-#outageProgress.progress-fill { background: linear-gradient(90deg, #e74c3c, #c0392b); }
+    /* Custom cursor for grid area */
+    .grid-container {
+      border: 3px solid #333;
+      border-radius: 12px;
+      overflow: hidden; 
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      background: #333; 
+      flex-shrink: 0;
+      /* Add custom cursor */
+      cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23333" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>') 12 12, auto;
+    }
+
+    /* Transmitter with antenna icon */
+    .transmitter {
+      border-radius: 50%;
+      border: 3px solid #000 !important;
+      background: radial-gradient(circle, #ffeb3b, #ff9800) !important;
+      box-shadow: 0 0 12px rgba(255, 193, 7, 0.8);
+      animation: pulse 2s infinite;
+      position: relative;
+    }
+
+    .transmitter::before {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 12px;
+      height: 12px;
+      transform: translate(-50%, -50%);
+      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="%23000" stroke-width="3"><path d="M12 2v20"/><path d="M2 12h20"/><circle cx="12" cy="12" r="3"/></svg>');
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: center;
+      z-index: 2;
+    }
+
+    /* Tab system styles */
+    .tab-container {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    .tab-header {
+      display: flex;
+      background: rgba(255, 255, 255, 0.95);
+      border-radius: 10px 10px 0 0;
+      margin: 10px 10px 0 10px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .tab-btn {
+      flex: 1;
+      padding: 12px 16px;
+      background: rgba(245, 245, 245, 0.9);
+      border: none;
+      cursor: pointer;
+      font-weight: 500;
+      font-size: 0.9em;
+      color: #666;
+      transition: all 0.3s ease;
+      border-bottom: 3px solid transparent;
+    }
+
+    .tab-btn.active {
+      background: white;
+      color: #333;
+      border-bottom-color: #667eea;
+      font-weight: 600;
+    }
+
+    .tab-btn:hover:not(.active) {
+      background: rgba(255, 255, 255, 0.7);
+      color: #444;
+    }
+
+    .tab-content {
+      flex: 1;
+      display: none;
+      flex-direction: column;
+      background: rgba(255, 255, 255, 0.98);
+      backdrop-filter: blur(10px);
+      box-shadow: 0 8px 32px rgba(31, 38, 135, 0.1);
+      margin: 0 10px 10px 10px;
+      border-radius: 0 0 15px 15px;
+      overflow: auto;
+      padding: 20px;
+    }
+
+    .tab-content.active {
+      display: flex;
+    }
+
+    /* Chart container */
+    .chart-container {
+      width: 100%;
+      height: 400px;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      padding: 15px;
+      margin-bottom: 20px;
+    }
+
+    .chart-controls {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 15px;
+      flex-wrap: wrap;
+    }
+
+    .chart-control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    .chart-control-group label {
+      font-size: 0.85em;
+      font-weight: 600;
+      color: #444;
+    }
+
+    .chart-control-group select {
+      padding: 8px;
+      border: 2px solid #e0e0e0;
+      border-radius: 6px;
+      font-size: 0.85em;
+    }
 
   </style>
 </head>
@@ -284,17 +417,134 @@ button:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(102, 126
       </div>
   </div>
 
-  <div id="outputs">
-    <h3>📊 Results & Analysis</h3>
-    <div class="output-section"> <h4>🎯 Coverage Metrics</h4> <div class="metric"> <span class="metric-label">Outage Probability:</span> <span class="metric-value" id="outageProb">0.00%</span> </div> <div class="progress-bar"> <div class="progress-fill" id="outageProgress" style="width: 0%;"></div> </div> <div class="metric"> <span class="metric-label">Coverage Area:</span> <span class="metric-value" id="coverageArea">100.00%</span> </div> <div class="metric"> <span class="metric-label">Cells in Outage:</span> <span class="metric-value" id="outageCells">0 / 929</span> </div> </div>
-    <div class="output-section"> <h4>📡 Signal Analysis</h4> <div class="metric"> <span class="metric-label">Avg Rx Power (Covered):</span> <span class="metric-value" id="avgReceivedPower">0.00 dBm</span> </div> <div class="metric"> <span class="metric-label">Min Rx Power (Covered):</span> <span class="metric-value" id="minReceivedPower">0.00 dBm</span> </div> <div class="metric"> <span class="metric-label">Max Rx Power (Covered):</span> <span class="metric-value" id="maxReceivedPower">0.00 dBm</span> </div> <div class="metric"> <span class="metric-label">Signal Dynamic Range:</span> <span class="metric-value" id="signalRange">0.00 dB</span> </div> </div>
-    <div class="output-section"> <h4>🌐 Path Loss Analysis</h4> <div class="metric"> <span class="metric-label">Avg Total Path Loss:</span> <span class="metric-value" id="avgPathloss">0.00 dB</span> </div>
-      <div class="metric"> <span class="metric-label">Avg Obstacle Shadow (dB):</span> <span class="metric-value" id="avgShadowLoss">0.00 dB</span> </div> 
-      <div class="metric"> <span class="metric-label">Max Coverage Distance:</span> <span class="metric-value" id="maxDistance">0.00 km</span> </div> </div>
-    <div class="output-section"> <h4>🏢 Environment Impact</h4> <div class="metric"> <span class="metric-label">Environment Factor:</span> <span class="metric-value" id="envFactor">Urban</span> </div> <div class="metric"> <span class="metric-label">Obstacle Count:</span> <span class="metric-value" id="obstacleCount">0</span> </div>
-      <div class="metric"> <span class="metric-label">Shadowing Model:</span> <span class="metric-value" id="shadowingFactor">Obstacle-based</span> </div> 
+  <div id="outputs" class="tab-container">
+    <div class="tab-header">
+      <button class="tab-btn active" onclick="switchTab('results')">📊 Results</button>
+      <button class="tab-btn" onclick="switchTab('analysis')">📈 Analysis</button>
     </div>
-    <div class="status-indicator" id="systemStatus"> System Status: Excellent Coverage </div>
+    
+    <div id="results-tab" class="tab-content active">
+      <h3>Results & Analysis</h3>
+      <!-- Keep all your existing output sections here -->
+      <div class="output-section">
+        <h4>Coverage Metrics</h4>
+        <div class="metric">
+          <span class="metric-label">Outage Probability:</span>
+          <span class="metric-value" id="outageProb">0.00%</span>
+        </div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="outageProgress" style="width: 0%;"></div>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Coverage Area:</span>
+          <span class="metric-value" id="coverageArea">100.00%</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Cells in Outage:</span>
+          <span class="metric-value" id="outageCells">0 / 929</span>
+        </div>
+      </div>
+      
+      <div class="output-section">
+        <h4>Signal Analysis</h4>
+        <div class="metric">
+          <span class="metric-label">Avg Rx Power (Covered):</span>
+          <span class="metric-value" id="avgReceivedPower">0.00 dBm</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Min Rx Power (Covered):</span>
+          <span class="metric-value" id="minReceivedPower">0.00 dBm</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Max Rx Power (Covered):</span>
+          <span class="metric-value" id="maxReceivedPower">0.00 dBm</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Signal Dynamic Range:</span>
+          <span class="metric-value" id="signalRange">0.00 dB</span>
+        </div>
+      </div>
+      
+      <div class="output-section">
+        <h4>Path Loss Analysis</h4>
+        <div class="metric">
+          <span class="metric-label">Avg Total Path Loss:</span>
+          <span class="metric-value" id="avgPathloss">0.00 dB</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Avg Obstacle Shadow (dB):</span>
+          <span class="metric-value" id="avgShadowLoss">0.00 dB</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Max Coverage Distance:</span>
+          <span class="metric-value" id="maxDistance">0.00 km</span>
+        </div>
+      </div>
+      
+      <div class="output-section">
+        <h4>Environment Impact</h4>
+        <div class="metric">
+          <span class="metric-label">Environment Factor:</span>
+          <span class="metric-value" id="envFactor">Urban</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Obstacle Count:</span>
+          <span class="metric-value" id="obstacleCount">0</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Shadowing Model:</span>
+          <span class="metric-value" id="shadowingFactor">Obstacle-based</span>
+        </div>
+      </div>
+      
+      <div class="status-indicator" id="systemStatus">
+        System Status: Excellent Coverage
+      </div>
+    </div>
+    
+    <div id="analysis-tab" class="tab-content">
+      <h3>Signal Analysis Plots</h3>
+      
+      <div class="chart-controls">
+        <div class="chart-control-group">
+          <label for="chartType">Chart Type:</label>
+          <select id="chartType" onchange="updateChart()">
+            <option value="snr-distance">SNR vs Distance</option>
+            <option value="power-distance">Received Power vs Distance</option>
+            <option value="pathloss-distance">Path Loss vs Distance</option>
+            <option value="outage-distance">Outage Probability vs Distance</option>
+          </select>
+        </div>
+        <div class="chart-control-group">
+          <label for="chartData">Data Filter:</label>
+          <select id="chartData" onchange="updateChart()">
+            <option value="all">All Cells</option>
+            <option value="covered">Covered Only</option>
+            <option value="outage">Outage Only</option>
+          </select>
+        </div>
+      </div>
+      
+      <div class="chart-container">
+        <canvas id="analysisChart"></canvas>
+      </div>
+      
+      <div class="output-section">
+        <h4>Chart Statistics</h4>
+        <div class="metric">
+          <span class="metric-label">Data Points:</span>
+          <span class="metric-value" id="chartDataPoints">0</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Correlation (R²):</span>
+          <span class="metric-value" id="chartCorrelation">N/A</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Trend:</span>
+          <span class="metric-value" id="chartTrend">N/A</span>
+        </div>
+      </div>
+    </div>
   </div>
 
 <script>
@@ -787,6 +1037,207 @@ function initialize() {
   setMode('normal'); 
   updatePathlossAndMetrics(); 
 }
+function switchTab(tabName) {
+  // Remove active class from all tabs and buttons
+  document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+  
+  // Add active class to selected tab and button
+  document.querySelector(`[onclick="switchTab('${tabName}')"]`).classList.add('active');
+  document.getElementById(`${tabName}-tab`).classList.add('active');
+  
+  // Update chart if analysis tab is selected
+  if (tabName === 'analysis') {
+    setTimeout(updateChart, 100); // Small delay to ensure tab is visible
+  }
+}
+
+// Chart functionality
+let analysisChart = null;
+
+function initializeChart() {
+  const ctx = document.getElementById('analysisChart');
+  if (!ctx) return;
+  
+  // Destroy existing chart if it exists
+  if (analysisChart) {
+    analysisChart.destroy();
+  }
+  
+  analysisChart = new Chart(ctx, {
+    type: 'scatter',
+    data: {
+      datasets: [{
+        label: 'Data Points',
+        data: [],
+        backgroundColor: 'rgba(102, 126, 234, 0.6)',
+        borderColor: 'rgba(102, 126, 234, 1)',
+        borderWidth: 2,
+        pointRadius: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          title: {
+            display: true,
+            text: 'Distance (km)'
+          }
+        },
+        y: {
+          title: {
+            display: true,
+            text: 'Value'
+          }
+        }
+      },
+      plugins: {
+        legend: {
+          display: true
+        },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              return `(${context.parsed.x.toFixed(2)}, ${context.parsed.y.toFixed(2)})`;
+            }
+          }
+        }
+      }
+    }
+  });
+}
+
+function updateChart() {
+  if (!analysisChart) {
+    initializeChart();
+    if (!analysisChart) return;
+  }
+  
+  const chartType = document.getElementById('chartType').value;
+  const dataFilter = document.getElementById('chartData').value;
+  
+  const dataPoints = [];
+  const Pmin = parseFloat(document.getElementById('Pmin').value);
+  
+  // Collect data from cells
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const cell = cells[r][c];
+      
+      // Skip transmitter and obstacles for most analyses
+      if ((r === transmitter.y && c === transmitter.x) || cell.obstacleType) continue;
+      
+      // Apply data filter
+      if (dataFilter === 'covered' && cell.isOutage) continue;
+      if (dataFilter === 'outage' && !cell.isOutage) continue;
+      
+      const distanceKm = cell.distance / 1000;
+      let yValue;
+      
+      switch (chartType) {
+        case 'snr-distance':
+          // Calculate SNR (assuming noise floor of -100 dBm)
+          const noiseFloor = -100;
+          yValue = cell.receivedPower - noiseFloor;
+          break;
+        case 'power-distance':
+          yValue = cell.receivedPower;
+          break;
+        case 'pathloss-distance':
+          yValue = cell.currentPathloss;
+          break;
+        case 'outage-distance':
+          yValue = cell.isOutage ? 1 : 0;
+          break;
+        default:
+          yValue = cell.receivedPower;
+      }
+      
+      dataPoints.push({ x: distanceKm, y: yValue });
+    }
+  }
+  
+  // Update chart data
+  analysisChart.data.datasets[0].data = dataPoints;
+  
+  // Update chart labels and titles
+  const chartLabels = {
+    'snr-distance': { title: 'SNR vs Distance', yLabel: 'SNR (dB)', color: 'rgba(46, 204, 113, 0.6)' },
+    'power-distance': { title: 'Received Power vs Distance', yLabel: 'Received Power (dBm)', color: 'rgba(52, 152, 219, 0.6)' },
+    'pathloss-distance': { title: 'Path Loss vs Distance', yLabel: 'Path Loss (dB)', color: 'rgba(231, 76, 60, 0.6)' },
+    'outage-distance': { title: 'Outage vs Distance', yLabel: 'Outage (1=Yes, 0=No)', color: 'rgba(155, 89, 182, 0.6)' }
+  };
+  
+  const currentLabel = chartLabels[chartType];
+  analysisChart.data.datasets[0].label = currentLabel.title;
+  analysisChart.data.datasets[0].backgroundColor = currentLabel.color;
+  analysisChart.data.datasets[0].borderColor = currentLabel.color.replace('0.6', '1');
+  analysisChart.options.scales.y.title.text = currentLabel.yLabel;
+  
+  // Calculate statistics
+  const correlation = calculateCorrelation(dataPoints);
+  const trend = dataPoints.length > 1 ? (dataPoints[dataPoints.length-1].y > dataPoints[0].y ? 'Increasing' : 'Decreasing') : 'N/A';
+  
+  // Update statistics
+  document.getElementById('chartDataPoints').textContent = dataPoints.length;
+  document.getElementById('chartCorrelation').textContent = isNaN(correlation) ? 'N/A' : correlation.toFixed(3);
+  document.getElementById('chartTrend').textContent = trend;
+  
+  analysisChart.update();
+}
+
+function calculateCorrelation(points) {
+  if (points.length < 2) return NaN;
+  
+  const n = points.length;
+  const sumX = points.reduce((sum, p) => sum + p.x, 0);
+  const sumY = points.reduce((sum, p) => sum + p.y, 0);
+  const sumXY = points.reduce((sum, p) => sum + (p.x * p.y), 0);
+  const sumX2 = points.reduce((sum, p) => sum + (p.x * p.x), 0);
+  const sumY2 = points.reduce((sum, p) => sum + (p.y * p.y), 0);
+  
+  const numerator = (n * sumXY) - (sumX * sumY);
+  const denominator = Math.sqrt(((n * sumX2) - (sumX * sumX)) * ((n * sumY2) - (sumY * sumY)));
+  
+  return denominator === 0 ? 0 : (numerator / denominator) ** 2; // R-squared
+}
+
+// Add Chart.js library loading
+function loadChartJS() {
+  if (typeof Chart !== 'undefined') {
+    initializeChart();
+    return;
+  }
+  
+  const script = document.createElement('script');
+  script.src = 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js';
+  script.onload = function() {
+    initializeChart();
+  };
+  document.head.appendChild(script);
+}
+
+// Update the initialize function to include chart loading
+function initialize() {
+  createGrid(); 
+  setupInputListeners();
+  setMode('normal'); 
+  updatePathlossAndMetrics();
+  loadChartJS(); // Add this line
+}
+
+// Modify updatePathlossAndMetrics to also update chart when data changes
+const originalUpdatePathlossAndMetrics = updatePathlossAndMetrics;
+updatePathlossAndMetrics = function() {
+  originalUpdatePathlossAndMetrics();
+  // Update chart if analysis tab is active
+  if (document.getElementById('analysis-tab').classList.contains('active')) {
+    setTimeout(updateChart, 50);
+  }
+};
+
 document.addEventListener('DOMContentLoaded', initialize);
 </script>
 </body>
