@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clarke's Wireless Fading Model - Virtual Lab</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #fff;
+            min-height: 100vh;
+            color: #333;
+        }
+        
+        .container {
+            display: grid;
+            grid-template-columns: 300px 1fr 400px;
+            height: 100vh;
+            gap: 10px;
+            padding: 10px;
+        }
+        
+        .panel {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            border: 1px solid #dee2e6;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .input-panel {
+            overflow-y: auto;
+        }
+        
+        .input-group {
+            margin-bottom: 20px;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        .input-group input, .input-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ced4da;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+        
+        .input-group input:focus, .input-group select:focus {
+            outline: none;
+            border-color: #80bdff;
+            box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+        }
+        
+        .btn {
+            background-color: #007bff;
+            border-color: #007bff;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            width: 100%;
+            margin-bottom: 10px;
+            transition: transform 0.2s, box-shadow 0.2s, background-color 0.2s;
+        }
+
+        .btn:hover {
+            background-color: #0069d9;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .simulation-panel {
+            position: relative;
+        }
+        
+        .simulation-canvas {
+            flex: 1;
+            background: #ffffff;
+            border-radius: 10px;
+            position: relative;
+            overflow: hidden;
+            border: 1px solid #dee2e6;
+        }
+        
+        .canvas {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .output-panel {
+            gap: 20px;
+        }
+        
+        .chart-container {
+            flex: 1;
+            min-height: 250px;
+            position: relative;
+        }
+        
+        .stats {
+            background: #e9ecef;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #007bff;
+            margin-top: auto;
+        }
+        
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+        
+        .stat-label {
+            font-weight: 600;
+            color: #495057;
+        }
+        
+        .stat-value {
+            color: #212529;
+            font-family: monospace;
+        }
+        
+        .title {
+            text-align: center;
+            color: #343a40;
+            margin-bottom: 20px;
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .signal-line {
+            stroke: #ffc107;
+            stroke-width: 1;
+            opacity: 0.5;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Input Panel -->
+        <div class="panel input-panel">
+            <div class="title">Simulation Parameters</div>
+            
+            <div class="input-group">
+                <label for="velocity">Vehicle Velocity (m/s)</label>
+                <input type="number" id="velocity" value="30" min="1" max="100">
+            </div>
+            
+            <div class="input-group">
+                <label for="frequency">Carrier Frequency (GHz)</label>
+                <input type="number" id="frequency" value="2.4" min="0.1" max="10" step="0.1">
+            </div>
+            
+            <div class="input-group">
+                <label for="obstacleRate">Obstacle Density (obstacles/km²)</label>
+                <input type="number" id="obstacleRate" value="100" min="10" max="500" step="10">
+            </div>
+            
+            <div class="input-group">
+                <label for="numPoints">Number of Path Points</label>
+                <input type="number" id="numPoints" value="10" min="5" max="20">
+            </div>
+            
+            <div class="input-group">
+                <label for="threshold">Path Difference Threshold (m)</label>
+                <input type="number" id="threshold" value="50" min="10" max="500" step="10">
+            </div>
+            
+            <div class="input-group">
+                <label for="simArea">Simulation Area (km)</label>
+                <input type="number" id="simArea" value="2" min="1" max="5" step="0.5">
+            </div>
+            
+            <button class="btn" onclick="generateSimulation()">Generate New Simulation</button>
+            <button class="btn" onclick="startAnimation()">Start Animation</button>
+            <button class="btn" onclick="stopAnimation()">Stop Animation</button>
+            <button class="btn" onclick="calculateResults()">Calculate & Plot Results</button>
+            <button class="btn" onclick="clearData()">Clear Data & Plots</button>
+            
+            <div class="stats">
+                <div class="stat-item">
+                    <span class="stat-label">Total Obstacles:</span>
+                    <span class="stat-value" id="totalObstacles">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Relevant Reflectors (N):</span>
+                    <span class="stat-value" id="relevantReflectors">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Doppler Freq (f_D):</span>
+                    <span class="stat-value" id="dopplerFreq">0 Hz</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Sim Time:</span>
+                    <span class="stat-value" id="simTime">0.0 s</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Data Points:</span>
+                    <span class="stat-value" id="dataPoints">0</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Simulation Panel -->
+        <div class="panel simulation-panel">
+            <div class="title">Simulation Environment</div>
+            <div class="simulation-canvas">
+                <svg class="canvas" id="simulationSVG"></svg>
+            </div>
+        </div>
+        
+        <!-- Output Panel -->
+        <div class="panel output-panel">
+            <div class="title">Analysis Results</div>
+            <div class="chart-container">
+                <canvas id="autocorrelationChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="psdChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- SVG ICONS (Embedded as Base64 Data URIs) ---
+        // Simple antenna tower icon
+        const antennaSVGString = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#28a745"><path d="M12 4L8 8h3v12h2V8h3l-4-4zM4 18v-2h2v2H4zm14 0v-2h2v2h-2zM6 14v-2h2v2H6zm10 0v-2h2v2h-2z"/></svg>`;
+        const antennaIcon = `data:image/svg+xml;base64,${btoa(antennaSVGString)}`;
+        // Simple car top-down icon
+        const carSVGString = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#17a2b8"><path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11C5.84 5 5.28 5.42 5.08 6.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/></svg>`;
+        const carIcon = `data:image/svg+xml;base64,${btoa(carSVGString)}`;
+        
+        // --- GLOBAL VARIABLES ---
+        let obstacles = [];
+        let pathPoints = [];
+        let transmitter = { x: 0, y: 0 };
+        let receiver = { x: 0, y: 0 };
+        let simulationData = { channelCoeffs: [] }; // {real, imag, time}
+        let animationId = null;
+        let simState = { isRunning: false, lastTimestamp: 0, simulationTime: 0, currentSegment: 0, distOnSegment: 0, pathSegmentLengths: [], pathSegmentVectors: [], totalPathLength: 0 };
+        const c = 3e8; // Speed of light
+        let simAreaSize = 2000;
+        let autocorrelationChart = null;
+        let psdChart = null;
+        
+        window.onload = function() {
+            initCharts();
+            generateSimulation();
+        };
+        window.addEventListener('resize', () => {
+            if (autocorrelationChart) autocorrelationChart.resize();
+            if (psdChart) psdChart.resize();
+            drawSimulation();
+        });
+
+        function initCharts() {
+            const commonOptions = { responsive: true, maintainAspectRatio: false, animation: { duration: 250 }, interaction: { intersect: false, mode: 'index' } };
+            autocorrelationChart = new Chart(document.getElementById('autocorrelationChart').getContext('2d'), {
+                type: 'line',
+                data: { labels: [], datasets: [{ label: 'Normalized Autocorrelation |R(τ)|', data: [], borderColor: '#007bff', tension: 0.1, pointRadius: 0 }] },
+                options: { ...commonOptions, plugins: { title: { display: true, text: 'Channel Autocorrelation' }}, scales: { x: { title: { display: true, text: 'Time Lag τ (s)' }}, y: { title: { display: true, text: 'Correlation' }, min: 0, max: 1.1 }}}
+            });
+            psdChart = new Chart(document.getElementById('psdChart').getContext('2d'), {
+                type: 'line',
+                data: { labels: [], datasets: [
+                    { label: 'Simulated PSD', data: [], borderColor: '#fd7e14', tension: 0.1, pointRadius: 0, fill: true, backgroundColor: 'rgba(253, 126, 20, 0.2)' },
+                    { label: "Theoretical Jakes' Spectrum", data: [], borderColor: '#28a745', borderDash: [5, 5], tension: 0.2, pointRadius: 0 }
+                ]},
+                options: { ...commonOptions, plugins: { title: { display: true, text: 'Power Spectral Density' }}, scales: { x: { title: { display: true, text: 'Frequency Shift from fc (Hz)' }}, y: { title: { display: true, text: 'PSD (dB)' }}}}
+            });
+        }
+
+        function generateSimulation() {
+            stopAnimation();
+            simAreaSize = parseFloat(document.getElementById('simArea').value) * 1000;
+            generateObstacles();
+            generatePath();
+            setupPathProperties();
+            receiver = pathPoints.length > 0 ? { ...pathPoints[0] } : { x: 0, y: 0 };
+            simState = { ...simState, simulationTime: 0, currentSegment: 0, distOnSegment: 0, lastTimestamp: 0 };
+            clearData();
+            drawSimulation();
+        }
+
+        function generateObstacles() {
+            obstacles = [];
+            const rate = parseFloat(document.getElementById('obstacleRate').value);
+            const areaKm2 = (simAreaSize / 1000) ** 2;
+            const meanNumObstacles = rate * areaKm2;
+            const numObstacles = Math.floor(Math.random() * meanNumObstacles * 2);
+            for (let i = 0; i < numObstacles; i++) {
+                obstacles.push({ x: (Math.random() - 0.5) * simAreaSize, y: (Math.random() - 0.5) * simAreaSize });
+            }
+            document.getElementById('totalObstacles').textContent = obstacles.length;
+        }
+
+        function generatePath() {
+            pathPoints = [];
+            const numPoints = parseInt(document.getElementById('numPoints').value);
+            if (numPoints < 3) return;
+            for (let i = 0; i < numPoints; i++) {
+                pathPoints.push({ x: (Math.random() - 0.5) * simAreaSize * 0.8, y: (Math.random() - 0.5) * simAreaSize * 0.8 });
+            }
+            pathPoints.sort((a, b) => Math.atan2(a.y, a.x) - Math.atan2(b.y, b.x));
+            pathPoints.push(pathPoints[0]); // Close the path
+        }
+
+        function setupPathProperties() {
+            simState.pathSegmentLengths = [];
+            simState.pathSegmentVectors = [];
+            simState.totalPathLength = 0;
+            if (pathPoints.length < 2) return;
+            for (let i = 0; i < pathPoints.length - 1; i++) {
+                const p1 = pathPoints[i], p2 = pathPoints[i + 1];
+                const dx = p2.x - p1.x, dy = p2.y - p1.y, len = Math.sqrt(dx * dx + dy * dy);
+                if (len > 0) {
+                    simState.pathSegmentLengths.push(len);
+                    simState.totalPathLength += len;
+                    simState.pathSegmentVectors.push({ x: dx / len, y: dy / len });
+                }
+            }
+        }
+
+        function startAnimation() {
+            if (simState.isRunning) return;
+            simState.isRunning = true;
+            simState.lastTimestamp = 0;
+            animationId = requestAnimationFrame(animate);
+        }
+
+        function stopAnimation() {
+            simState.isRunning = false;
+            if (animationId) cancelAnimationFrame(animationId);
+            animationId = null;
+        }
+
+        function animate(timestamp) {
+            if (!simState.isRunning) return;
+            if (simState.lastTimestamp === 0) simState.lastTimestamp = timestamp;
+            const dt = (timestamp - simState.lastTimestamp) / 1000;
+            simState.lastTimestamp = timestamp;
+            const effectiveDt = Math.min(dt, 0.1);
+            const velocityVector = updateReceiverPosition(effectiveDt);
+
+            if (velocityVector) {
+                const { fD, angles } = calculateChannelResponse(velocityVector);
+                document.getElementById('dopplerFreq').textContent = `${fD.toFixed(2)} Hz`;
+                let realPart = 0, imagPart = 0;
+                const t = simState.simulationTime;
+                if (angles.length > 0) {
+                    angles.forEach(angle => {
+                        const phase = 2 * Math.PI * fD * Math.cos(angle) * t;
+                        realPart += Math.cos(phase); imagPart += Math.sin(phase);
+                    });
+                    const norm = Math.sqrt(angles.length);
+                    realPart /= norm; imagPart /= norm;
+                }
+                simulationData.channelCoeffs.push({ real: realPart, imag: imagPart, time: t });
+            }
+
+            document.getElementById('simTime').textContent = `${simState.simulationTime.toFixed(1)} s`;
+            document.getElementById('dataPoints').textContent = simulationData.channelCoeffs.length;
+            drawSimulation();
+            animationId = requestAnimationFrame(animate);
+        }
+
+        function updateReceiverPosition(dt) {
+            if (pathPoints.length < 2 || simState.totalPathLength === 0 || dt <= 0) return null;
+            const velocity = parseFloat(document.getElementById('velocity').value);
+            let distToMove = velocity * dt;
+            simState.simulationTime += dt;
+            while (distToMove > 0) {
+                const currentSegmentLength = simState.pathSegmentLengths[simState.currentSegment];
+                const remainingDistOnSegment = currentSegmentLength - simState.distOnSegment;
+                if (distToMove >= remainingDistOnSegment) {
+                    distToMove -= remainingDistOnSegment;
+                    simState.distOnSegment = 0;
+                    simState.currentSegment = (simState.currentSegment + 1) % simState.pathSegmentVectors.length;
+                } else {
+                    simState.distOnSegment += distToMove;
+                    distToMove = 0;
+                }
+            }
+            const startPoint = pathPoints[simState.currentSegment], segmentVector = simState.pathSegmentVectors[simState.currentSegment];
+            receiver.x = startPoint.x + segmentVector.x * simState.distOnSegment;
+            receiver.y = startPoint.y + segmentVector.y * simState.distOnSegment;
+            return segmentVector;
+        }
+
+        function calculateChannelResponse(velocityVector) {
+            const velocity = parseFloat(document.getElementById('velocity').value);
+            const frequency = parseFloat(document.getElementById('frequency').value) * 1e9;
+            const threshold = parseFloat(document.getElementById('threshold').value);
+            const fD = frequency * velocity / c;
+            const d0 = Math.sqrt(receiver.x ** 2 + receiver.y ** 2);
+
+            const relevantObstacles = obstacles.filter(obs => {
+                const d1 = Math.sqrt(obs.x ** 2 + obs.y ** 2);
+                const d2 = Math.sqrt((obs.x - receiver.x) ** 2 + (obs.y - receiver.y) ** 2);
+                return Math.abs((d1 + d2) - d0) <= threshold;
+            });
+
+            const angles = relevantObstacles.map(obs => {
+                const signalVector = { x: obs.x - receiver.x, y: obs.y - receiver.y };
+                const dotProduct = signalVector.x * velocityVector.x + signalVector.y * velocityVector.y;
+                const magSignal = Math.sqrt(signalVector.x ** 2 + signalVector.y ** 2);
+                if (magSignal === 0) return 0;
+                return Math.acos(Math.max(-1, Math.min(1, dotProduct / magSignal)));
+            });
+
+            document.getElementById('relevantReflectors').textContent = relevantObstacles.length;
+            return { fD, angles };
+        }
+
+        function calculateResults() {
+            if (simulationData.channelCoeffs.length < 256) {
+                alert('Please run the animation for longer to collect sufficient data (at least 256 points).');
+                return;
+            }
+            const data = simulationData.channelCoeffs;
+            const avgDt = (data[data.length - 1].time - data[0].time) / (data.length - 1);
+            if (isNaN(avgDt) || avgDt <= 0) return alert("Cannot calculate results. Invalid time data.");
+            
+            const { autocorr, lags } = calculateAutocorrelation(data, avgDt);
+            autocorrelationChart.data.labels = lags.map(l => l.toFixed(3));
+            autocorrelationChart.data.datasets[0].data = autocorr;
+            autocorrelationChart.update();
+
+            const velocity = parseFloat(document.getElementById('velocity').value);
+            const frequency = parseFloat(document.getElementById('frequency').value) * 1e9;
+            const fD = frequency * velocity / c;
+            const sampleRate = 1 / avgDt;
+
+            const { frequencies, psd } = calculatePSD_Welch(data, sampleRate);
+            const { theoreticalFreqs, theoreticalPSD } = calculateTheoreticalPSD(fD, psd);
+            psdChart.data.labels = theoreticalFreqs.map(f => f.toFixed(1));
+            psdChart.data.datasets[0].data = psd;
+            psdChart.data.datasets[1].data = theoreticalPSD;
+            psdChart.update();
+        }
+        
+        function calculateAutocorrelation(data, avgDt, maxLag = 200) {
+            const autocorr = [], lags = [];
+            maxLag = Math.min(maxLag, data.length - 1);
+            for (let lag = 0; lag <= maxLag; lag++) {
+                let sum_real = 0, sum_imag = 0;
+                for (let i = 0; i < data.length - lag; i++) {
+                    const h_t_lag = data[i + lag], h_t_conj = { real: data[i].real, imag: -data[i].imag };
+                    sum_real += h_t_lag.real * h_t_conj.real - h_t_lag.imag * h_t_conj.imag;
+                    sum_imag += h_t_lag.real * h_t_conj.imag + h_t_lag.imag * h_t_conj.real;
+                }
+                const count = data.length - lag;
+                autocorr.push(Math.sqrt((sum_real / count) ** 2 + (sum_imag / count) ** 2));
+                lags.push(lag * avgDt);
+            }
+            const r0 = autocorr[0] || 1;
+            return { autocorr: autocorr.map(val => val / r0), lags };
+        }
+
+        function fftshift(arr) {
+            const mid = Math.ceil(arr.length / 2);
+            return arr.slice(mid).concat(arr.slice(0, mid));
+        }
+
+        // Use Welch's method for a smoother, more representative PSD
+        function calculatePSD_Welch(data, sampleRate, segLen = 256, overlap = 0.5) {
+            const N = data.length;
+            const step = segLen * (1 - overlap);
+            const numSegments = Math.floor((N - segLen) / step) + 1;
+            if (numSegments < 1) return { frequencies: [], psd: [] };
+            
+            const avgSpectrum = new Array(segLen).fill(0);
+            const hannWindow = Array.from({length: segLen}, (_, i) => 0.5 * (1 - Math.cos(2 * Math.PI * i / (segLen - 1))));
+
+            for (let i = 0; i < numSegments; i++) {
+                const segment = data.slice(i * step, i * step + segLen);
+                const dft_real = new Array(segLen).fill(0), dft_imag = new Array(segLen).fill(0);
+                
+                for (let k = 0; k < segLen; k++) {
+                    for (let n = 0; n < segLen; n++) {
+                        const angle = -2 * Math.PI * k * n / segLen;
+                        const windowed = {real: segment[n].real * hannWindow[n], imag: segment[n].imag * hannWindow[n]};
+                        dft_real[k] += windowed.real * Math.cos(angle) - windowed.imag * Math.sin(angle);
+                        dft_imag[k] += windowed.real * Math.sin(angle) + windowed.imag * Math.cos(angle);
+                    }
+                }
+                for (let k = 0; k < segLen; k++) {
+                    avgSpectrum[k] += (dft_real[k]**2 + dft_imag[k]**2);
+                }
+            }
+            
+            const windowPower = hannWindow.reduce((sum, val) => sum + val**2, 0);
+            const scale = 1 / (sampleRate * windowPower * numSegments);
+            const periodogram = avgSpectrum.map(val => val * scale);
+            const shiftedPeriodogram = fftshift(periodogram);
+            const psd = shiftedPeriodogram.map(p => 10 * Math.log10(p + 1e-20));
+            const frequencies = Array.from({length: segLen}, (_, i) => (i - Math.floor(segLen/2)) * sampleRate / segLen);
+            
+            return { frequencies, psd };
+        }
+        
+        function calculateTheoreticalPSD(fD, simulatedPSD) {
+            const numPoints = 256;
+            const theoreticalFreqs = [], theoreticalPSD = [];
+            const maxSimulatedPSD = Math.max(...simulatedPSD.filter(isFinite)); // Find peak of simulated data
+            
+            // Formula S(f) = 1 / (pi * f_D * sqrt(1 - (f/f_D)^2))
+            for(let i=0; i < numPoints; i++){
+                const f_norm = -1 + (2 * i / (numPoints - 1));
+                const f = f_norm * fD;
+                theoreticalFreqs.push(f);
+                
+                // Avoid singularity at f = +/- f_D by using a small epsilon
+                const term = 1 - (f_norm * f_norm);
+                if (term <= 1e-6) {
+                    theoreticalPSD.push(maxSimulatedPSD + 3); // Make it slightly higher than simulated max
+                } else {
+                    const val = 1 / (Math.PI * fD * Math.sqrt(term));
+                    theoreticalPSD.push(10 * Math.log10(val));
+                }
+            }
+            // Normalize theoretical PSD to match the peak of the simulated one for better comparison
+            const maxTheoreticalPSD = Math.max(...theoreticalPSD.filter(isFinite));
+            const offset = maxSimulatedPSD - maxTheoreticalPSD;
+            
+            return { theoreticalFreqs, theoreticalPSD: theoreticalPSD.map(v => v + offset) };
+        }
+
+        function clearData() {
+            simulationData.channelCoeffs = [];
+            document.getElementById('dataPoints').textContent = '0';
+            autocorrelationChart.data.labels = [];
+            autocorrelationChart.data.datasets[0].data = [];
+            autocorrelationChart.update();
+            psdChart.data.labels = [];
+            psdChart.data.datasets[0].data = [];
+            psdChart.data.datasets[1].data = [];
+            psdChart.update();
+        }
+
+        function drawSimulation() {
+            const svg = document.getElementById('simulationSVG');
+            const rect = svg.getBoundingClientRect();
+            const scale = Math.min(rect.width, rect.height) / simAreaSize;
+            const centerX = rect.width / 2, centerY = rect.height / 2;
+            svg.innerHTML = '';
+            
+            // Draw path
+            if (pathPoints.length > 1) {
+                const pathEl = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                let pathData = `M ${centerX + pathPoints[0].x * scale} ${centerY + pathPoints[0].y * scale}`;
+                for (let i = 1; i < pathPoints.length; i++) pathData += ` L ${centerX + pathPoints[i].x * scale} ${centerY + pathPoints[i].y * scale}`;
+                pathEl.setAttribute('d', pathData);
+                pathEl.setAttribute('fill', 'none');
+                pathEl.setAttribute('stroke', '#6c757d');
+                pathEl.setAttribute('stroke-width', '2');
+                pathEl.setAttribute('stroke-dasharray', '5,5');
+                svg.appendChild(pathEl);
+            }
+            
+            drawSignalPaths(svg, scale, centerX, centerY);
+
+            // Draw obstacles
+            obstacles.forEach(obs => {
+                const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                circle.setAttribute('cx', centerX + obs.x * scale);
+                circle.setAttribute('cy', centerY + obs.y * scale);
+                circle.setAttribute('r', '4');
+                circle.setAttribute('fill', '#dc3545');
+                svg.appendChild(circle);
+            });
+            
+            // Draw transmitter and receiver using SVG icons
+            const iconSize = 40;
+            const txImg = document.createElementNS('http://www.w3.org/2000/svg', 'image');
+            txImg.setAttribute('href', antennaIcon);
+            txImg.setAttribute('x', centerX - iconSize / 2);
+            txImg.setAttribute('y', centerY - iconSize / 2);
+            txImg.setAttribute('width', iconSize);
+            txImg.setAttribute('height', iconSize);
+            svg.appendChild(txImg);
+            
+            const rxImg = document.createElementNS('http://www.w3.org/2000/svg', 'image');
+            rxImg.setAttribute('href', carIcon);
+            rxImg.setAttribute('x', centerX + receiver.x * scale - iconSize / 2);
+            rxImg.setAttribute('y', centerY + receiver.y * scale - iconSize / 2);
+            rxImg.setAttribute('width', iconSize);
+            rxImg.setAttribute('height', iconSize);
+            svg.appendChild(rxImg);
+        }
+
+        function drawSignalPaths(svg, scale, centerX, centerY) {
+            const threshold = parseFloat(document.getElementById('threshold').value);
+            const d0 = Math.sqrt(receiver.x ** 2 + receiver.y ** 2);
+            
+            obstacles.forEach(obs => {
+                const d1 = Math.sqrt(obs.x ** 2 + obs.y ** 2);
+                const d2 = Math.sqrt((obs.x - receiver.x) ** 2 + (obs.y - receiver.y) ** 2);
+                if (Math.abs((d1 + d2) - d0) <= threshold) {
+                    const line1 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    line1.setAttribute('x1', centerX);
+                    line1.setAttribute('y1', centerY);
+                    line1.setAttribute('x2', centerX + obs.x * scale);
+                    line1.setAttribute('y2', centerY + obs.y * scale);
+                    line1.setAttribute('class', 'signal-line');
+                    svg.appendChild(line1);
+
+                    const line2 = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    line2.setAttribute('x1', centerX + obs.x * scale);
+                    line2.setAttribute('y1', centerY + obs.y * scale);
+                    line2.setAttribute('x2', centerX + receiver.x * scale);
+                    line2.setAttribute('y2', centerY + receiver.y * scale);
+                    line2.setAttribute('class', 'signal-line');
+                    svg.appendChild(line2);
+                }
+            });
+        }
+
+    </script>
+</body>
+</html>
