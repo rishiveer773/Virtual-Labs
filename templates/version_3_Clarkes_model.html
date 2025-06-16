@@ -43,7 +43,7 @@
             <div class="input-group"><label for="frequency">Carrier Frequency (GHz)</label><input type="number" id="frequency" value="2.4" min="0.1" max="10" step="0.1"></div>
             <div class="input-group"><label for="obstacleRate">Obstacle Density (obstacles/km²)</label><input type="number" id="obstacleRate" value="100" min="10" max="500" step="10"></div>
             <div class="input-group"><label for="numPoints">Number of Path Points</label><input type="number" id="numPoints" value="10" min="5" max="20"></div>
-            <div class="input-group"><label for="threshold">Path Difference Threshold (m)</label><input type="number" id="threshold" value="50" min="10" max="500" step="10"></div>
+            <div class="input-group"><label for="threshold">Path Difference Threshold (m)</label><input type="number" id="threshold" value="500" min="10" max="500" step="10"></div>
             <div class="input-group"><label for="simArea">Simulation Area (km)</label><input type="number" id="simArea" value="2" min="1" max="5" step="0.5"></div>
             <button class="btn" onclick="generateSimulation()">Generate New Environment</button>
             <hr style="margin: 20px 0;">
@@ -99,7 +99,10 @@
             options: { ...commonOptions, plugins: { title: { display: true, text: 'Autocorrelation Comparison by Velocity' }}, scales: { x: { title: { display: true, text: 'Time Lag τ (s)' }}, y: { title: { display: true, text: 'Correlation' }, min: -0.1, max: 1.1 }}}
         });
         psdChart = new Chart(document.getElementById('psdChart').getContext('2d'), {
-            type: 'line', data: { labels: [], datasets: [] },
+            type: 'line', data: { labels: [], datasets: [
+                 { label: 'Simulated PSD', data: [], borderColor: '#fd7e14', tension: 0.1, pointRadius: 0, fill: true, backgroundColor: 'rgba(253, 126, 20, 0.2)' },
+                 { label: "Theoretical Jakes' Spectrum", data: [], borderColor: '#28a745', borderDash: [5, 5], tension: 0.2, pointRadius: 0 }
+            ]},
             options: { ...commonOptions, plugins: { title: { display: true, text: 'Power Spectral Density' }}, scales: { x: { title: { display: true, text: 'Frequency Shift from fc (Hz)' }}, y: { title: { display: true, text: 'PSD (dB)' }}}}
         });
     }
@@ -279,9 +282,10 @@
 
     function plotComparisonResults() {
         clearAllPlots();
-        const MAX_TIME_LAG = 0.05; // Zoom in to the first 50 milliseconds
-        let plotDatasets = [];
-        let masterLabels = [];
+        
+        // --- Autocorrelation Plot ---
+        const MAX_TIME_LAG = 0.025; // Zoom in to the first 50 milliseconds
+        let acfPlotDatasets = [], acfMasterLabels = [];
 
         for(let i=0; i < NUM_RECEIVERS; i++) {
             const data = simulationData[i].channelCoeffs;
@@ -293,21 +297,38 @@
             const maxLagInSamples = Math.ceil(MAX_TIME_LAG / avgDt);
             const { autocorr, lags } = calculateAutocorrelation(data, avgDt, maxLagInSamples);
             
-            if (lags.length > masterLabels.length) {
-                masterLabels = lags.map(l => l.toFixed(4));
+            if (lags.length > acfMasterLabels.length) {
+                acfMasterLabels = lags.map(l => l.toFixed(4));
             }
 
-            plotDatasets.push({
+            acfPlotDatasets.push({
                 label: `V = ${simStates[i].velocity} m/s`,
-                data: autocorr,
-                borderColor: RECEIVER_COLORS[i],
+                data: autocorr, borderColor: RECEIVER_COLORS[i],
                 borderWidth: 2.5, tension: 0.1, pointRadius: 0
             });
         }
-        
-        autocorrelationChart.data.labels = masterLabels;
-        autocorrelationChart.data.datasets = plotDatasets;
+        autocorrelationChart.data.labels = acfMasterLabels;
+        autocorrelationChart.data.datasets = acfPlotDatasets;
         autocorrelationChart.update();
+
+        // --- PSD Plot for the First Vehicle ---
+        if (simulationData[0] && simulationData[0].channelCoeffs.length > 256) {
+            const psdData = simulationData[0].channelCoeffs;
+            const psdState = simStates[0];
+            const avgDt = (psdData[psdData.length-1].time - psdData[0].time) / (psdData.length - 1);
+            const sampleRate = 1 / avgDt;
+
+            const { frequencies, psd } = calculatePSD_Welch(psdData, sampleRate);
+            const fD = (parseFloat(document.getElementById('frequency').value) * 1e9 * psdState.velocity) / c;
+            const { theoreticalFreqs, theoreticalPSD } = calculateTheoreticalPSD(fD, psd);
+
+            psdChart.data.labels = theoreticalFreqs.map(f => f.toFixed(1));
+            psdChart.data.datasets[0].label = `Simulated PSD (V=${psdState.velocity} m/s)`;
+            psdChart.data.datasets[0].data = psd;
+            psdChart.data.datasets[1].label = `Theoretical (V=${psdState.velocity} m/s)`;
+            psdChart.data.datasets[1].data = theoreticalPSD;
+            psdChart.update();
+        }
     }
 
     function calculateAutocorrelation(data, avgDt, maxLagInSamples) {
@@ -329,9 +350,55 @@
         return { autocorr: autocorr.map(val => val / r0), lags };
     }
 
+    function calculatePSD_Welch(data, sampleRate, segLen = 256, overlap = 0.5) {
+        const N = data.length; const step = segLen * (1 - overlap);
+        const numSegments = Math.floor((N - segLen) / step) + 1;
+        if (numSegments < 1) return { frequencies: [], psd: [] };
+        const avgSpectrum = new Array(segLen).fill(0);
+        const hannWindow = Array.from({length: segLen}, (_, i) => 0.5 * (1 - Math.cos(2 * Math.PI * i / (segLen - 1))));
+        for (let i = 0; i < numSegments; i++) {
+            const segment = data.slice(i * step, i * step + segLen);
+            const dft_real = new Array(segLen).fill(0), dft_imag = new Array(segLen).fill(0);
+            for (let k = 0; k < segLen; k++) {
+                for (let n = 0; n < segLen; n++) {
+                    const angle = -2 * Math.PI * k * n / segLen;
+                    const windowed = {real: segment[n].real * hannWindow[n], imag: segment[n].imag * hannWindow[n]};
+                    dft_real[k] += windowed.real * Math.cos(angle) - windowed.imag * Math.sin(angle);
+                    dft_imag[k] += windowed.real * Math.sin(angle) + windowed.imag * Math.cos(angle);
+                }
+            }
+            for (let k = 0; k < segLen; k++) avgSpectrum[k] += (dft_real[k]**2 + dft_imag[k]**2);
+        }
+        const windowPower = hannWindow.reduce((sum, val) => sum + val**2, 0);
+        const scale = 1 / (sampleRate * windowPower * numSegments);
+        const periodogram = avgSpectrum.map(val => val * scale);
+        const shiftedPeriodogram = ((arr) => { const mid = Math.ceil(arr.length / 2); return arr.slice(mid).concat(arr.slice(0, mid)); })(periodogram);
+        const psd = shiftedPeriodogram.map(p => 10 * Math.log10(p + 1e-20));
+        const frequencies = Array.from({length: segLen}, (_, i) => (i - Math.floor(segLen/2)) * sampleRate / segLen);
+        return { frequencies, psd };
+    }
+
+    function calculateTheoreticalPSD(fD, simulatedPSD) {
+        const numPoints = 256; const theoreticalFreqs = [], theoreticalPSD = [];
+        const maxSimulatedPSD = Math.max(...simulatedPSD.filter(isFinite));
+        for(let i=0; i < numPoints; i++){
+            const f_norm = -1 + (2 * i / (numPoints - 1));
+            const f = f_norm * fD; theoreticalFreqs.push(f);
+            const term = 1 - (f_norm * f_norm);
+            if (term <= 1e-6) { theoreticalPSD.push(maxSimulatedPSD + 3);
+            } else {
+                const val = 1 / (Math.PI * fD * Math.sqrt(term));
+                theoreticalPSD.push(10 * Math.log10(val));
+            }
+        }
+        const maxTheoreticalPSD = Math.max(...theoreticalPSD.filter(isFinite));
+        const offset = maxSimulatedPSD - maxTheoreticalPSD;
+        return { theoreticalFreqs, theoreticalPSD: theoreticalPSD.map(v => isFinite(v) ? v + offset : NaN) };
+    }
+
     function clearAllPlots() {
         autocorrelationChart.data.labels = []; autocorrelationChart.data.datasets = []; autocorrelationChart.update();
-        psdChart.data.labels = []; psdChart.data.datasets = []; psdChart.update();
+        psdChart.data.labels = []; psdChart.data.datasets.forEach(ds => ds.data = []); psdChart.update();
     }
 
     function drawSimulation() {
