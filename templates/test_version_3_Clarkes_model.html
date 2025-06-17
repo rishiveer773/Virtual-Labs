@@ -8,31 +8,34 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #fff; min-height: 100vh; color: #333; }
-        .container { display: grid; grid-template-columns: 300px 1fr 400px; height: 100vh; gap: 10px; padding: 10px; }
+        .container { display: grid; grid-template-columns: 300px 1fr 500px; height: 100vh; gap: 10px; padding: 10px; }
         .panel { background: #f8f9fa; border-radius: 15px; padding: 20px; border: 1px solid #dee2e6; display: flex; flex-direction: column; }
-        .input-panel { overflow-y: auto; }
+        .input-panel, .output-panel { overflow-y: auto; }
         .input-group { margin-bottom: 15px; }
         .input-group label { display: block; margin-bottom: 5px; font-weight: 600; color: #495057; }
-        .input-group input { width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 8px; font-size: 14px; transition: border-color 0.3s, box-shadow 0.3s; }
-        .input-group input:focus { outline: none; border-color: #80bdff; box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25); }
+        .input-group input, .input-group select { width: 100%; padding: 10px; border: 1px solid #ced4da; border-radius: 8px; font-size: 14px; transition: border-color 0.3s, box-shadow 0.3s; }
+        .input-group input:focus, .input-group select:focus { outline: none; border-color: #80bdff; box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25); }
         .btn { background-color: #007bff; border-color: #007bff; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-size: 14px; font-weight: 600; width: 100%; margin-bottom: 10px; transition: all 0.2s; }
         .btn:hover { background-color: #0069d9; transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
         .btn:active { transform: translateY(0); }
         .btn-secondary { background-color: #28a745; }
         .btn-secondary:hover { background-color: #218838; }
-        .simulation-panel, .output-panel { position: relative; }
+        .simulation-panel { position: relative; }
         .simulation-canvas { flex: 1; background: #ffffff; border-radius: 10px; position: relative; overflow: hidden; border: 1px solid #dee2e6; }
         .canvas { width: 100%; height: 100%; }
-        .chart-container { flex: 1; min-height: 250px; position: relative; }
+        .chart-container { min-height: 200px; position: relative; margin-bottom: 15px; }
         .stats { background: #e9ecef; padding: 15px; border-radius: 8px; border-left: 4px solid #007bff; margin-top: auto; }
         .stat-item { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; }
         .stat-label { font-weight: 600; color: #495057; }
         .stat-value { color: #212529; font-family: monospace; }
-        .title { text-align: center; color: #343a40; margin-bottom: 20px; font-size: 18px; font-weight: 700; border-bottom: 1px solid #dee2e6; padding-bottom: 10px; }
-        .signal-line { stroke: #ffc107; stroke-width: 1; opacity: 0.3; }
+        .title { text-align: center; color: #343a40; margin-bottom: 10px; font-size: 18px; font-weight: 700; border-bottom: 1px solid #dee2e6; padding-bottom: 10px; }
+        .small-title { text-align: center; color: #495057; margin-bottom: 8px; font-size: 14px; font-weight: 600; }
+        .signal-line { stroke: #ffc107; stroke-width: 1.5; opacity: 0.7; }
         #status { text-align: center; margin-top: 10px; font-weight: 600; color: #17a2b8; height: 20px; }
         .comparison-section .input-group { display: flex; align-items: center; gap: 10px; }
         .comparison-section .input-group label { margin-bottom: 0; flex-basis: 40%; }
+        .plot-controls { text-align: center; margin-bottom: 10px; font-size: 14px; }
+        .plot-controls label { margin: 0 10px 0 2px; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -43,7 +46,6 @@
             <div class="input-group"><label for="frequency">Carrier Frequency (GHz)</label><input type="number" id="frequency" value="2.4" min="0.1" max="10" step="0.1"></div>
             <div class="input-group"><label for="obstacleRate">Obstacle Density (obstacles/km²)</label><input type="number" id="obstacleRate" value="100" min="10" max="500" step="10"></div>
             <div class="input-group"><label for="numPoints">Number of Path Points</label><input type="number" id="numPoints" value="10" min="5" max="20"></div>
-            <div class="input-group"><label for="threshold">Path Difference Threshold (m)</label><input type="number" id="threshold" value="500" min="10" max="500" step="10"></div>
             <div class="input-group"><label for="simArea">Simulation Area (km)</label><input type="number" id="simArea" value="2" min="1" max="5" step="0.5"></div>
             <button class="btn" onclick="generateSimulation()">Generate New Environment</button>
             <hr style="margin: 20px 0;">
@@ -69,8 +71,28 @@
         
         <!-- Output Panel -->
         <div class="panel output-panel">
-            <div class="title">Analysis Results</div>
-            <div class="chart-container"><canvas id="autocorrelationChart"></canvas></div>
+            <div class="title">Complex Channel Response h(t)</div>
+            <div class="plot-controls" id="channel-controls">
+                <input type="radio" id="ch1" name="channelSelect" value="0" checked onchange="updateChannelPlots()"><label for="ch1" id="ch1-label">Vehicle 1</label>
+                <input type="radio" id="ch2" name="channelSelect" value="1" onchange="updateChannelPlots()"><label for="ch2" id="ch2-label">Vehicle 2</label>
+                <input type="radio" id="ch3" name="channelSelect" value="2" onchange="updateChannelPlots()"><label for="ch3" id="ch3-label">Vehicle 3</label>
+            </div>
+            
+            <div class="small-title">In-Phase Component (Real Part)</div>
+            <div class="chart-container"><canvas id="realChart"></canvas></div>
+            
+            <div class="small-title">Quadrature Component (Imaginary Part)</div>
+            <div class="chart-container"><canvas id="imagChart"></canvas></div>
+            
+            <div class="title">Autocorrelation Function</div>
+            <div class="chart-container"><canvas id="autocorrChart"></canvas></div>
+            
+            <div class="title" id="psd-chart-title">Power Spectral Density</div>
+             <div class="plot-controls" id="psd-controls">
+                <input type="radio" id="psd-ch1" name="psdSelect" value="0" checked onchange="updatePSDPlot()"><label for="psd-ch1" id="psd-ch1-label">Vehicle 1</label>
+                <input type="radio" id="psd-ch2" name="psdSelect" value="1" onchange="updatePSDPlot()"><label for="psd-ch2" id="psd-ch2-label">Vehicle 2</label>
+                <input type="radio" id="psd-ch3" name="psdSelect" value="2" onchange="updatePSDPlot()"><label for="psd-ch3" id="psd-ch3-label">Vehicle 3</label>
+            </div>
             <div class="chart-container"><canvas id="psdChart"></canvas></div>
         </div>
     </div>
@@ -80,31 +102,33 @@
     const NUM_RECEIVERS = 3;
     const RECEIVER_COLORS = ['#007bff', '#fd7e14', '#dc3545'];
     const c = 3e8;
-    const ANIMATION_SPEED_MULTIPLIER = 10;
-    const PHYSICS_DT = 0.005; // 200 Hz sample rate
+    const ANIMATION_SPEED_MULTIPLIER = 15;
+    const PHYSICS_DT = 0.005;
 
     let obstacles = [], pathPoints = [], pathProperties = {};
     let receivers = [], simStates = [], simulationData = [];
     let animationId = null, simAreaSize = 2000, lastTimestamp = 0;
-    let autocorrelationChart = null, psdChart = null;
+    let realChart = null, imagChart = null, autocorrChart = null, psdChart = null;
+    let lastPlottedData = null;
 
     // --- INITIALIZATION ---
     window.onload = () => { initCharts(); generateSimulation(); };
-    window.addEventListener('resize', () => { if (autocorrelationChart) autocorrelationChart.resize(); if (psdChart) psdChart.resize(); drawSimulation(); });
+    window.addEventListener('resize', () => { 
+        if (realChart) realChart.resize(); 
+        if (imagChart) imagChart.resize();
+        if (autocorrChart) autocorrChart.resize();
+        if (psdChart) psdChart.resize();
+        drawSimulation(); 
+    });
 
     function initCharts() {
-        const commonOptions = { responsive: true, maintainAspectRatio: false, animation: { duration: 500 }, interaction: { intersect: false, mode: 'index' } };
-        autocorrelationChart = new Chart(document.getElementById('autocorrelationChart').getContext('2d'), {
-            type: 'line', data: { labels: [], datasets: [] },
-            options: { ...commonOptions, plugins: { title: { display: true, text: 'Autocorrelation Comparison by Velocity' }}, scales: { x: { title: { display: true, text: 'Time Lag τ (s)' }}, y: { title: { display: true, text: 'Correlation' }, min: -0.1, max: 1.1 }}}
-        });
-        psdChart = new Chart(document.getElementById('psdChart').getContext('2d'), {
-            type: 'line', data: { labels: [], datasets: [
-                 { label: 'Simulated PSD', data: [], borderColor: '#fd7e14', tension: 0.1, pointRadius: 0, fill: true, backgroundColor: 'rgba(253, 126, 20, 0.2)' },
-                 { label: "Theoretical Jakes' Spectrum", data: [], borderColor: '#28a745', borderDash: [5, 5], tension: 0.2, pointRadius: 0 }
-            ]},
-            options: { ...commonOptions, plugins: { title: { display: true, text: 'Power Spectral Density' }}, scales: { x: { title: { display: true, text: 'Frequency Shift from fc (Hz)' }}, y: { title: { display: true, text: 'PSD (dB)' }}}}
-        });
+        const commonOptions = { responsive: true, maintainAspectRatio: false, animation: { duration: 250 }, interaction: { intersect: false, mode: 'index' }, plugins: { legend: { display: false } }};
+        const commonOptionsWithLegend = {...commonOptions, plugins: { legend: { display: true, position: 'top' } }};
+        
+        realChart = new Chart(document.getElementById('realChart').getContext('2d'), { type: 'line', data: { labels: [], datasets: [] }, options: { ...commonOptions, scales: { x: { title: { display: true, text: 'Time (s)' }}, y: { title: { display: true, text: 'Real Amplitude' }}} } });
+        imagChart = new Chart(document.getElementById('imagChart').getContext('2d'), { type: 'line', data: { labels: [], datasets: [] }, options: { ...commonOptions, scales: { x: { title: { display: true, text: 'Time (s)' }}, y: { title: { display: true, text: 'Imaginary Amplitude' }}} } });
+        autocorrChart = new Chart(document.getElementById('autocorrChart').getContext('2d'), { type: 'line', data: { labels: [], datasets: [] }, options: { ...commonOptionsWithLegend, scales: { x: { title: { display: true, text: 'Time Lag τ (s)' }}, y: { title: { display: true, text: 'Correlation' }, min: -0.1, max: 1.1 }}} });
+        psdChart = new Chart(document.getElementById('psdChart').getContext('2d'), { type: 'line', data: { labels: [], datasets: [] }, options: { ...commonOptionsWithLegend, scales: { x: { title: { display: true, text: 'Frequency Shift from fc (Hz)' }}, y: { title: { display: true, text: 'PSD (dB)' }}} } });
     }
 
     function createCarIcon(color) {
@@ -173,6 +197,7 @@
         const velocities = [parseFloat(document.getElementById('v1').value), parseFloat(document.getElementById('v2').value), parseFloat(document.getElementById('v3').value)];
         if(velocities.some(isNaN) || velocities.some(v => v <= 0)) return alert("Please enter valid, positive velocities for all vehicles.");
         
+        updateRadioLabels(velocities);
         const maxVelocity = Math.max(...velocities);
         document.getElementById('lapTime').textContent = `${(pathProperties.totalLength / maxVelocity).toFixed(1)} s`;
         document.getElementById('status').textContent = "Simulation in progress...";
@@ -183,6 +208,13 @@
         }
         lastTimestamp = 0;
         animationId = requestAnimationFrame(animate);
+    }
+    
+    function updateRadioLabels(velocities) {
+        for(let i=0; i<NUM_RECEIVERS; i++) {
+            document.getElementById(`ch${i+1}-label`).textContent = `Vehicle ${i+1} (${velocities[i]} m/s)`;
+            document.getElementById(`psd-ch${i+1}-label`).textContent = `Vehicle ${i+1} (${velocities[i]} m/s)`;
+        }
     }
 
     function stopAnimation() {
@@ -197,7 +229,7 @@
         const real_dt = (timestamp - lastTimestamp) / 1000;
         lastTimestamp = timestamp;
         const timeToSimulateThisFrame = real_dt * ANIMATION_SPEED_MULTIPLIER;
-        const numSteps = Math.ceil(timeToSimulateThisFrame / PHYSICS_DT);
+        const numSteps = Math.max(1, Math.ceil(timeToSimulateThisFrame / PHYSICS_DT));
 
         let allFinished = true;
         for (let i = 0; i < NUM_RECEIVERS; i++) {
@@ -222,7 +254,7 @@
 
         if (allFinished || simStates.every(s => s.lapCompleted)) {
             document.getElementById('status').textContent = "All vehicles finished. Plotting results...";
-            plotComparisonResults();
+            processAndPlotResults();
             return;
         }
         animationId = requestAnimationFrame(animate);
@@ -258,7 +290,7 @@
     function calculateChannelResponse(receiverIndex, velocityVector) {
         const state = simStates[receiverIndex], receiver = receivers[receiverIndex];
         const frequency = parseFloat(document.getElementById('frequency').value) * 1e9;
-        const threshold = parseFloat(document.getElementById('threshold').value);
+        const threshold = 500;
         const fD = frequency * state.velocity / c, d0 = Math.sqrt(receiver.x ** 2 + receiver.y ** 2);
         
         const relevantObstacles = obstacles.filter(obs => {
@@ -280,61 +312,120 @@
         return { real: realPart, imag: imagPart, time: state.simulationTime };
     }
 
-    function plotComparisonResults() {
-        clearAllPlots();
-        
-        // --- Autocorrelation Plot ---
-        const MAX_TIME_LAG = 0.025; // Zoom in to the first 50 milliseconds
-        let acfPlotDatasets = [], acfMasterLabels = [];
-
+    function processAndPlotResults() {
+        lastPlottedData = { acf: [], psd: [] };
         for(let i=0; i < NUM_RECEIVERS; i++) {
             const data = simulationData[i].channelCoeffs;
-            if (data.length < 50) continue;
-            
-            const avgDt = data.length > 1 ? (data[data.length-1].time - data[0].time) / (data.length - 1) : 0;
-            if (avgDt <= 0) continue;
-            
-            const maxLagInSamples = Math.ceil(MAX_TIME_LAG / avgDt);
-            const { autocorr, lags } = calculateAutocorrelation(data, avgDt, maxLagInSamples);
-            
-            if (lags.length > acfMasterLabels.length) {
-                acfMasterLabels = lags.map(l => l.toFixed(4));
+            if (data.length < 50) {
+                 lastPlottedData.acf.push(null);
+                 lastPlottedData.psd.push(null);
+                 continue;
             }
-
-            acfPlotDatasets.push({
-                label: `V = ${simStates[i].velocity} m/s`,
-                data: autocorr, borderColor: RECEIVER_COLORS[i],
-                borderWidth: 2.5, tension: 0.1, pointRadius: 0
-            });
+            const avgDt = (data[data.length-1].time - data[0].time) / (data.length-1);
+            if (avgDt <= 0) {
+                lastPlottedData.acf.push(null);
+                lastPlottedData.psd.push(null);
+                continue;
+            }
+            lastPlottedData.acf.push(calculateAutocorrelation(data, avgDt));
+            
+            if (data.length > 256) {
+                const sampleRate = 1 / avgDt;
+                const { frequencies, psd } = calculatePSD_Welch(data, sampleRate);
+                const fD = (parseFloat(document.getElementById('frequency').value) * 1e9 * simStates[i].velocity) / c;
+                const { theoreticalFreqs, theoreticalPSD } = calculateTheoreticalPSD(fD, psd);
+                lastPlottedData.psd.push({ frequencies, psd, theoreticalFreqs, theoreticalPSD, velocity: simStates[i].velocity });
+            } else {
+                 lastPlottedData.psd.push(null);
+            }
         }
-        autocorrelationChart.data.labels = acfMasterLabels;
-        autocorrelationChart.data.datasets = acfPlotDatasets;
-        autocorrelationChart.update();
-
-        // --- PSD Plot for the First Vehicle ---
-        if (simulationData[0] && simulationData[0].channelCoeffs.length > 256) {
-            const psdData = simulationData[0].channelCoeffs;
-            const psdState = simStates[0];
-            const avgDt = (psdData[psdData.length-1].time - psdData[0].time) / (psdData.length - 1);
-            const sampleRate = 1 / avgDt;
-
-            const { frequencies, psd } = calculatePSD_Welch(psdData, sampleRate);
-            const fD = (parseFloat(document.getElementById('frequency').value) * 1e9 * psdState.velocity) / c;
-            const { theoreticalFreqs, theoreticalPSD } = calculateTheoreticalPSD(fD, psd);
-
-            psdChart.data.labels = theoreticalFreqs.map(f => f.toFixed(1));
-            psdChart.data.datasets[0].label = `Simulated PSD (V=${psdState.velocity} m/s)`;
-            psdChart.data.datasets[0].data = psd;
-            psdChart.data.datasets[1].label = `Theoretical (V=${psdState.velocity} m/s)`;
-            psdChart.data.datasets[1].data = theoreticalPSD;
-            psdChart.update();
+        
+        document.getElementById('ch1').checked = true;
+        document.getElementById('psd-ch1').checked = true;
+        updateChannelPlots();
+        updateAutocorrelationPlot();
+        updatePSDPlot();
+    }
+    
+    function updateChannelPlots() {
+        if (!simulationData) return;
+        const selectedIndex = parseInt(document.querySelector('input[name="channelSelect"]:checked').value);
+        
+        const data = simulationData[selectedIndex]?.channelCoeffs;
+        if (!data || data.length === 0) {
+            clearChannelPlots();
+            return;
         }
+
+        const MAX_POINTS = 1000;
+        const step = Math.max(1, Math.ceil(data.length / MAX_POINTS));
+        const labels = [], realData = [], imagData = [];
+        for (let j = 0; j < data.length; j += step) {
+            labels.push(data[j].time.toFixed(3));
+            realData.push(data[j].real);
+            imagData.push(data[j].imag);
+        }
+
+        realChart.data.labels = labels;
+        realChart.data.datasets = [{ data: realData, borderColor: RECEIVER_COLORS[selectedIndex], borderWidth: 2, pointRadius: 0 }];
+        realChart.update();
+
+        imagChart.data.labels = labels;
+        imagChart.data.datasets = [{ data: imagData, borderColor: RECEIVER_COLORS[selectedIndex], borderWidth: 2, pointRadius: 0 }];
+        imagChart.update();
     }
 
-    function calculateAutocorrelation(data, avgDt, maxLagInSamples) {
-        const autocorr = [], lags = [];
-        const maxLag = Math.min(maxLagInSamples || data.length - 1, data.length - 1);
+    function updateAutocorrelationPlot() {
+        if (!lastPlottedData || !lastPlottedData.acf) return;
+        
+        autocorrChart.data.labels = [];
+        autocorrChart.data.datasets = [];
+        const MAX_TIME_LAG = 0.05;
+        let masterLabels = [];
 
+        lastPlottedData.acf.forEach((result, i) => {
+            if (!result) return;
+            const sliceIndex = result.lags.findIndex(l => l > MAX_TIME_LAG);
+            const effectiveSliceIndex = sliceIndex === -1 ? result.lags.length : sliceIndex;
+            const filteredLags = result.lags.slice(0, effectiveSliceIndex);
+            if (filteredLags.length > masterLabels.length) masterLabels = filteredLags.map(l => l.toFixed(4));
+            autocorrChart.data.datasets.push({
+                label: `V = ${simStates[i].velocity} m/s`,
+                data: result.autocorr.slice(0, effectiveSliceIndex),
+                borderColor: RECEIVER_COLORS[i], borderWidth: 2.5, tension: 0.1, pointRadius: 0
+            });
+        });
+        autocorrChart.data.labels = masterLabels;
+        autocorrChart.update();
+    }
+
+    function updatePSDPlot() {
+        const selectedIndex = parseInt(document.querySelector('input[name="psdSelect"]:checked').value);
+        if (!lastPlottedData || !lastPlottedData.psd || !lastPlottedData.psd[selectedIndex]) {
+            clearPSDPlot();
+            return;
+        };
+        
+        const psdResult = lastPlottedData.psd[selectedIndex];
+        document.getElementById('psd-chart-title').textContent = `Power Spectral Density (Vehicle ${selectedIndex + 1})`;
+
+        psdChart.data.labels = psdResult.theoreticalFreqs.map(f => f.toFixed(1));
+        psdChart.data.datasets = [
+            {
+                label: `Simulated PSD (V=${psdResult.velocity} m/s)`, data: psdResult.psd,
+                borderColor: RECEIVER_COLORS[selectedIndex], tension: 0.1, pointRadius: 0, fill: true, backgroundColor: `${RECEIVER_COLORS[selectedIndex]}33`
+            },
+            {
+                label: `Theoretical (V=${psdResult.velocity} m/s)`, data: psdResult.theoreticalPSD,
+                borderColor: '#343a40', borderDash: [5, 5], tension: 0.2, pointRadius: 0
+            }
+        ];
+        psdChart.update();
+    }
+
+    function calculateAutocorrelation(data, avgDt) {
+        const autocorr = [], lags = [];
+        const maxLag = Math.min(400, data.length - 1);
         for (let lag = 0; lag <= maxLag; lag++) {
             let sum_real = 0, sum_imag = 0;
             for (let i = 0; i < data.length - lag; i++) {
@@ -397,8 +488,16 @@
     }
 
     function clearAllPlots() {
-        autocorrelationChart.data.labels = []; autocorrelationChart.data.datasets = []; autocorrelationChart.update();
-        psdChart.data.labels = []; psdChart.data.datasets.forEach(ds => ds.data = []); psdChart.update();
+        clearChannelPlots();
+        autocorrChart.data.labels = []; autocorrChart.data.datasets = []; autocorrChart.update();
+        clearPSDPlot();
+    }
+    function clearChannelPlots(){
+        realChart.data.labels = []; realChart.data.datasets = []; realChart.update();
+        imagChart.data.labels = []; imagChart.data.datasets = []; imagChart.update();
+    }
+    function clearPSDPlot(){
+        psdChart.data.labels = []; psdChart.data.datasets = []; psdChart.update();
     }
 
     function drawSimulation() {
@@ -432,7 +531,7 @@
     }
 
     function drawSignalPaths(svg, scale, centerX, centerY, receiver) {
-        const threshold = parseFloat(document.getElementById('threshold').value);
+        const threshold = 500;
         const d0 = Math.sqrt(receiver.x ** 2 + receiver.y ** 2);
         obstacles.forEach(obs => {
             const d1 = Math.sqrt(obs.x ** 2 + obs.y ** 2), d2 = Math.sqrt((obs.x - receiver.x) ** 2 + (obs.y - receiver.y) ** 2);
