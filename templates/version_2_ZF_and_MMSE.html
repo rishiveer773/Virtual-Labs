@@ -553,24 +553,69 @@
         function invertMatrix(m){const n=m.length;if(n===0) return [];const A=m.map((r,i)=>[...r.map(c=>new Complex(c.real,c.imag)),...identityMatrix(n)[i]]);for(let i=0;i<n;i++){let p=i;while(p<n&&A[p][i].magnitudeSq()<1e-12)p++;if(p===n)return null;[A[i],A[p]]=[A[p],A[i]];let d=A[i][i];for(let j=i;j<2*n;j++)A[i][j]=A[i][j].divide(d);for(let k=0;k<n;k++)if(i!==k){let M=A[k][i];for(let j=i;j<2*n;j++)A[k][j]=A[k][j].subtract(M.multiply(A[i][j]));}}return A.map(r=>r.slice(n))}
 
         // --- CHARTING FUNCTIONS ---
-        async function calculateSERvsSNR(){document.getElementById('serChartContainer').style.display='block';document.getElementById('chartLoadingIndicator').style.display='flex';await new Promise(r=>setTimeout(r,50));const T=100,n=16,snr_dB=Array.from({length:11},(_,i)=>i*2),zf_d=[],mmse_d=[],c=constellations[currentModulation],E_avg=c.reduce((s,v)=>s+v.magnitudeSq(),0)/c.length;for(const db of snr_dB){const N0=E_avg/(10**(db/10));let zf_e=0,mmse_e=0,total_s=0;for(let t=0;t<T;t++){const H=generateComplexChannel(n),H_inv=invertMatrix(H);if(!H_inv)continue;const H_H=transposeConjugateMatrix(H);const W_mmse=multiplyComplexMatrices(invertMatrix(addMatrices(multiplyComplexMatrices(H_H,H),multiplyMatrixScalar(identityMatrix(n),N0))),H_H);const o=Array.from({length:n},()=>Math.floor(Math.random()*c.length));const m=o.map(i=>c[i]);const r=multiplyMatrixVector(H,m);const noise=Array.from({length:n},()=>generateComplexGaussian().multiply(Math.sqrt(N0)));const y=r.map((s,i)=>s.add(noise[i]));zf_e+=calculateSER(o,demodulate(multiplyMatrixVector(H_inv,y),currentModulation).indices)*n;mmse_e+=calculateSER(o,demodulate(multiplyMatrixVector(W_mmse,y),currentModulation).indices)*n;total_s+=n;}zf_d.push(total_s>0?zf_e/total_s:1);mmse_d.push(total_s>0?mmse_e/total_s:1);}plotSERChart(snr_dB,zf_d,mmse_d);document.getElementById('chartLoadingIndicator').style.display='none'}
-        function plotSERChart(labels,zfData,mmseData){const ctx=document.getElementById('serChart').getContext('2d');if(serChart)serChart.destroy();serChart=new Chart(ctx,{type:'line',data:{labels,datasets:[{label:'ZF SER',data:zfData,borderColor:'#e74c3c',backgroundColor:'#e74c3c',fill:false,tension:0.1},{label:'MMSE SER',data:mmseData,borderColor:'#3498db',backgroundColor:'#3498db',fill:false,tension:0.1}]},options:{responsive:true,scales:{y:{type:'logarithmic',title:{display:true,text:'Symbol Error Rate (SER)'},min:1e-4,max:1,ticks:{callback:function(v){return v.toFixed(4)},color:'#555'},grid:{color:'rgba(0,0,0,0.1)'}},x:{title:{display:true,text:'SNR (dB)'},grid:{color:'rgba(0,0,0,0.1)'},ticks:{color:'#555'}}},plugins:{title:{display:true,text:`SER Performance for ${currentModulation}`}}}})}
+        async function calculateSERvsSNR() {
+            document.getElementById('serChartContainer').style.display = 'block';
+            document.getElementById('chartLoadingIndicator').style.display = 'flex';
+            await new Promise(r => setTimeout(r, 50));
+            const T = 200, n = 16, snr_dB = Array.from({length: 11}, (_, i) => i * 2);
+            const zf_d = [], mmse_d = [];
+            const c = constellations[currentModulation];
+            const E_avg = c.reduce((s, v) => s + v.magnitudeSq(), 0) / c.length;
+
+            for (const db of snr_dB) {
+                const N0 = E_avg / (10 ** (db / 10));
+                let zf_e = 0, mmse_e = 0, total_s = 0;
+
+                for (let t = 0; t < T; t++) {
+                    const H = generateComplexChannel(n);
+                    const o = Array.from({ length: n }, () => Math.floor(Math.random() * c.length));
+                    const m = o.map(i => c[i]);
+                    const r = multiplyMatrixVector(H, m);
+                    const noise = Array.from({ length: n }, () => generateComplexGaussian().multiply(Math.sqrt(N0)));
+                    const y = r.map((s, i) => s.add(noise[i]));
+
+                    // --- MODIFIED LOGIC START ---
+                    // ZF Calculation with failure penalty
+                    const H_inv = invertMatrix(H);
+                    if (H_inv) {
+                        const zf_demod = demodulate(multiplyMatrixVector(H_inv, y), currentModulation);
+                        zf_e += calculateSER(o, zf_demod.indices) * n;
+                    } else {
+                        // If inversion fails, all symbols in the trial are errors for ZF
+                        zf_e += n; 
+                    }
+
+                    // MMSE Calculation (generally robust)
+                    const H_H = transposeConjugateMatrix(H);
+                    const W_mmse = multiplyComplexMatrices(invertMatrix(addMatrices(multiplyComplexMatrices(H_H, H), multiplyMatrixScalar(identityMatrix(n), N0))), H_H);
+                    const mmse_demod = demodulate(multiplyMatrixVector(W_mmse, y), currentModulation);
+                    mmse_e += calculateSER(o, mmse_demod.indices) * n;
+                    
+                    total_s += n; // Always count the symbols in the trial
+                    // --- MODIFIED LOGIC END ---
+                }
+                zf_d.push(total_s > 0 ? zf_e / total_s : 1);
+                mmse_d.push(total_s > 0 ? mmse_e / total_s : 1);
+            }
+            plotSERChart(snr_dB, zf_d, mmse_d);
+            document.getElementById('chartLoadingIndicator').style.display = 'none';
+        }
+
+        function plotSERChart(labels,zfData,mmseData){const ctx=document.getElementById('serChart').getContext('2d');if(serChart)serChart.destroy();serChart=new Chart(ctx,{type:'line',data:{labels,datasets:[{label:'ZF SER',data:zfData,borderColor:'#e74c3c',backgroundColor:'#e74c3c',fill:false,tension:0.1},{label:'MMSE SER',data:mmseData,borderColor:'#3498db',backgroundColor:'#3498db',fill:false,tension:0.1}]},options:{responsive:true,scales:{y:{type:'logarithmic',title:{display:true,text:'Symbol Error Rate (SER)'},min:1e-4,max:1,ticks:{callback:function(v){return v.toExponential(1)},color:'#555'},grid:{color:'rgba(0,0,0,0.1)'}},x:{title:{display:true,text:'SNR (dB)'},grid:{color:'rgba(0,0,0,0.1)'},ticks:{color:'#555'}}},plugins:{title:{display:true,text:`SER Performance for ${currentModulation}`}}}})}
         
         function updateConstellationPlots() {
             const p = constellations[currentModulation];
             if (!p || !mmseResults || !mmseResults.equalized || !zfResults || !zfResults.equalized) return;
 
-            // Calculate axis limit based on MMSE results and ideal points, providing a stable view.
             const mmsePoints = mmseResults.equalized;
             const idealPoints = p;
             const axisLimit = Math.max(
                 ...mmsePoints.flatMap(pt => [Math.abs(pt.real), Math.abs(pt.imag)]),
                 ...idealPoints.flatMap(pt => [Math.abs(pt.real), Math.abs(pt.imag)]),
-                0.5 // Minimum axis value
-            ) * 1.2; // Add a 20% buffer for padding
+                0.5
+            ) * 1.2; 
 
-            // Plot all three charts
-            plotConstellation('originalConstellation', modulatedSymbols, p); // Original plot can auto-scale
+            plotConstellation('originalConstellation', modulatedSymbols, p);
             plotConstellation('zfConstellation', zfResults.equalized, p, axisLimit);
             plotConstellation('mmseConstellation', mmseResults.equalized, p, axisLimit);
         }
@@ -586,7 +631,6 @@
             const dataPts = data ? data.map(p => ({ x: p.real, y: p.imag })) : [];
             const idealPts = ideal ? ideal.map(p => ({ x: p.real, y: p.imag })) : [];
 
-            // If an axis limit is passed, use it. Otherwise, calculate automatically.
             const maxVal = axisLimit ? axisLimit : Math.max(
                 ...dataPts.flatMap(p => [Math.abs(p.x), Math.abs(p.y)]),
                 ...idealPts.flatMap(p => [Math.abs(p.x), Math.abs(p.y)]),
@@ -597,18 +641,18 @@
                 type: 'scatter',
                 data: {
                     datasets: [
-                        { // Dataset for the ideal "target" points (RED CROSSES)
+                        {
                             label: 'Ideal',
                             data: idealPts,
-                            backgroundColor: 'rgba(231, 76, 60, 0.9)', // Red
+                            backgroundColor: 'rgba(231, 76, 60, 0.9)',
                             pointRadius: 7,
                             pointStyle: 'crossRot',
                             borderWidth: 2
                         },
-                        { // Dataset for the actual signal points (BLUE DOTS)
+                        {
                             label: 'Signal',
                             data: dataPts,
-                            backgroundColor: 'rgba(13, 110, 253, 0.7)', // Blue
+                            backgroundColor: 'rgba(13, 110, 253, 0.7)',
                             pointRadius: 4
                         }
                     ]
