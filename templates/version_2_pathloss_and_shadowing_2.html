@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Recording & Pathloss Analysis</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            color: #2c3e50;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: #2c3e50;
+            font-size: 2.5em;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #7f8c8d;
+            font-size: 1.1em;
+        }
+
+        .main-container { 
+            display: grid;
+            grid-template-columns: 350px 1fr 600px; 
+            gap: 25px;
+            max-width: 1500px; 
+            margin: 0 auto;
+        }
+
+        .panel { 
+            background: #ffffff;
+            border-radius: 15px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+            border: 1px solid #e8ecf0;
+            overflow: hidden;
+        }
+
+        .panel-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .panel-header h3 {
+            font-size: 1.3em;
+            font-weight: 600;
+            margin: 0;
+        }
+
+        .panel-content {
+            padding: 25px;
+        }
+
+        /* Control Panel Styling */
+        .section {
+            margin-bottom: 30px;
+            padding-bottom: 25px;
+            border-bottom: 2px solid #f8f9fa;
+        }
+
+        .section:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+
+        .section-title {
+            color: #34495e;
+            font-size: 1.1em;
+            font-weight: 600;
+            margin-bottom: 20px;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #3498db;
+            display: inline-block;
+        }
+
+        .input-group { 
+            margin-bottom: 20px;
+        }
+
+        .input-group label { 
+            display: block; 
+            margin-bottom: 8px; 
+            font-weight: 600; 
+            font-size: 0.95em; 
+            color: #2c3e50;
+        }
+
+        .input-group input[type="number"] { 
+            width: 100%; 
+            padding: 12px 15px; 
+            border: 2px solid #e8ecf0;
+            border-radius: 10px;
+            font-size: 1em;
+            transition: all 0.3s ease;
+            background: #fafbfc;
+        }
+
+        .input-group input[type="number"]:focus {
+            outline: none;
+            border-color: #3498db;
+            background: #ffffff;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+        }
+
+        .slider-container {
+            margin-bottom: 20px;
+        }
+
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .slider-label span {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .value-display { 
+            background: #3498db;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 0.9em;
+            font-weight: 600;
+            min-width: 50px;
+            text-align: center;
+        }
+
+        .input-group input[type="range"] { 
+            width: 100%;
+            height: 8px;
+            border-radius: 5px;
+            background: #e8ecf0;
+            outline: none;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        .input-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #3498db;
+            cursor: pointer;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        .input-group input[type="range"]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #3498db;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        .status-display {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+
+        .status-display p {
+            margin: 8px 0;
+            font-size: 0.95em;
+            display: flex;
+            align-items: center;
+        }
+
+        .status-indicator { 
+            display: inline-block; 
+            width: 12px; 
+            height: 12px; 
+            border-radius: 50%; 
+            margin-right: 10px;
+            margin-left: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .status-los { background-color: #27ae60; }
+        .status-occluded { background-color: #e74c3c; }
+
+        .recording-info {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .recording-info span {
+            font-size: 1.2em;
+            font-weight: 700;
+        }
+
+        .button-group { 
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 15px;
+        }
+
+        .button-group.single {
+            grid-template-columns: 1fr;
+        }
+
+        button { 
+            padding: 15px 20px; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white; 
+            border: none; 
+            border-radius: 10px; 
+            cursor: pointer; 
+            transition: all 0.3s ease;
+            font-size: 1em;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        button:hover:not(:disabled) { 
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        button:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+            opacity: 0.6;
+            transform: none;
+        }
+
+        button.primary {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+        }
+
+        button.primary:hover:not(:disabled) {
+            box-shadow: 0 8px 25px rgba(231, 76, 60, 0.4);
+        }
+
+        button.secondary {
+            background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+        }
+
+        button.secondary:hover:not(:disabled) {
+            box-shadow: 0 8px 25px rgba(39, 174, 96, 0.4);
+        }
+
+        /* Simulation Panel */
+        .simulation-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #simulationCanvas { 
+            border: 3px solid #e8ecf0;
+            border-radius: 15px; 
+            background-color: #ffffff;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        }
+        
+        .simulation-legend {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 15px;
+            padding: 10px;
+            width: 100%;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9em;
+        }
+        .legend-icon {
+            width: 20px;
+            height: 20px;
+        }
+        .legend-swatch {
+            width: 15px;
+            height: 15px;
+            border: 1px solid #ccc;
+        }
+        .legend-line {
+            width: 20px;
+            height: 4px;
+            border-radius: 2px;
+        }
+        .obstacle-color {
+            background-color: hsl(40, 70%, 55%);
+        }
+        .los-color {
+            background-color: #27ae60;
+        }
+        .occluded-color {
+            background-color: #e74c3c;
+        }
+
+        /* Graph Panel */
+        .graph-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #pathlossGraph, #graph_placeholder {
+            width: 100%;
+            max-width: 600px;
+            height: 500px;
+        }
+
+        #graph_placeholder {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            color: #7f8c8d;
+            background: #f8f9fa;
+            border-radius: 15px;
+            font-style: italic;
+            border: 3px dashed #e8ecf0;
+            font-size: 1.1em;
+            font-weight: 500;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 1200px) {
+            .main-container {
+                grid-template-columns: 1fr;
+                max-width: 800px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .panel-content {
+                padding: 20px 15px;
+            }
+            
+            .button-group {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Data Recording & Pathloss Analysis</h1>
+        <p>Advanced Signal Propagation Modeling Tool</p>
+    </div>
+
+    <div class="main-container">
+        <!-- Control Panel -->
+        <div class="panel">
+            <div class="panel-header">
+                <h3>Control Panel</h3>
+            </div>
+            <div class="panel-content">
+                <div class="section">
+                    <div class="section-title">System Parameters</div>
+                    <div class="input-group">
+                        <label for="k_val">Pathloss at Reference Distance (K, dB)</label>
+                        <input type="number" id="k_val" value="31.54" step="0.1">
+                    </div>
+                    <div class="input-group">
+                        <label for="gamma_val">Pathloss Exponent (γ)</label>
+                        <input type="number" id="gamma_val" value="3.71" step="0.01">
+                    </div>
+                    <div class="input-group">
+                        <label for="d0_val">Reference Distance (d₀, km)</label>
+                        <input type="number" id="d0_val" value="0.01" step="0.001" min="0.001">
+                    </div>
+                    <div class="input-group">
+                        <label for="obstacle_density_val">Obstacle Density (per km²)</label>
+                        <input type="number" id="obstacle_density_val" value="500" step="10" min="0">
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Receiver Position</div>
+                    <div class="slider-container">
+                        <div class="slider-label">
+                            <span>Distance from Transmitter (km)</span>
+                            <span id="current_distance_val" class="value-display">2.50</span>
+                        </div>
+                        <input type="range" id="current_distance_slider" min="0.02" max="5.0" value="2.5" step="0.05">
+                    </div>
+                    <div class="slider-container">
+                        <div class="slider-label">
+                            <span>Receiver Angle (degrees)</span>
+                            <span id="receiver_angle_val" class="value-display">0</span>
+                        </div>
+                        <input type="range" id="receiver_angle_slider" min="0" max="360" value="0" step="1">
+                    </div>
+                </div>
+
+                <div class="section">
+                    <div class="section-title">Data Recording</div>
+                    <div class="recording-info">
+                        <p>Recorded Points: <span id="record_count_display">0 / 30</span></p>
+                    </div>
+                    <div class="button-group">
+                        <button id="record_data_btn" class="primary">Record Point</button>
+                        <button id="generate_graph_btn" class="secondary">Generate Graph</button>
+                    </div>
+                    <div class="button-group">
+                        <button id="reset_session_btn">Reset Session</button>
+                        <!-- CHANGE: Added Auto-Generate button -->
+                        <button id="auto_generate_btn">Auto-Generate Points</button>
+                    </div>
+                    <div class="button-group single">
+                         <button id="randomize_obstacles_btn">New Environment</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Simulation Panel -->
+        <div class="panel">
+            <div class="panel-header">
+                <h3>Simulation Environment</h3>
+            </div>
+            <div class="panel-content">
+                <div class="simulation-container">
+                    <canvas id="simulationCanvas" width="420" height="420"></canvas>
+                    
+                    <div class="simulation-legend">
+                        <div class="legend-item">
+                            <img class="legend-icon" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzY2N2VlYSI+PHBhdGggZD0iTTEyIDNsNCA0aC0zdjEwaC0yVjdIOFs0LTR6TTQgOWgzdjJINGMtMnptMCA0aDN2Mkg0di0yem0xNi00aC0zdjJoM3YtMnptMCA0aC0zdjJoM3YtMnoiLz48L3N2Zz4=">
+                            <span>Transmitter</span>
+                        </div>
+                        <div class="legend-item">
+                            <img class="legend-icon" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzY2N2VlYSI+PHBhdGggZD0iTTE2IDFIOEM2LjM0IDEgNSAyLjM0IDUgNHYxNmMwIDEuNjYgMS4zNCAzIDMgM2g4YzEuNjYgMCAzLTEuMzQgMy0zVjRjMC0xLjY2LTEuMzQtMy0zLTN6TTE0IDIxaC00di0xaDR2MXptMS4yNS0zSDguNzVWNGg2LjV2MTR6Ii8+PC9zdmc+">
+                            <span>Receiver</span>
+                        </div>
+                        <div class="legend-item"><span class="legend-swatch obstacle-color"></span><span>Obstacle</span></div>
+                        <div class="legend-item"><span class="legend-line los-color"></span><span>LoS Signal</span></div>
+                        <div class="legend-item"><span class="legend-line occluded-color"></span><span>Occluded</span></div>
+                    </div>
+                    
+                    <div class="status-display">
+                        <p><strong>Signal Status:</strong> <span id="status_indicator" class="status-indicator status-los"></span><span id="out_status">Line of Sight</span></p>
+                        <p><strong>Total Pathloss:</strong> <span id="out_total_pl_val">0</span> dB</p>
+                        <p><strong>Pr/Pt at Receiver:</strong> <span id="out_pr_pt_val">0</span> dB</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Graph Panel -->
+        <div class="panel">
+            <div class="panel-header">
+                <h3>Analysis Results</h3>
+            </div>
+            <div class="panel-content">
+                <div class="graph-container">
+                    <div id="graph_placeholder">Record at least 10 data points to generate the analysis graph</div>
+                    <canvas id="pathlossGraph" style="display: none;"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+<script>
+    // DOM Elements
+    const kInput = document.getElementById('k_val');
+    const gammaInput = document.getElementById('gamma_val');
+    const d0Input = document.getElementById('d0_val');
+    const densityInput = document.getElementById('obstacle_density_val');
+    const distanceSlider = document.getElementById('current_distance_slider');
+    const distanceDisplay = document.getElementById('current_distance_val');
+    const angleSlider = document.getElementById('receiver_angle_slider');
+    const angleDisplay = document.getElementById('receiver_angle_val');
+    const randomizeBtn = document.getElementById('randomize_obstacles_btn');
+    const recordBtn = document.getElementById('record_data_btn');
+    const generateGraphBtn = document.getElementById('generate_graph_btn');
+    const resetBtn = document.getElementById('reset_session_btn');
+    // CHANGE: Added Auto-Generate button
+    const autoGenerateBtn = document.getElementById('auto_generate_btn');
+    const recordCountDisplay = document.getElementById('record_count_display');
+
+    const simCanvas = document.getElementById('simulationCanvas');
+    const simCtx = simCanvas.getContext('2d');
+    const graphCanvas = document.getElementById('pathlossGraph');
+    const graphPlaceholder = document.getElementById('graph_placeholder');
+
+    const outStatus = document.getElementById('out_status');
+    const statusIndicator = document.getElementById('status_indicator');
+    const outTotalPl = document.getElementById('out_total_pl_val');
+    const outPrPt = document.getElementById('out_pr_pt_val');
+
+    let pathlossChart;
+    let obstacles = [];
+    let currentK, currentGamma, currentD0, currentRxDistance_km, currentRxAngleRad;
+    let recordedData = [];
+    const MIN_RECORDINGS = 10;
+    // CHANGE: Max recordings increased to match auto-generate amount
+    const MAX_RECORDINGS = 30;
+
+    // Simulation Constants
+    const canvasWidth = simCanvas.width;
+    const canvasHeight = simCanvas.height;
+    const txPos_px = { x: canvasWidth / 2, y: canvasHeight / 2 };
+    const maxCanvasDisplayRadius_px = Math.min(canvasWidth, canvasHeight) / 2 * 0.85;
+    let worldScale_pxPerKm;
+
+    const TX_ICON = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzY2N2VlYSI+PHBhdGggZD0iTTEyIDNsNCA0aC0zdjEwaC0yVjdIOFs0LTR6TTQgOWgzdjJINGMtMnptMCA0aDN2Mkg0di0yem0xNi00aC0zdjJoM3YtMnptMCA0aC0zdjJoM3YtMnoiLz48L3N2Zz4=';
+    const RX_ICON = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzY2N2VlYSI+PHBhdGggZD0iTTE2IDFIOEM2LjM0IDEgNSAyLjM0IDUgNHYxNmMwIDEuNjYgMS4zNCAzIDMgM2g4YzEuNjYgMCAzLTEuMzQgMy0zVjRjMC0xLjY2LTEuMzQtMy0zLTN6TTE0IDIxaC00di0xaDR2MXptMS4yNS0zSDguNzVWNGg2LjV2MTR6Ii8+PC9zdmc+';
+    
+    let txImage, rxImage;
+    const TX_IMG_SIZE = 48;
+    const RX_IMG_SIZE = 28;
+
+    function loadImages() {
+        return new Promise((resolve) => {
+            txImage = new Image();
+            rxImage = new Image();
+            let loadedCount = 0;
+            
+            const onImageLoad = () => {
+                loadedCount++;
+                if (loadedCount === 2) {
+                    resolve();
+                }
+            };
+            
+            txImage.onload = onImageLoad;
+            rxImage.onload = onImageLoad;
+            
+            txImage.onerror = onImageLoad;
+            rxImage.onerror = onImageLoad;
+            
+            txImage.src = TX_ICON;
+            rxImage.src = RX_ICON;
+        });
+    }
+
+    async function init() {
+        await loadImages();
+        setupEventListeners();
+        initializeChart();
+        readAllInputs();
+        calculateWorldScale();
+        placeObstacles();
+        updateSimulation();
+        updateUIState();
+    }
+
+    function setupEventListeners() {
+        [kInput, gammaInput, d0Input, distanceSlider, angleSlider].forEach(el => {
+            el.addEventListener('input', () => { readAllInputs(); updateSimulation(); });
+        });
+
+        densityInput.addEventListener('input', () => {
+            readAllInputs();
+            placeObstacles();
+            updateSimulation();
+        });
+
+        randomizeBtn.addEventListener('click', () => {
+            placeObstacles();
+            updateSimulation();
+        });
+
+        recordBtn.addEventListener('click', recordDataPoint);
+        generateGraphBtn.addEventListener('click', generateGraph);
+        resetBtn.addEventListener('click', resetSession);
+        // CHANGE: Added event listener for new button
+        autoGenerateBtn.addEventListener('click', autoGenerateData);
+    }
+    
+    function readAllInputs() {
+        currentK = parseFloat(kInput.value);
+        currentGamma = parseFloat(gammaInput.value);
+        currentD0 = parseFloat(d0Input.value);
+        currentRxDistance_km = parseFloat(distanceSlider.value);
+        distanceDisplay.textContent = currentRxDistance_km.toFixed(2);
+        currentRxAngleRad = parseFloat(angleSlider.value) * Math.PI / 180;
+        angleDisplay.textContent = (currentRxAngleRad * 180 / Math.PI).toFixed(0);
+    }
+    
+    function updateUIState() {
+        recordCountDisplay.textContent = `${recordedData.length} / ${MAX_RECORDINGS}`;
+        recordBtn.disabled = recordedData.length >= MAX_RECORDINGS;
+        autoGenerateBtn.disabled = recordedData.length >= MAX_RECORDINGS;
+        generateGraphBtn.disabled = recordedData.length < MIN_RECORDINGS;
+    }
+    
+    function recordDataPoint() {
+        if (recordedData.length >= MAX_RECORDINGS) return;
+        readAllInputs();
+        const { prPtDb } = calculateCurrentSignal();
+        recordedData.push({ x: currentRxDistance_km, y: prPtDb });
+        updateUIState();
+    }
+    
+    // CHANGE: New function to auto-generate data
+    function autoGenerateData() {
+        const NUM_AUTO_POINTS = 30;
+        const min_dist = parseFloat(distanceSlider.min);
+        const max_dist = parseFloat(distanceSlider.max);
+        
+        // Clear previous data for a fresh set
+        recordedData = [];
+
+        for (let i = 0; i < NUM_AUTO_POINTS; i++) {
+            if (recordedData.length >= MAX_RECORDINGS) break;
+
+            const randomDist_km = Math.random() * (max_dist - min_dist) + min_dist;
+            const randomAngle_rad = Math.random() * 2 * Math.PI;
+
+            const { prPtDb } = calculateSignalAtPoint(randomDist_km, randomAngle_rad);
+            recordedData.push({ x: randomDist_km, y: prPtDb });
+        }
+        
+        updateUIState();
+        if (recordedData.length >= MIN_RECORDINGS) {
+            generateGraph();
+        }
+    }
+
+    function generateGraph() {
+        graphPlaceholder.style.display = 'none';
+        graphCanvas.style.display = 'block';
+
+        const sortedRecordedData = [...recordedData].sort((a, b) => a.x - b.x);
+        pathlossChart.data.datasets[1].data = sortedRecordedData;
+
+        const meanPrPtData = [];
+        const minD = parseFloat(distanceSlider.min);
+        const maxD = parseFloat(distanceSlider.max);
+        for (let dist = minD; dist <= maxD; dist += 0.1) {
+            const meanPl = calculateMeanPathloss(dist, currentK, currentGamma, currentD0);
+            meanPrPtData.push({ x: dist, y: -meanPl });
+        }
+        pathlossChart.data.datasets[0].data = meanPrPtData;
+        pathlossChart.update();
+    }
+    
+    function resetSession() {
+        recordedData = [];
+        if (pathlossChart) {
+            pathlossChart.data.datasets[1].data = [];
+            pathlossChart.data.datasets[0].data = [];
+            pathlossChart.update();
+        }
+        graphPlaceholder.style.display = 'flex';
+        graphCanvas.style.display = 'none';
+        updateUIState();
+        placeObstacles();
+        updateSimulation();
+    }
+    
+    // CHANGE: Refactored logic into a reusable function
+    function calculateSignalAtPoint(distance_km, angle_rad) {
+        const rxRadius_px = distance_km * worldScale_pxPerKm;
+        const rxPos_px = {
+            x: txPos_px.x + rxRadius_px * Math.cos(angle_rad),
+            y: txPos_px.y + rxRadius_px * Math.sin(angle_rad)
+        };
+        const meanPlDb = calculateMeanPathloss(distance_km, currentK, currentGamma, currentD0);
+        const { shadowingDb, isOccluded } = calculateShadowingAtPosition(rxPos_px);
+        const totalPlDb = meanPlDb + shadowingDb;
+        const prPtDb = -totalPlDb;
+        return { totalPlDb, prPtDb, isOccluded };
+    }
+
+    // CHANGE: This function now just calls the reusable one with current slider values
+    function calculateCurrentSignal() {
+        return calculateSignalAtPoint(currentRxDistance_km, currentRxAngleRad);
+    }
+
+    function updateSimulation() {
+        const { totalPlDb, prPtDb, isOccluded } = calculateCurrentSignal();
+        outTotalPl.textContent = totalPlDb.toFixed(2);
+        outPrPt.textContent = prPtDb.toFixed(2);
+        outStatus.textContent = isOccluded ? "Occluded" : "Line of Sight";
+        statusIndicator.className = `status-indicator ${isOccluded ? 'status-occluded' : 'status-los'}`;
+        
+        const currentRxRadius_px = currentRxDistance_km * worldScale_pxPerKm;
+        const rxPos_px = {
+            x: txPos_px.x + currentRxRadius_px * Math.cos(currentRxAngleRad),
+            y: txPos_px.y + currentRxRadius_px * Math.sin(currentRxAngleRad)
+        };
+        drawSimulationCanvas(rxPos_px, currentRxRadius_px, isOccluded);
+    }
+    
+    function initializeChart() {
+        pathlossChart = new Chart(graphCanvas, {
+            type: 'scatter',
+            data: {
+                datasets: [
+                    { 
+                        label: 'Ideal Pathloss (No Shadowing)', data: [], borderColor: '#3498db',
+                        borderDash: [8, 4], type: 'line', fill: false, pointRadius: 0, borderWidth: 3,
+                    },
+                    {
+                        label: 'Recorded Pr/Pt (with Fading)', 
+                        data: [], 
+                        borderColor: '#e74c3c', 
+                        backgroundColor: '#e74c3c', 
+                        pointRadius: 4,
+                        borderWidth: 2,
+                        showLine: false,
+                        type: 'line' 
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                layout: {
+                    padding: 20
+                },
+                plugins: { legend: { labels: { usePointStyle: true, font: { size: 12 } } } },
+                scales: {
+                    x: {
+                        type: 'linear',
+                        title: { display: true, text: 'Distance (km)', font: { size: 16, weight: '600' } },
+                        min: 0, 
+                        max: 5
+                    },
+                    y: { 
+                        title: { display: true, text: 'Pr/Pt (dB)', font: { size: 16, weight: '600' } },
+                        suggestedMax: -50,
+                        suggestedMin: -180
+                    }
+                }
+            }
+        });
+    }        
+
+    function poissonRandom(lambda) {
+        let L = Math.exp(-lambda);
+        let k = 0;
+        let p = 1;
+        do {
+            k++;
+            p *= Math.random();
+        } while (p > L);
+        return k - 1;
+    }
+
+    function calculateWorldScale() { 
+        worldScale_pxPerKm = maxCanvasDisplayRadius_px / parseFloat(distanceSlider.max); 
+    }
+    
+    function placeObstacles() {
+        obstacles = [];
+        const densityPerKm2 = parseFloat(densityInput.value); 
+        const maxSimDistance_km = parseFloat(distanceSlider.max);
+        const areaKm2 = Math.PI * Math.pow(maxSimDistance_km, 2);
+        const lambda = densityPerKm2 * areaKm2;
+        const numObs = poissonRandom(lambda);
+        
+        for (let i = 0; i < numObs; i++) {
+            const obsDistFromTx_km = Math.sqrt(Math.random()) * maxSimDistance_km; 
+            const obsAngleRad = Math.random() * 2 * Math.PI;
+            const obsRadius_km = (Math.random() * 8 * 0.6 + 8 * 0.2) / 1000; 
+            const obsX_km = obsDistFromTx_km * Math.cos(obsAngleRad);
+            const obsY_km = obsDistFromTx_km * Math.sin(obsAngleRad); 
+            const attenuation = Math.max(0.5, 8 + (Math.random() - 0.5) * 2 * 5);
+            obstacles.push({
+                x_km: obsX_km, y_km: obsY_km, radius_km: obsRadius_km, attenuationDb: attenuation,
+                x_px: txPos_px.x + obsX_km * worldScale_pxPerKm, y_px: txPos_px.y + obsY_km * worldScale_pxPerKm,
+                radius_px: Math.max(2, obsRadius_km * worldScale_pxPerKm), 
+                color: `hsl(${30 + (attenuation / 20) * 30}, 70%, ${60 - (attenuation / 20) * 20}%)`
+            });
+        }
+    }
+
+    function calculateShadowingAtPosition(rxPos_px) {
+        let totalShadowingDb = 0; let occluded = false;
+        for (const obs of obstacles) {
+            const obsCenter_px = { x: obs.x_px, y: obs.y_px };
+            if (isLineSegmentIntersectingCircle(txPos_px, rxPos_px, obsCenter_px, obs.radius_px ** 2)) {
+                totalShadowingDb += obs.attenuationDb; occluded = true;
+            }
+        }
+        totalShadowingDb += (Math.random() - 0.55) * 10; 
+        return { shadowingDb: totalShadowingDb, isOccluded: occluded };
+    }
+
+    function calculateMeanPathloss(distance, K, gamma, d0) {
+        if (distance <= 0) distance = 0.0001; if (d0 <= 0) d0 = 0.0001;
+        return (distance < d0) ? K : K + 10 * gamma * Math.log10(distance / d0);
+    }
+
+    function isLineSegmentIntersectingCircle(P1, P2, C, R_sq) {
+        let dX = P2.x - P1.x; let dY = P2.y - P1.y; if ((dX === 0) && (dY === 0)) return false;
+        let t = ((C.x - P1.x) * dX + (C.y - P1.y) * dY) / (dX * dX + dY * dY); t = Math.max(0, Math.min(1, t));
+        let closestX = P1.x + t * dX; let closestY = P1.y + t * dY;
+        return ((C.x - closestX) ** 2 + (C.y - closestY) ** 2) <= R_sq;
+    }
+    
+    function drawSimulationCanvas(rxPos_px, currentRxRadius_px, isOccluded) {
+        simCtx.clearRect(0, 0, canvasWidth, canvasHeight);
+        
+        simCtx.strokeStyle = 'rgba(74, 105, 189, 0.3)'; simCtx.lineWidth = 1; simCtx.setLineDash([3, 3]);
+        for (let i = 1; i <= 5; i += 1) {
+            const r = i * worldScale_pxPerKm; 
+            simCtx.beginPath(); 
+            simCtx.arc(txPos_px.x, txPos_px.y, r, 0, 2 * Math.PI); 
+            simCtx.stroke();
+        }
+        
+        simCtx.setLineDash([]); simCtx.beginPath(); simCtx.arc(txPos_px.x, txPos_px.y, currentRxRadius_px, 0, 2 * Math.PI);
+        simCtx.strokeStyle = isOccluded ? 'rgba(255, 87, 34, 0.8)' : 'rgba(76, 175, 80, 0.8)'; simCtx.lineWidth = 2; simCtx.setLineDash([5, 5]); simCtx.stroke(); simCtx.setLineDash([]);
+        
+        obstacles.forEach(obs => {
+            simCtx.fillStyle = obs.color; simCtx.fillRect(obs.x_px - obs.radius_px, obs.y_px - obs.radius_px, obs.radius_px * 2, obs.radius_px * 2);
+        });
+
+        if(txImage && txImage.complete) {
+            simCtx.drawImage(txImage, txPos_px.x - TX_IMG_SIZE / 2, txPos_px.y - TX_IMG_SIZE / 2, TX_IMG_SIZE, TX_IMG_SIZE);
+        }
+
+        if(rxImage && rxImage.complete) {
+            simCtx.drawImage(rxImage, rxPos_px.x - RX_IMG_SIZE / 2, rxPos_px.y - RX_IMG_SIZE / 2, RX_IMG_SIZE, RX_IMG_SIZE);
+        }
+        
+        simCtx.beginPath(); 
+        simCtx.moveTo(txPos_px.x, txPos_px.y); 
+        simCtx.lineTo(rxPos_px.x, rxPos_px.y);
+        simCtx.strokeStyle = isOccluded ? '#ff5722' : '#4caf50'; 
+        simCtx.lineWidth = 3; 
+        simCtx.stroke();
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+</script>
+
+</body>
+</html>

@@ -9,24 +9,26 @@
       box-sizing: border-box;
     }
 
+    /* MODIFICATION: Allow body to scroll for full page content visibility */
     body {
       margin: 0;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       display: flex;
       flex-direction: column;
-      min-height: 100vh;
+      min-height: 100vh; /* Use min-height to allow content to expand */
       background-color: #f0f2f5; 
     }
 
+    /* Main Task Tabs Styles */
     .main-tasks-container {
         padding: 10px 25px 0;
         background-color: #f8f9fa;
-        border-bottom: 2px solid #f08c00;
+        border-bottom: 2px solid #f08c00; /* Orange line */
         flex-shrink: 0;
         display: flex;
-        justify-content: center;
+        justify-content: center; /* Centered buttons */
         gap: 5px;
-        position: sticky;
+        position: sticky; /* Make the tabs stick to the top on scroll */
         top: 0;
         z-index: 100;
     }
@@ -38,7 +40,7 @@
         font-size: 1em;
         font-weight: 500;
         color: #555;
-        background-color: #e9ecef;
+        background-color: #e9ecef; /* Inactive color */
         cursor: pointer;
         transition: background-color 0.2s, color 0.2s;
     }
@@ -46,7 +48,7 @@
         background-color: #f1f3f5;
     }
     .main-task-btn.active {
-        background-color: white;
+        background-color: white; /* Active color */
         border-bottom: 1px solid white;
         position: relative;
         top: 1px;
@@ -54,6 +56,7 @@
         color: #007bff;
     }
 
+    /* Page container to hold switchable content */
     .page-container {
       flex-grow: 1;
       position: relative;
@@ -70,6 +73,7 @@
         gap: 10px;
     }
     
+    /* Shared Column Styles - MODIFICATION: Removed overflow-y */
     .column {
         border: none;
         border-radius: 15px;
@@ -81,12 +85,13 @@
     #simulation-column {
       display: flex; 
       flex-direction: column; 
-      justify-content: flex-start;
+      justify-content: flex-start; /* Align content to the top */
       align-items: center;
       padding-top: 20px; 
       padding-bottom: 20px;
     }
 
+    /* Styles for the analysis page's plot column */
     #analysis-plot-column {
         display: flex;
         flex-direction: column;
@@ -106,7 +111,7 @@
     }
     .chart-container {
       width: 100%;
-      height: 500px;
+      height: 500px; /* Give a substantial default height */
       background: white;
       border-radius: 8px;
       border: 1px solid #dee2e6;
@@ -264,6 +269,7 @@
 
   <div class="page-container">
     <div id="simulation-page" class="page-content active">
+        <!-- The three columns for the simulation page -->
         <div id="simulation-inputs-column" class="column"></div>
         <div id="simulation-column" class="column">
             <div class="grid-container" id="grid-container"></div> 
@@ -283,6 +289,7 @@
     </div>
     
     <div id="analysis-page" class="page-content">
+        <!-- The three columns for the analysis page -->
         <div id="analysis-inputs-column" class="column"></div>
         <div id="analysis-plot-column" class="column">
             <h3>Signal Analysis Plots</h3>
@@ -293,6 +300,9 @@
                     <option value="snr-distance">SNR vs Distance</option>
                     <option value="power-distance">Received Power vs Distance</option>
                     <option value="pathloss-distance">Path Loss vs Distance</option>
+                    <option value="outage-distance">Outage Probability vs Distance</option>
+                    <!-- MODIFICATION: New plot option -->
+                    <option value="pout-snr">P(outage) vs SNR Threshold</option>
                 </select>
                 </div>
             </div>
@@ -302,6 +312,7 @@
     </div>
   </div>
 
+  <!-- This div is a holding pen for panels not currently in use -->
   <div id="panel-holder" style="display: none;">
     <div id="inputs-panel">
       <h3>System Parameters</h3>
@@ -309,6 +320,8 @@
       <div class="input-group"> <label for="Pt">Transmitter Power (dBm):</label> <input type="number" id="Pt" value="30" min="0" max="50" step="1"> </div>
       <div class="input-group"> <label for="Pmin">Min Required Power (dBm):</label> <input type="number" id="Pmin" value="-85" min="-120" max="-50" step="1"> </div>
       <div class="input-group"> <label for="frequency">Frequency (MHz):</label> <input type="number" id="frequency" value="900" min="400" max="6000" step="50"> </div>
+      <!-- MODIFICATION: New input for Noise Floor -->
+      <div class="input-group"> <label for="noiseFloor">Noise Floor (dBm):</label> <input type="number" id="noiseFloor" value="-100" min="-120" max="-70" step="1"> </div>
       <div class="input-group"> <label for="obstacleDensity">Obstacle Density (per 100 cells):</label> <input type="number" id="obstacleDensity" value="5" min="0" max="20" step="0.1"> </div>
       <div class="input-group"> <label>Click Mode:</label> <div class="mode-buttons"> <button class="mode-btn active" onclick="setMode('normal')">Normal</button> <button class="mode-btn" onclick="setMode('heavy')">Heavy</button> <button class="mode-btn" onclick="setMode('erase')">Erase</button> </div> </div>
       <button class="action-button" onclick="clearAll()">Clear All Obstacles</button> 
@@ -365,6 +378,7 @@ let inputsPanel, outputsPanel, chartStatsPanel, panelHolder;
 let simInputsContainer, simOutputsContainer, analysisInputsContainer, analysisOutputsContainer;
 
 function initialize() {
+  // Store references to the panels and their containers
   inputsPanel = document.getElementById('inputs-panel');
   outputsPanel = document.getElementById('outputs-panel');
   chartStatsPanel = document.getElementById('chart-stats-panel');
@@ -375,6 +389,7 @@ function initialize() {
   analysisInputsContainer = document.getElementById('analysis-inputs-column');
   analysisOutputsContainer = document.getElementById('analysis-outputs-column');
 
+  // Set up the initial UI state
   createGrid(); 
   setupInputListeners();
   setMode('normal'); 
@@ -384,20 +399,25 @@ function initialize() {
 }
 
 function switchMainTask(taskName) {
+  // Hide all main pages
   document.querySelectorAll('.page-content').forEach(page => page.classList.remove('active'));
+  // Deactivate all task buttons
   document.querySelectorAll('.main-task-btn').forEach(btn => btn.classList.remove('active'));
 
+  // Move all panels to the holding pen to reset the state
   panelHolder.appendChild(inputsPanel);
   panelHolder.appendChild(outputsPanel);
   panelHolder.appendChild(chartStatsPanel);
 
+  // Activate the selected page and button
   document.getElementById(taskName + '-page').classList.add('active');
   document.getElementById(taskName + '-task-btn').classList.add('active');
 
+  // Move the correct panels to the visible page
   if (taskName === 'simulation') {
     simInputsContainer.appendChild(inputsPanel);
     simOutputsContainer.appendChild(outputsPanel);
-  } else {
+  } else { // 'analysis'
     analysisInputsContainer.appendChild(inputsPanel);
     analysisOutputsContainer.appendChild(chartStatsPanel);
     setTimeout(() => {
@@ -416,7 +436,6 @@ updatePathlossAndMetrics = function() {
   }
 };
 
-// ... (The rest of the JS code from the previous step is identical) ...
 const gridSize = 18; 
 const rows = 31;
 const cols = 31;
@@ -801,7 +820,8 @@ function handleCellClick(row, col) {
 function showTooltip(event, row, col) {
     const cell = cells[row][col];
     if (!cell) return;
-    let content = `Cell (${col}, ${row})<br>`;
+    // MODIFICATION: Removed the cell ID from the tooltip content
+    let content = ``;
     if (row === transmitter.y && col === transmitter.x) {
         content += `Type: Transmitter<br>Power: ${document.getElementById('Pt').value} dBm`;
     } else if (cell.obstacleType) {
@@ -891,7 +911,8 @@ function randomObstacles() {
 }
 
 function setupInputListeners() {
-  const inputsToWatch = ['Pt', 'Pmin', 'frequency', 'setting', 'obstacleDensity']; 
+  // MODIFICATION: Added 'noiseFloor' to the list of inputs that trigger updates
+  const inputsToWatch = ['Pt', 'Pmin', 'frequency', 'setting', 'noiseFloor']; 
   inputsToWatch.forEach(id => {
     const element = document.getElementById(id);
     element.addEventListener('change', updatePathlossAndMetrics);
@@ -941,52 +962,104 @@ function updateChart() {
   }
   
   const chartType = document.getElementById('chartType').value;
+  const noiseFloor = parseFloat(document.getElementById('noiseFloor').value);
   const dataPoints = [];
-  
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      const cell = cells[r][c];
-      if ((r === transmitter.y && c === transmitter.x) || cell.obstacleType) continue;
-      
-      const distanceKm = cell.distance / 1000;
-      let yValue;
-      
-      switch (chartType) {
-        case 'snr-distance': const noiseFloor = -100; yValue = cell.receivedPower - noiseFloor; break;
-        case 'power-distance': yValue = cell.receivedPower; break;
-        case 'pathloss-distance': yValue = cell.currentPathloss; break;
-        default: yValue = cell.receivedPower;
+
+  // MODIFICATION: New logic for P(outage) vs SNR Threshold plot
+  if (chartType === 'pout-snr') {
+    const allSimulatedCells = [];
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const cell = cells[r][c];
+        if ((r === transmitter.y && c === transmitter.x) || cell.obstacleType) continue;
+        allSimulatedCells.push(cell);
       }
-      dataPoints.push({ x: distanceKm, y: yValue });
+    }
+    const totalSimulatedCells = allSimulatedCells.length;
+
+    for (let snrThreshold = -10; snrThreshold <= 40; snrThreshold += 1) {
+      let outageCount = 0;
+      if (totalSimulatedCells > 0) {
+        for (const cell of allSimulatedCells) {
+          const cellSnr = cell.receivedPower - noiseFloor;
+          if (cellSnr < snrThreshold) {
+            outageCount++;
+          }
+        }
+        const pOutage = outageCount / totalSimulatedCells;
+        dataPoints.push({ x: snrThreshold, y: pOutage });
+      }
+    }
+  } else {
+    // Original logic for all other cell-by-cell plots
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const cell = cells[r][c];
+        if ((r === transmitter.y && c === transmitter.x) || cell.obstacleType) continue;
+        
+        const distanceKm = cell.distance / 1000;
+        let yValue;
+        
+        switch (chartType) {
+          case 'snr-distance': yValue = cell.receivedPower - noiseFloor; break;
+          case 'power-distance': yValue = cell.receivedPower; break;
+          case 'pathloss-distance': yValue = cell.currentPathloss; break;
+          case 'outage-distance': yValue = cell.isOutage ? 1 : 0; break;
+          default: yValue = cell.receivedPower;
+        }
+        dataPoints.push({ x: distanceKm, y: yValue });
+      }
     }
   }
   
   analysisChart.data.datasets[0].data = dataPoints;
   
+  // MODIFICATION: Updated chart labels to be more dynamic and include the new plot
   const chartLabels = {
-    'snr-distance': { title: 'SNR vs Distance', yLabel: 'SNR (dB)', color: 'rgba(40, 167, 69, 0.7)' },
-    'power-distance': { title: 'Received Power vs Distance', yLabel: 'Received Power (dBm)', color: 'rgba(0, 123, 255, 0.7)' },
-    'pathloss-distance': { title: 'Path Loss vs Distance', yLabel: 'Path Loss (dB)', color: 'rgba(220, 53, 69, 0.7)' }
+    'snr-distance':      { title: 'SNR vs Distance',              yLabel: 'SNR (dB)',                  xLabel: 'Distance (km)',      color: 'rgba(40, 167, 69, 0.7)' },
+    'power-distance':    { title: 'Received Power vs Distance',   yLabel: 'Received Power (dBm)',      xLabel: 'Distance (km)',      color: 'rgba(0, 123, 255, 0.7)' },
+    'pathloss-distance': { title: 'Path Loss vs Distance',        yLabel: 'Path Loss (dB)',            xLabel: 'Distance (km)',      color: 'rgba(220, 53, 69, 0.7)' },
+    'outage-distance':   { title: 'Outage vs Distance',           yLabel: 'Outage (1=Yes, 0=No)',      xLabel: 'Distance (km)',      color: 'rgba(111, 66, 193, 0.7)' },
+    'pout-snr':          { title: 'Outage Probability vs SNR',    yLabel: 'Outage Probability',        xLabel: 'SNR Threshold (dB)', color: 'rgba(253, 126, 20, 0.7)'}
   };
   
   const currentLabel = chartLabels[chartType];
   analysisChart.data.datasets[0].label = currentLabel.title;
   analysisChart.data.datasets[0].backgroundColor = currentLabel.color;
   analysisChart.data.datasets[0].borderColor = currentLabel.color.replace('0.7', '1');
+  analysisChart.options.scales.x.title.text = currentLabel.xLabel;
   analysisChart.options.scales.y.title.text = currentLabel.yLabel;
   
-  // MODIFICATION: Call the new dynamic statistic functions
-  const correlation = calculateCorrelation(dataPoints);
-  const trend = getTrend(dataPoints);
-  
   document.getElementById('chartDataPoints').textContent = dataPoints.length;
-  document.getElementById('chartCorrelation').textContent = isNaN(correlation) ? 'N/A' : correlation.toFixed(3);
-  document.getElementById('chartTrend').textContent = trend;
   
+  // MODIFICATION: Dynamically change chart type and stats based on selection
+  if (chartType === 'pout-snr') {
+    analysisChart.config.type = 'line'; // Use a line chart for this CDF-like plot
+    analysisChart.data.datasets[0].pointRadius = 2;
+    analysisChart.data.datasets[0].showLine = true;
+    analysisChart.data.datasets[0].fill = true;
+    document.getElementById('chartCorrelation').textContent = 'N/A';
+    document.getElementById('chartTrend').textContent = 'Increasing';
+    analysisChart.options.plugins.tooltip.callbacks.label = function(context) { 
+      return `P(outage) @ ${context.parsed.x} dB: ${context.parsed.y.toFixed(3)}`; 
+    };
+  } else {
+    analysisChart.config.type = 'scatter'; // Revert to scatter for other plots
+    analysisChart.data.datasets[0].pointRadius = 5;
+    analysisChart.data.datasets[0].showLine = false;
+    analysisChart.data.datasets[0].fill = false;
+    const correlation = calculateCorrelation(dataPoints);
+    const trend = dataPoints.length > 1 ? (dataPoints[dataPoints.length - 1].y > dataPoints[0].y ? 'Increasing' : 'Decreasing') : 'N/A';
+    document.getElementById('chartCorrelation').textContent = isNaN(correlation) ? 'N/A' : correlation.toFixed(3);
+    document.getElementById('chartTrend').textContent = trend;
+    analysisChart.options.plugins.tooltip.callbacks.label = function(context) { 
+        return `(${context.parsed.x.toFixed(2)}, ${context.parsed.y.toFixed(2)})`; 
+    };
+  }
+
   analysisChart.update('none');
 }
 
-// This function calculates R-squared for correlation
 function calculateCorrelation(points) {
   if (points.length < 2) return NaN;
   const n = points.length;
@@ -997,31 +1070,7 @@ function calculateCorrelation(points) {
   const sumY2 = points.reduce((sum, p) => sum + (p.y * p.y), 0);
   const numerator = (n * sumXY) - (sumX * sumY);
   const denominator = Math.sqrt(((n * sumX2) - (sumX * sumX)) * ((n * sumY2) - (sumY * sumY)));
-  if (denominator === 0) return 0;
-  return (numerator / denominator) ** 2;
-}
-
-// MODIFICATION: New function to determine the trend based on Pearson's 'r'
-function getTrend(points) {
-    if (points.length < 2) return "N/A";
-
-    const n = points.length;
-    const sumX = points.reduce((sum, p) => sum + p.x, 0);
-    const sumY = points.reduce((sum, p) => sum + p.y, 0);
-    const sumXY = points.reduce((sum, p) => sum + (p.x * p.y), 0);
-    const sumX2 = points.reduce((sum, p) => sum + (p.x * p.x), 0);
-    const sumY2 = points.reduce((sum, p) => sum + (p.y * p.y), 0);
-
-    const numerator = (n * sumXY) - (sumX * sumY);
-    const denominator = Math.sqrt(((n * sumX2) - (sumX * sumX)) * ((n * sumY2) - (sumY * sumY)));
-
-    if (denominator === 0) return "N/A";
-
-    const r = numerator / denominator; // This is the Pearson correlation coefficient
-
-    if (r > 0.1) return "Increasing";
-    if (r < -0.1) return "Decreasing";
-    return "No Clear Trend";
+  return denominator === 0 ? 0 : (numerator / denominator) ** 2;
 }
 
 function loadChartJS() {
