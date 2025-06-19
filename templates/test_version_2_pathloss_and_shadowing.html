@@ -155,6 +155,7 @@
             background: #e8ecf0;
             outline: none;
             -webkit-appearance: none;
+            appearance: none;
         }
 
         .input-group input[type="range"]::-webkit-slider-thumb {
@@ -337,7 +338,7 @@
         #pathlossGraph, #graph_placeholder {
             width: 100%;
             max-width: 600px;
-            height: 450px;
+            height: 500px;
         }
 
         #graph_placeholder {
@@ -401,8 +402,8 @@
                         <input type="number" id="gamma_val" value="3.71" step="0.01">
                     </div>
                     <div class="input-group">
-                        <label for="d0_val">Reference Distance (d₀, meters)</label>
-                        <input type="number" id="d0_val" value="1" step="0.1" min="0.1">
+                        <label for="d0_val">Reference Distance (d₀, km)</label>
+                        <input type="number" id="d0_val" value="0.01" step="0.001" min="0.001">
                     </div>
                     <div class="input-group">
                         <label for="obstacle_density_val">Obstacle Density (per km²)</label>
@@ -414,10 +415,10 @@
                     <div class="section-title">Receiver Position</div>
                     <div class="slider-container">
                         <div class="slider-label">
-                            <span>Distance from Transmitter (m)</span>
-                            <span id="current_distance_val" class="value-display">50</span>
+                            <span>Distance from Transmitter (km)</span>
+                            <span id="current_distance_val" class="value-display">2.50</span>
                         </div>
-                        <input type="range" id="current_distance_slider" min="20" max="200" value="50" step="1">
+                        <input type="range" id="current_distance_slider" min="0.02" max="5.0" value="2.5" step="0.05">
                     </div>
                     <div class="slider-container">
                         <div class="slider-label">
@@ -431,7 +432,7 @@
                 <div class="section">
                     <div class="section-title">Data Recording</div>
                     <div class="recording-info">
-                        <p>Recorded Points: <span id="record_count_display">0 / 25</span></p>
+                        <p>Recorded Points: <span id="record_count_display">0 / 30</span></p>
                     </div>
                     <div class="button-group">
                         <button id="record_data_btn" class="primary">Record Point</button>
@@ -439,7 +440,11 @@
                     </div>
                     <div class="button-group">
                         <button id="reset_session_btn">Reset Session</button>
-                        <button id="randomize_obstacles_btn">New Environment</button>
+                        <!-- CHANGE: Added Auto-Generate button -->
+                        <button id="auto_generate_btn">Auto-Generate Points</button>
+                    </div>
+                    <div class="button-group single">
+                         <button id="randomize_obstacles_btn">New Environment</button>
                     </div>
                 </div>
             </div>
@@ -455,7 +460,6 @@
                     <canvas id="simulationCanvas" width="420" height="420"></canvas>
                     
                     <div class="simulation-legend">
-                        <!-- CHANGE: Using Base64 encoded SVGs to fix rendering bug -->
                         <div class="legend-item">
                             <img class="legend-icon" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzY2N2VlYSI+PHBhdGggZD0iTTEyIDNsNCA0aC0zdjEwaC0yVjdIOFs0LTR6TTQgOWgzdjJINGMtMnptMCA0aDN2Mkg0di0yem0xNi00aC0zdjJoM3YtMnptMCA0aC0zdjJoM3YtMnoiLz48L3N2Zz4=">
                             <span>Transmitter</span>
@@ -506,6 +510,8 @@
     const recordBtn = document.getElementById('record_data_btn');
     const generateGraphBtn = document.getElementById('generate_graph_btn');
     const resetBtn = document.getElementById('reset_session_btn');
+    // CHANGE: Added Auto-Generate button
+    const autoGenerateBtn = document.getElementById('auto_generate_btn');
     const recordCountDisplay = document.getElementById('record_count_display');
 
     const simCanvas = document.getElementById('simulationCanvas');
@@ -520,24 +526,24 @@
 
     let pathlossChart;
     let obstacles = [];
-    let currentK, currentGamma, currentD0, currentRxDistance_m, currentRxAngleRad;
+    let currentK, currentGamma, currentD0, currentRxDistance_km, currentRxAngleRad;
     let recordedData = [];
     const MIN_RECORDINGS = 10;
-    const MAX_RECORDINGS = 25;
+    // CHANGE: Max recordings increased to match auto-generate amount
+    const MAX_RECORDINGS = 30;
 
     // Simulation Constants
     const canvasWidth = simCanvas.width;
     const canvasHeight = simCanvas.height;
     const txPos_px = { x: canvasWidth / 2, y: canvasHeight / 2 };
     const maxCanvasDisplayRadius_px = Math.min(canvasWidth, canvasHeight) / 2 * 0.85;
-    let worldScale_pxPerMeter;
+    let worldScale_pxPerKm;
 
-    // CHANGE: Using Base64 encoded SVGs to fix rendering bug
     const TX_ICON = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzY2N2VlYSI+PHBhdGggZD0iTTEyIDNsNCA0aC0zdjEwaC0yVjdIOFs0LTR6TTQgOWgzdjJINGMtMnptMCA0aDN2Mkg0di0yem0xNi00aC0zdjJoM3YtMnptMCA0aC0zdjJoM3YtMnoiLz48L3N2Zz4=';
     const RX_ICON = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iIzY2N2VlYSI+PHBhdGggZD0iTTE2IDFIOEM2LjM0IDEgNSAyLjM0IDUgNHYxNmMwIDEuNjYgMS4zNCAzIDMgM2g4YzEuNjYgMCAzLTEuMzQgMy0zVjRjMC0xLjY2LTEuMzQtMy0zLTN6TTE0IDIxaC00di0xaDR2MXptMS4yNS0zSDguNzVWNGg2LjV2MTR6Ii8+PC9zdmc+';
     
     let txImage, rxImage;
-    const TX_IMG_SIZE = 38;
+    const TX_IMG_SIZE = 48;
     const RX_IMG_SIZE = 28;
 
     function loadImages() {
@@ -556,7 +562,6 @@
             txImage.onload = onImageLoad;
             rxImage.onload = onImageLoad;
             
-            // This fallback ensures the promise resolves even if an image fails to load
             txImage.onerror = onImageLoad;
             rxImage.onerror = onImageLoad;
             
@@ -577,24 +582,34 @@
     }
 
     function setupEventListeners() {
-        [kInput, gammaInput, d0Input, densityInput, distanceSlider, angleSlider].forEach(el => {
+        [kInput, gammaInput, d0Input, distanceSlider, angleSlider].forEach(el => {
             el.addEventListener('input', () => { readAllInputs(); updateSimulation(); });
         });
+
+        densityInput.addEventListener('input', () => {
+            readAllInputs();
+            placeObstacles();
+            updateSimulation();
+        });
+
         randomizeBtn.addEventListener('click', () => {
             placeObstacles();
             updateSimulation();
         });
+
         recordBtn.addEventListener('click', recordDataPoint);
         generateGraphBtn.addEventListener('click', generateGraph);
         resetBtn.addEventListener('click', resetSession);
+        // CHANGE: Added event listener for new button
+        autoGenerateBtn.addEventListener('click', autoGenerateData);
     }
     
     function readAllInputs() {
         currentK = parseFloat(kInput.value);
         currentGamma = parseFloat(gammaInput.value);
         currentD0 = parseFloat(d0Input.value);
-        currentRxDistance_m = parseFloat(distanceSlider.value);
-        distanceDisplay.textContent = currentRxDistance_m.toFixed(0);
+        currentRxDistance_km = parseFloat(distanceSlider.value);
+        distanceDisplay.textContent = currentRxDistance_km.toFixed(2);
         currentRxAngleRad = parseFloat(angleSlider.value) * Math.PI / 180;
         angleDisplay.textContent = (currentRxAngleRad * 180 / Math.PI).toFixed(0);
     }
@@ -602,6 +617,7 @@
     function updateUIState() {
         recordCountDisplay.textContent = `${recordedData.length} / ${MAX_RECORDINGS}`;
         recordBtn.disabled = recordedData.length >= MAX_RECORDINGS;
+        autoGenerateBtn.disabled = recordedData.length >= MAX_RECORDINGS;
         generateGraphBtn.disabled = recordedData.length < MIN_RECORDINGS;
     }
     
@@ -609,10 +625,35 @@
         if (recordedData.length >= MAX_RECORDINGS) return;
         readAllInputs();
         const { prPtDb } = calculateCurrentSignal();
-        recordedData.push({ x: currentRxDistance_m, y: prPtDb });
+        recordedData.push({ x: currentRxDistance_km, y: prPtDb });
         updateUIState();
     }
     
+    // CHANGE: New function to auto-generate data
+    function autoGenerateData() {
+        const NUM_AUTO_POINTS = 30;
+        const min_dist = parseFloat(distanceSlider.min);
+        const max_dist = parseFloat(distanceSlider.max);
+        
+        // Clear previous data for a fresh set
+        recordedData = [];
+
+        for (let i = 0; i < NUM_AUTO_POINTS; i++) {
+            if (recordedData.length >= MAX_RECORDINGS) break;
+
+            const randomDist_km = Math.random() * (max_dist - min_dist) + min_dist;
+            const randomAngle_rad = Math.random() * 2 * Math.PI;
+
+            const { prPtDb } = calculateSignalAtPoint(randomDist_km, randomAngle_rad);
+            recordedData.push({ x: randomDist_km, y: prPtDb });
+        }
+        
+        updateUIState();
+        if (recordedData.length >= MIN_RECORDINGS) {
+            generateGraph();
+        }
+    }
+
     function generateGraph() {
         graphPlaceholder.style.display = 'none';
         graphCanvas.style.display = 'block';
@@ -621,9 +662,9 @@
         pathlossChart.data.datasets[1].data = sortedRecordedData;
 
         const meanPrPtData = [];
-        const minD = parseInt(distanceSlider.min);
-        const maxD = parseInt(distanceSlider.max);
-        for (let dist = minD; dist <= maxD; dist += 5) {
+        const minD = parseFloat(distanceSlider.min);
+        const maxD = parseFloat(distanceSlider.max);
+        for (let dist = minD; dist <= maxD; dist += 0.1) {
             const meanPl = calculateMeanPathloss(dist, currentK, currentGamma, currentD0);
             meanPrPtData.push({ x: dist, y: -meanPl });
         }
@@ -645,17 +686,23 @@
         updateSimulation();
     }
     
-    function calculateCurrentSignal() {
-        const currentRxRadius_px = currentRxDistance_m * worldScale_pxPerMeter;
+    // CHANGE: Refactored logic into a reusable function
+    function calculateSignalAtPoint(distance_km, angle_rad) {
+        const rxRadius_px = distance_km * worldScale_pxPerKm;
         const rxPos_px = {
-            x: txPos_px.x + currentRxRadius_px * Math.cos(currentRxAngleRad),
-            y: txPos_px.y + currentRxRadius_px * Math.sin(currentRxAngleRad)
+            x: txPos_px.x + rxRadius_px * Math.cos(angle_rad),
+            y: txPos_px.y + rxRadius_px * Math.sin(angle_rad)
         };
-        const meanPlDb = calculateMeanPathloss(currentRxDistance_m, currentK, currentGamma, currentD0);
+        const meanPlDb = calculateMeanPathloss(distance_km, currentK, currentGamma, currentD0);
         const { shadowingDb, isOccluded } = calculateShadowingAtPosition(rxPos_px);
         const totalPlDb = meanPlDb + shadowingDb;
         const prPtDb = -totalPlDb;
         return { totalPlDb, prPtDb, isOccluded };
+    }
+
+    // CHANGE: This function now just calls the reusable one with current slider values
+    function calculateCurrentSignal() {
+        return calculateSignalAtPoint(currentRxDistance_km, currentRxAngleRad);
     }
 
     function updateSimulation() {
@@ -664,7 +711,8 @@
         outPrPt.textContent = prPtDb.toFixed(2);
         outStatus.textContent = isOccluded ? "Occluded" : "Line of Sight";
         statusIndicator.className = `status-indicator ${isOccluded ? 'status-occluded' : 'status-los'}`;
-        const currentRxRadius_px = currentRxDistance_m * worldScale_pxPerMeter;
+        
+        const currentRxRadius_px = currentRxDistance_km * worldScale_pxPerKm;
         const rxPos_px = {
             x: txPos_px.x + currentRxRadius_px * Math.cos(currentRxAngleRad),
             y: txPos_px.y + currentRxRadius_px * Math.sin(currentRxAngleRad)
@@ -688,8 +736,8 @@
                         backgroundColor: '#e74c3c', 
                         pointRadius: 4,
                         borderWidth: 2,
-                        showLine: true,
-                        type: 'line'
+                        showLine: false,
+                        type: 'line' 
                     }
                 ]
             },
@@ -703,13 +751,14 @@
                 scales: {
                     x: {
                         type: 'linear',
-                        title: { display: true, text: 'Distance (meters)', font: { size: 16, weight: '600' } },
-                        min: parseInt(distanceSlider.min), max: parseInt(distanceSlider.max)
+                        title: { display: true, text: 'Distance (km)', font: { size: 16, weight: '600' } },
+                        min: 0, 
+                        max: 5
                     },
                     y: { 
                         title: { display: true, text: 'Pr/Pt (dB)', font: { size: 16, weight: '600' } },
                         suggestedMax: -50,
-                        suggestedMin: -160
+                        suggestedMin: -180
                     }
                 }
             }
@@ -728,28 +777,28 @@
     }
 
     function calculateWorldScale() { 
-        worldScale_pxPerMeter = maxCanvasDisplayRadius_px / parseFloat(distanceSlider.max); 
+        worldScale_pxPerKm = maxCanvasDisplayRadius_px / parseFloat(distanceSlider.max); 
     }
     
     function placeObstacles() {
         obstacles = [];
         const densityPerKm2 = parseFloat(densityInput.value); 
-        const maxSimDistance_m = parseFloat(distanceSlider.max);
-        const areaKm2 = Math.PI * Math.pow(maxSimDistance_m / 1000, 2);
+        const maxSimDistance_km = parseFloat(distanceSlider.max);
+        const areaKm2 = Math.PI * Math.pow(maxSimDistance_km, 2);
         const lambda = densityPerKm2 * areaKm2;
         const numObs = poissonRandom(lambda);
         
         for (let i = 0; i < numObs; i++) {
-            const obsDistFromTx_m = Math.sqrt(Math.random()) * maxSimDistance_m; 
+            const obsDistFromTx_km = Math.sqrt(Math.random()) * maxSimDistance_km; 
             const obsAngleRad = Math.random() * 2 * Math.PI;
-            const obsRadius_m = Math.random() * 8 * 0.6 + 8 * 0.2; 
-            const obsX_m = obsDistFromTx_m * Math.cos(obsAngleRad);
-            const obsY_m = obsDistFromTx_m * Math.sin(obsAngleRad); 
+            const obsRadius_km = (Math.random() * 8 * 0.6 + 8 * 0.2) / 1000; 
+            const obsX_km = obsDistFromTx_km * Math.cos(obsAngleRad);
+            const obsY_km = obsDistFromTx_km * Math.sin(obsAngleRad); 
             const attenuation = Math.max(0.5, 8 + (Math.random() - 0.5) * 2 * 5);
             obstacles.push({
-                x_m: obsX_m, y_m: obsY_m, radius_m: obsRadius_m, attenuationDb: attenuation,
-                x_px: txPos_px.x + obsX_m * worldScale_pxPerMeter, y_px: txPos_px.y + obsY_m * worldScale_pxPerMeter,
-                radius_px: Math.max(2, obsRadius_m * worldScale_pxPerMeter), 
+                x_km: obsX_km, y_km: obsY_km, radius_km: obsRadius_km, attenuationDb: attenuation,
+                x_px: txPos_px.x + obsX_km * worldScale_pxPerKm, y_px: txPos_px.y + obsY_km * worldScale_pxPerKm,
+                radius_px: Math.max(2, obsRadius_km * worldScale_pxPerKm), 
                 color: `hsl(${30 + (attenuation / 20) * 30}, 70%, ${60 - (attenuation / 20) * 20}%)`
             });
         }
@@ -763,11 +812,12 @@
                 totalShadowingDb += obs.attenuationDb; occluded = true;
             }
         }
-        totalShadowingDb += (Math.random() - 0.5) * 8; return { shadowingDb: totalShadowingDb, isOccluded: occluded };
+        totalShadowingDb += (Math.random() - 0.55) * 10; 
+        return { shadowingDb: totalShadowingDb, isOccluded: occluded };
     }
 
     function calculateMeanPathloss(distance, K, gamma, d0) {
-        if (distance <= 0) distance = 0.1; if (d0 <= 0) d0 = 0.1;
+        if (distance <= 0) distance = 0.0001; if (d0 <= 0) d0 = 0.0001;
         return (distance < d0) ? K : K + 10 * gamma * Math.log10(distance / d0);
     }
 
@@ -781,32 +831,29 @@
     function drawSimulationCanvas(rxPos_px, currentRxRadius_px, isOccluded) {
         simCtx.clearRect(0, 0, canvasWidth, canvasHeight);
         
-        // Draw distance grid
         simCtx.strokeStyle = 'rgba(74, 105, 189, 0.3)'; simCtx.lineWidth = 1; simCtx.setLineDash([3, 3]);
-        for (let i = 50; i <= 200; i += 50) {
-            const r = i * worldScale_pxPerMeter; simCtx.beginPath(); simCtx.arc(txPos_px.x, txPos_px.y, r, 0, 2 * Math.PI); simCtx.stroke();
+        for (let i = 1; i <= 5; i += 1) {
+            const r = i * worldScale_pxPerKm; 
+            simCtx.beginPath(); 
+            simCtx.arc(txPos_px.x, txPos_px.y, r, 0, 2 * Math.PI); 
+            simCtx.stroke();
         }
         
-        // Draw receiver's current orbit
         simCtx.setLineDash([]); simCtx.beginPath(); simCtx.arc(txPos_px.x, txPos_px.y, currentRxRadius_px, 0, 2 * Math.PI);
         simCtx.strokeStyle = isOccluded ? 'rgba(255, 87, 34, 0.8)' : 'rgba(76, 175, 80, 0.8)'; simCtx.lineWidth = 2; simCtx.setLineDash([5, 5]); simCtx.stroke(); simCtx.setLineDash([]);
         
-        // Draw obstacles
         obstacles.forEach(obs => {
             simCtx.fillStyle = obs.color; simCtx.fillRect(obs.x_px - obs.radius_px, obs.y_px - obs.radius_px, obs.radius_px * 2, obs.radius_px * 2);
         });
 
-        // Draw Transmitter Image (Tower)
         if(txImage && txImage.complete) {
             simCtx.drawImage(txImage, txPos_px.x - TX_IMG_SIZE / 2, txPos_px.y - TX_IMG_SIZE / 2, TX_IMG_SIZE, TX_IMG_SIZE);
         }
 
-        // Draw Receiver Image (Phone)
         if(rxImage && rxImage.complete) {
             simCtx.drawImage(rxImage, rxPos_px.x - RX_IMG_SIZE / 2, rxPos_px.y - RX_IMG_SIZE / 2, RX_IMG_SIZE, RX_IMG_SIZE);
         }
         
-        // Draw signal path line on top
         simCtx.beginPath(); 
         simCtx.moveTo(txPos_px.x, txPos_px.y); 
         simCtx.lineTo(rxPos_px.x, rxPos_px.y);
