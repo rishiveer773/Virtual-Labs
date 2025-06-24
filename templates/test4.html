@@ -293,14 +293,7 @@
                     onAllImagesLoaded();
                 }
             }
-
-            // [MODIFIED] Image paths updated. Ensure your folder structure is correct.
-            // my_project/
-            //  ├── simulation.html
-            //  └── static/
-            //      └── images/
-            //          ├── antenna-svgrepo-com.svg
-            //          └── car.svg
+            
             transmitter.img.src = 'static/images/antenna-svgrepo-com.svg';
             receiver.img.src = 'static/images/car.svg';
 
@@ -343,7 +336,7 @@
                 } else if (num === 3) {
                     transmitter.x = canvas.width / 2;
                     transmitter.y = canvas.height / 6;
-                    receiver.x = 50; // Start at left edge
+                    receiver.x = 50; 
                     receiver.y = canvas.height / 2;
                     updateWallPositionScenario3();
                 }
@@ -425,12 +418,11 @@
                 const margin = 50;
                 receiver.x += receiver.velocity * receiver.direction * 0.1;
                 
-                // [MODIFIED] Movement bounds defined by scenario
                 let leftBound = margin;
                 let rightBound = canvas.width - margin;
 
                 if (currentScenario === 3) {
-                    rightBound = wall.x - margin / 2; // Can't go right past the wall
+                    rightBound = wall.x - margin / 2; 
                 }
 
                 if (receiver.direction === 1 && receiver.x > rightBound) {
@@ -445,7 +437,6 @@
             }
 
             function updateWallPositionScenario2() {
-                // [MODIFIED] Slider now directly controls wall's X position.
                 const wallX = parseFloat(wallSlider.value);
                 wall.x = wallX;
                 wall.y = 50;
@@ -515,23 +506,54 @@
                 signalCanvas.style.border = '1px solid #ddd'; container.appendChild(signalCanvas);
                 signalCtx = signalCanvas.getContext('2d');
             }
-
+            
+            // [MODIFIED] This function now handles each scenario's signal generation correctly.
             function updateSignal() {
                 if (!signalCtx) return;
-                let dopplerShift = (currentScenario !== 2) ? calculateInstantaneousDopplerShift() : 0;
-                let freqMod = (maxDopplerShift > 0) ? (dopplerShift / maxDopplerShift) * modulationDepth : 0;
-                currentPhase += (baseCarrierFreq + freqMod) * dt_visual;
-                
-                let signalValue = Math.sin(currentPhase);
-                if (currentScenario === 2 || currentScenario === 3) {
-                    const directPath = Math.hypot(receiver.x - transmitter.x, receiver.y - transmitter.y);
-                    const wavelength = c / frequency;
-                    const tx_image_x = wall.x + (wall.x - transmitter.x);
-                    const reflectedPath = Math.hypot(receiver.x - tx_image_x, receiver.y - transmitter.y);
-                    const phaseDiff = (2 * Math.PI * (reflectedPath - directPath)) / wavelength;
-                    signalValue += 0.8 * Math.sin(currentPhase + phaseDiff);
-                    signalValue /= 1.8;
+
+                let signalValue = 0;
+
+                switch (currentScenario) {
+                    case 1: { // Doppler Only (Frequency Modulation, constant amplitude)
+                        const dopplerShift = calculateInstantaneousDopplerShift();
+                        const freqMod = (maxDopplerShift > 0) ? (dopplerShift / maxDopplerShift) * modulationDepth : 0;
+                        currentPhase += (baseCarrierFreq + freqMod) * dt_visual;
+                        signalValue = Math.sin(currentPhase);
+                        break;
+                    }
+
+                    case 2: { // Multipath Fading Only (Amplitude changes, constant frequency)
+                        currentPhase += baseCarrierFreq * dt_visual; // No frequency shift
+                        const directPath = Math.hypot(receiver.x - transmitter.x, receiver.y - transmitter.y);
+                        const wavelength = c / frequency;
+                        const tx_image_x = wall.x + (wall.x - transmitter.x);
+                        const reflectedPath = Math.hypot(receiver.x - tx_image_x, receiver.y - transmitter.y);
+                        const phaseDiff = (2 * Math.PI * (reflectedPath - directPath)) / wavelength;
+                        
+                        // Superposition of two signals causes amplitude change (fading)
+                        signalValue = Math.sin(currentPhase) + 0.8 * Math.sin(currentPhase + phaseDiff);
+                        signalValue /= 1.8; // Normalize amplitude
+                        break;
+                    }
+
+                    case 3: { // Combined Doppler and Multipath
+                        const dopplerShift = calculateInstantaneousDopplerShift();
+                        const freqMod = (maxDopplerShift > 0) ? (dopplerShift / maxDopplerShift) * modulationDepth : 0;
+                        currentPhase += (baseCarrierFreq + freqMod) * dt_visual;
+                        
+                        const directPath = Math.hypot(receiver.x - transmitter.x, receiver.y - transmitter.y);
+                        const wavelength = c / frequency;
+                        const tx_image_x = wall.x + (wall.x - transmitter.x);
+                        const reflectedPath = Math.hypot(receiver.x - tx_image_x, receiver.y - transmitter.y);
+                        const phaseDiff = (2 * Math.PI * (reflectedPath - directPath)) / wavelength;
+
+                        // Superposition for amplitude change + phase update for frequency change
+                        signalValue = Math.sin(currentPhase) + 0.8 * Math.sin(currentPhase + phaseDiff);
+                        signalValue /= 1.8; // Normalize amplitude
+                        break;
+                    }
                 }
+                
                 signalHistory.push(signalValue);
                 if (signalHistory.length > maxSignalPoints) signalHistory.shift();
             }
