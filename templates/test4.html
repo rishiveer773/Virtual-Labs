@@ -283,11 +283,9 @@
             const wallSlider3 = document.getElementById('wallSlider3');
             const wallPositionDisplay3 = document.getElementById('wallPositionDisplay3');
         
-            // --- Signal Plotting Variables ---
             let signalCanvas, signalCtx;
             let currentPhase = 0;
             const signalHistory = [];
-            // CHANGE: Added dedicated histories for individual signals in Scenario 2
             let directSignalHistory = [];
             let reflectedSignalHistory = [];
             const maxSignalPoints = 400;
@@ -298,8 +296,7 @@
             const totalImages = 2;
 
             function onAllImagesLoaded() {
-                console.log("All images loaded successfully. Initializing simulation.");
-                rebuildSignalUI(); // Initial setup
+                rebuildSignalUI(); 
                 setScenario(1);
             }
 
@@ -310,23 +307,20 @@
                 }
             }
             
-            transmitter.img.src = 'static/images/antenna-svgrepo-com.svg'; // antenna
-            receiver.img.src = 'static/images/car.svg'; // car
+            transmitter.img.src = 'static/images/antenna-svgrepo-com.svg';
+            receiver.img.src = 'static/images/car.svg';
 
             transmitter.img.onload = imageLoaded;
             receiver.img.onload = imageLoaded;
             
-            transmitter.img.onerror = () => console.error("Failed to load transmitter image. Check path and server.");
-            receiver.img.onerror = () => console.error("Failed to load receiver image. Check path and server.");
+            transmitter.img.onerror = () => console.error("Failed to load transmitter image.");
+            receiver.img.onerror = () => console.error("Failed to load receiver image.");
             
-            
-            // --- CONTROL FUNCTIONS ---
             window.setScenario = (num) => {
                 cancelAnimationFrame(animationFrame);
                 animationFrame = null;
                 currentScenario = num;
 
-                // CHANGE: Rebuild the signal canvas UI every time the scenario changes
                 rebuildSignalUI();
             
                 const velocityInputs = document.getElementById('velocity-inputs');
@@ -339,7 +333,6 @@
             
                 resultsDiv.innerHTML = `<p>Scenario ${num} selected. Configure inputs and click 'Start'.</p>`;
                 
-                // CHANGE: Clear all signal histories
                 signalHistory.length = 0;
                 directSignalHistory.length = 0;
                 reflectedSignalHistory.length = 0;
@@ -405,7 +398,6 @@
                 setScenario(1);
             }
             
-            // --- ANIMATION & SCENARIO LOGIC ---
             function animate() {
                 if(receiver.velocity <= 0 && currentScenario !== 2) {
                     cancelAnimationFrame(animationFrame);
@@ -474,7 +466,6 @@
                 wallPositionDisplay3.textContent = `Wall Position: ${wallX.toFixed(0)} m`;
             }
 
-            // --- CALCULATION & RESULTS ---
             function calculateMaxDopplerShift(freq, vel) { return freq * (Math.abs(vel) / c); }
 
             function calculateInstantaneousDopplerShift() {
@@ -499,7 +490,6 @@
                 const reflectedPath = Math.hypot(receiver.x - tx_image_x, receiver.y - transmitter.y);
                 const delaySpread = Math.abs(reflectedPath - directPath) / c;
                 const coherenceBW = (delaySpread > 0) ? 1 / (2 * delaySpread) : Infinity;
-
                 resultsDiv.innerHTML = `<p><strong>Delay Spread (τ):</strong> ${(delaySpread * 1e9).toFixed(2)} ns</p><p><strong>Coherence BW (Bc):</strong> ${isFinite(coherenceBW) ? (coherenceBW / 1e6).toFixed(2) + ' MHz' : 'Infinite'}</p>`;
             }
         
@@ -509,55 +499,34 @@
                 const reflectedPath = Math.hypot(receiver.x - tx_image_x, receiver.y - transmitter.y);
                 const delaySpread = Math.abs(reflectedPath - directPath) / c;
                 const coherenceBW = (delaySpread > 0) ? 1 / (2 * delaySpread) : Infinity;
-
                 const dopplerShift = calculateInstantaneousDopplerShift();
                 const dopplerSpread = maxDopplerShift;
                 const coherenceTime = (dopplerSpread > 0) ? 1 / (2 * dopplerSpread) : Infinity;
-
                 resultsDiv.innerHTML = `<p><strong>Inst. Doppler:</strong> ${dopplerShift.toFixed(2)} Hz</p><p><strong>Doppler Spread (fd):</strong> ${dopplerSpread.toFixed(2)} Hz</p><p><strong>Coherence Time (Tc):</strong> ${isFinite(coherenceTime) ? (coherenceTime * 1000).toFixed(2) + ' ms' : 'Inf.'}</p><hr><p><strong>Delay Spread (τ):</strong> ${(delaySpread * 1e9).toFixed(2)} ns</p><p><strong>Coherence BW (Bc):</strong> ${isFinite(coherenceBW) ? (coherenceBW / 1e6).toFixed(2) + ' MHz' : 'Inf.'}</p>`;
             }
 
-            // --- SIGNAL PLOTTING ---
-            // CHANGE: Reworked this function to dynamically build the UI based on the scenario.
             function rebuildSignalUI() {
                 const container = document.getElementById('signal-graph-container');
-                container.innerHTML = ''; // Clear previous canvases
+                container.innerHTML = ''; 
                 
                 if (currentScenario === 2) {
-                    // Create UI for Direct Path Signal
-                    const directTitle = document.createElement('h4');
-                    directTitle.textContent = 'Direct Path Signal';
-                    directTitle.style.cssText = 'margin-top: 15px; margin-bottom: 5px;';
-                    container.appendChild(directTitle);
-                    
+                    container.innerHTML += '<h4 style="margin-top: 15px; margin-bottom: 5px;">Direct Path Signal</h4>';
                     const directCanvas = document.createElement('canvas');
                     directCanvas.id = 'directSignalCanvas';
                     directCanvas.width = 360; directCanvas.height = 100;
-                    directCanvas.style.border = '1px solid #ddd';
-                    container.appendChild(directCanvas);
+                    directCanvas.style.border = '1px solid #ddd'; container.appendChild(directCanvas);
 
-                    // Create UI for Reflected Path Signal
-                    const reflectedTitle = document.createElement('h4');
-                    reflectedTitle.textContent = 'Reflected Path Signal';
-                    reflectedTitle.style.cssText = 'margin-top: 15px; margin-bottom: 5px;';
-                    container.appendChild(reflectedTitle);
-
+                    container.innerHTML += '<h4 style="margin-top: 15px; margin-bottom: 5px;">Reflected Path Signal</h4>';
                     const reflectedCanvas = document.createElement('canvas');
                     reflectedCanvas.id = 'reflectedSignalCanvas';
                     reflectedCanvas.width = 360; reflectedCanvas.height = 100;
-                    reflectedCanvas.style.border = '1px solid #ddd';
-                    container.appendChild(reflectedCanvas);
+                    reflectedCanvas.style.border = '1px solid #ddd'; container.appendChild(reflectedCanvas);
 
-                    // Create UI for Combined Signal
-                    const combinedTitle = document.createElement('h4');
-                    combinedTitle.textContent = 'Combined Signal (Superposition)';
-                    combinedTitle.style.cssText = 'margin-top: 15px; margin-bottom: 5px;';
-                    container.appendChild(combinedTitle);
+                    container.innerHTML += '<h4 style="margin-top: 15px; margin-bottom: 5px;">Combined Signal (Superposition)</h4>';
                 } else {
                      container.innerHTML = '<h3>Received Signal Waveform</h3>';
                 }
                 
-                // Create the main canvas for the final signal (used by all scenarios)
                 signalCanvas = document.createElement('canvas');
                 signalCanvas.width = 360; signalCanvas.height = 150;
                 signalCanvas.style.border = '1px solid #ddd'; 
@@ -567,7 +536,6 @@
             
             function updateSignal() {
                 if (!signalCtx) return;
-                
                 let signalValue = 0;
                 
                 if (currentScenario === 1) {
@@ -577,7 +545,6 @@
                     let instantFreq = baseCarrierFreq + freqDeviation;
                     currentPhase += instantFreq * dt_visual;
                     signalValue = Math.sin(currentPhase);
-                    
                 } else if (currentScenario === 2) {
                     const directPath = Math.hypot(receiver.x - transmitter.x, receiver.y - transmitter.y);
                     const wavelength = c / frequency;
@@ -585,33 +552,25 @@
                     const reflectedPath = Math.hypot(receiver.x - tx_image_x, receiver.y - transmitter.y);
                     const pathDifference = reflectedPath - directPath;
                     const phaseDifference = (2 * Math.PI * pathDifference) / wavelength;
-                    
                     currentPhase += baseCarrierFreq * dt_visual;
-                    
-                    // CHANGE: Calculate and store individual signals
                     const directSignal = 1.0 * Math.sin(currentPhase);
                     const reflectedSignal = 0.7 * Math.sin(currentPhase + phaseDifference);
-                    
                     directSignalHistory.push(directSignal);
                     reflectedSignalHistory.push(reflectedSignal);
                     if (directSignalHistory.length > maxSignalPoints) directSignalHistory.shift();
                     if (reflectedSignalHistory.length > maxSignalPoints) reflectedSignalHistory.shift();
-                    
-                    signalValue = (directSignal + reflectedSignal) / 1.7; // Normalize combined signal
-                    
+                    signalValue = (directSignal + reflectedSignal) / 1.7;
                 } else if (currentScenario === 3) {
                     let dopplerShift = calculateInstantaneousDopplerShift();
                     let normalizedDoppler = (maxDopplerShift > 0) ? (dopplerShift / maxDopplerShift) : 0;
                     let freqDeviation = normalizedDoppler * 0.15;
                     let instantFreq = baseCarrierFreq + freqDeviation;
                     currentPhase += instantFreq * dt_visual;
-                    
                     const directPath = Math.hypot(receiver.x - transmitter.x, receiver.y - transmitter.y);
                     const wavelength = c / frequency;
                     const tx_image_x = wall.x + (wall.x - transmitter.x);
                     const reflectedPath = Math.hypot(receiver.x - tx_image_x, receiver.y - transmitter.y);
                     const phaseDiff = (2 * Math.PI * (reflectedPath - directPath)) / wavelength;
-                    
                     signalValue = (Math.sin(currentPhase) + 0.8 * Math.sin(currentPhase + phaseDiff)) / 1.8;
                 }
                 
@@ -622,44 +581,101 @@
             function drawSignal() {
                 if (!signalCtx) return;
                 
-                // CHANGE: Draw individual signals if in Scenario 2
                 if (currentScenario === 2) {
                     const directCanvas = document.getElementById('directSignalCanvas');
                     if (directCanvas) {
-                        drawIndividualSignal(directCanvas, directSignalHistory, '#2563eb'); // Blue
+                        drawIndividualSignal(directCanvas, directSignalHistory, '#2563eb');
                     }
-                    
                     const reflectedCanvas = document.getElementById('reflectedSignalCanvas');
                     if (reflectedCanvas) {
-                        drawIndividualSignal(reflectedCanvas, reflectedSignalHistory, '#dc2626'); // Red
+                        drawIndividualSignal(reflectedCanvas, reflectedSignalHistory, '#dc2626');
                     }
                 }
-                
-                // Draw the final combined/main signal (works for all scenarios)
-                drawIndividualSignal(signalCanvas, signalHistory, '#16a085'); // Green/Teal
+                drawIndividualSignal(signalCanvas, signalHistory, '#16a085');
             }
 
-            // CHANGE: New reusable helper function to draw any signal
+            // --- CHANGE START: Updated function to draw scales ---
             function drawIndividualSignal(canvas, history, color) {
                 const ctx = canvas.getContext('2d');
+                const padding = { top: 10, bottom: 30, left: 40, right: 10 };
+                const plotWidth = canvas.width - padding.left - padding.right;
+                const plotHeight = canvas.height - padding.top - padding.bottom;
+                const plotOrigin = { x: padding.left, y: padding.top };
+
+                // Clear and draw background
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 ctx.fillStyle = '#f8fafc';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // --- Draw Axes and Grid ---
+                ctx.strokeStyle = '#ccc';
+                ctx.fillStyle = '#666';
+                ctx.font = '10px Arial';
+                ctx.lineWidth = 1;
+
+                // Y-Axis (Amplitude)
+                ctx.beginPath();
+                ctx.moveTo(plotOrigin.x, plotOrigin.y);
+                ctx.lineTo(plotOrigin.x, plotOrigin.y + plotHeight);
+                ctx.stroke();
+
+                // X-Axis (Time - zero amplitude line)
+                const yZero = plotOrigin.y + plotHeight / 2;
+                ctx.beginPath();
+                ctx.moveTo(plotOrigin.x, yZero);
+                ctx.lineTo(plotOrigin.x + plotWidth, yZero);
+                ctx.stroke();
+
+                // Y-Axis Ticks and Labels
+                ctx.textAlign = 'right';
+                ctx.textBaseline = 'middle';
+                const ampLevels = [1, 0.5, 0, -0.5, -1];
+                ampLevels.forEach(level => {
+                    const y = yZero - level * (plotHeight / 2);
+                    ctx.beginPath();
+                    ctx.moveTo(plotOrigin.x - 5, y);
+                    ctx.lineTo(plotOrigin.x, y);
+                    ctx.stroke();
+                    ctx.fillText(level.toFixed(1), plotOrigin.x - 8, y);
+                });
+
+                // X-Axis Ticks and Labels
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'top';
+                const totalTime = (maxSignalPoints * dt_visual);
+                ctx.fillText('0', plotOrigin.x, plotOrigin.y + plotHeight + 5);
+                ctx.fillText(totalTime.toFixed(0), plotOrigin.x + plotWidth, plotOrigin.y + plotHeight + 5);
                 
+                // Axis Titles
+                ctx.save();
+                ctx.translate(12, canvas.height / 2);
+                ctx.rotate(-Math.PI / 2);
+                ctx.textAlign = 'center';
+                ctx.fillText('Amplitude', 0, 0);
+                ctx.restore();
+                ctx.fillText('Time (au)', plotOrigin.x + plotWidth / 2, plotOrigin.y + plotHeight + 15);
+
+                // --- Draw Signal ---
                 ctx.beginPath();
                 ctx.strokeStyle = color;
                 ctx.lineWidth = 2;
-                const stepX = canvas.width / (maxSignalPoints - 1);
+                const stepX = plotWidth / (maxSignalPoints - 1);
                 
                 history.forEach((val, i) => {
-                    const y = canvas.height / 2 - val * (canvas.height / 2.5);
-                    if (i === 0) ctx.moveTo(i * stepX, y);
-                    else ctx.lineTo(i * stepX, y);
+                    // Map the signal value to the plot coordinates
+                    const x = plotOrigin.x + i * stepX;
+                    const y = yZero - val * (plotHeight / 2);
+                    
+                    if (i === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
                 });
                 ctx.stroke();
             }
+            // --- CHANGE END ---
 
-            // --- DRAWING FUNCTIONS ---
             function draw() {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
                 drawPaths();
@@ -674,7 +690,6 @@
                 ctx.fillStyle = '#333';
                 ctx.font = '14px Arial';
                 ctx.textAlign = 'center';
-                
                 ctx.fillText('Transmitter', transmitter.x, transmitter.y - transmitter.height / 2 - 5);
                 ctx.fillText('Receiver', receiver.x, receiver.y + receiver.height / 2 + 15);
                 if (currentScenario === 2 || currentScenario === 3) {
@@ -717,7 +732,7 @@
                 ctx.beginPath();
                 ctx.moveTo(transmitter.x, transmitter.y);
                 ctx.lineTo(receiver.x, receiver.y);
-                ctx.strokeStyle = '#2563eb'; // Blue
+                ctx.strokeStyle = '#2563eb';
                 ctx.fillStyle = '#2563eb';
                 ctx.lineWidth = 2;
                 ctx.stroke();
@@ -733,12 +748,11 @@
                         ctx.moveTo(transmitter.x, transmitter.y);
                         ctx.lineTo(wall.x, reflection_y);
                         ctx.lineTo(receiver.x, receiver.y);
-                        ctx.strokeStyle = '#dc2626'; // Red
+                        ctx.strokeStyle = '#dc2626';
                         ctx.fillStyle = '#dc2626';
                         ctx.stroke();
                         drawArrow(ctx, transmitter.x, transmitter.y, wall.x, reflection_y);
                         drawArrow(ctx, wall.x, reflection_y, receiver.x, receiver.y);
-
                         ctx.beginPath();
                         ctx.arc(wall.x, reflection_y, 4, 0, 2 * Math.PI);
                         ctx.fill();
