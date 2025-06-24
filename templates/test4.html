@@ -139,13 +139,19 @@
     
         input[type="radio"] {
             margin-right: 10px;
+            vertical-align: middle;
         }
     
         input[type="radio"] + label {
             display: inline-block;
-            margin-bottom: 10px;
+            vertical-align: middle;
+            margin-bottom: 0;
             font-weight: normal;
             color: #1c1e21;
+        }
+
+        .controls > div:has(input[type="radio"]) {
+             margin-bottom: 12px;
         }
     
         #wallPositionDisplay, #wallPositionDisplay3 {
@@ -155,7 +161,7 @@
             text-align: center;
         }
     
-        h1, h2, h3 {
+        h1, h2, h3, h4 {
             color: #1c1e21;
         }
 
@@ -201,12 +207,19 @@
             <h2>Inputs</h2>
             <div class="controls">
                 <h3>Select Scenario:</h3>
-                <input type="radio" id="scenario1" name="scenario" value="1" checked onchange="setScenario(1)">
-                <label for="scenario1">Scenario 1: Doppler (Free Space)</label><br>
-                <input type="radio" id="scenario2" name="scenario" value="2" onchange="setScenario(2)">
-                <label for="scenario2">Scenario 2: Multipath (Static)</label><br>
-                <input type="radio" id="scenario3" name="scenario" value="3" onchange="setScenario(3)">
-                <label for="scenario3">Scenario 3: Doppler + Multipath</label><br><br>
+                <div>
+                    <input type="radio" id="scenario1" name="scenario" value="1" checked onchange="setScenario(1)">
+                    <label for="scenario1">Scenario 1: Doppler (Free Space)</label>
+                </div>
+                <div>
+                    <input type="radio" id="scenario2" name="scenario" value="2" onchange="setScenario(2)">
+                    <label for="scenario2">Scenario 2: Multipath (Static)</label>
+                </div>
+                <div>
+                    <input type="radio" id="scenario3" name="scenario" value="3" onchange="setScenario(3)">
+                    <label for="scenario3">Scenario 3: Doppler + Multipath</label>
+                </div>
+                <br>
 
                 <label for="frequency">Frequency (f) in MHz:</label>
                 <input type="number" id="frequency" value="900" step="1" min="1" required>
@@ -270,20 +283,23 @@
             const wallSlider3 = document.getElementById('wallSlider3');
             const wallPositionDisplay3 = document.getElementById('wallPositionDisplay3');
         
+            // --- Signal Plotting Variables ---
             let signalCanvas, signalCtx;
             let currentPhase = 0;
             const signalHistory = [];
+            // CHANGE: Added dedicated histories for individual signals in Scenario 2
+            let directSignalHistory = [];
+            let reflectedSignalHistory = [];
             const maxSignalPoints = 400;
-            const baseCarrierFreq = 0.3; 
-            const modulationDepth = 0.8; 
-            const dt_visual = 0.05;      
+            const baseCarrierFreq = 0.4; 
+            const dt_visual = 0.08;
             
             let imagesLoaded = 0;
             const totalImages = 2;
 
             function onAllImagesLoaded() {
                 console.log("All images loaded successfully. Initializing simulation.");
-                setupSignalCanvas();
+                rebuildSignalUI(); // Initial setup
                 setScenario(1);
             }
 
@@ -294,8 +310,8 @@
                 }
             }
             
-            transmitter.img.src = 'static/images/antenna-svgrepo-com.svg';
-            receiver.img.src = 'static/images/car.svg';
+            transmitter.img.src = 'static/images/antenna-svgrepo-com.svg'; // antenna
+            receiver.img.src = 'static/images/car.svg'; // car
 
             transmitter.img.onload = imageLoaded;
             receiver.img.onload = imageLoaded;
@@ -309,6 +325,9 @@
                 cancelAnimationFrame(animationFrame);
                 animationFrame = null;
                 currentScenario = num;
+
+                // CHANGE: Rebuild the signal canvas UI every time the scenario changes
+                rebuildSignalUI();
             
                 const velocityInputs = document.getElementById('velocity-inputs');
                 const sc2Inputs = document.getElementById('scenario2-inputs');
@@ -319,8 +338,11 @@
                 sc3Inputs.style.display = num === 3 ? 'block' : 'none';
             
                 resultsDiv.innerHTML = `<p>Scenario ${num} selected. Configure inputs and click 'Start'.</p>`;
+                
+                // CHANGE: Clear all signal histories
                 signalHistory.length = 0;
-                currentPhase = 0;
+                directSignalHistory.length = 0;
+                reflectedSignalHistory.length = 0;
             
                 if (num === 1) {
                     transmitter.x = canvas.width / 2;
@@ -361,20 +383,14 @@
                 receiver.velocity = (currentScenario === 2) ? 0 : vel;
                 maxDopplerShift = calculateMaxDopplerShift(frequency, receiver.velocity);
                 signalHistory.length = 0;
+                directSignalHistory.length = 0;
+                reflectedSignalHistory.length = 0;
                 currentPhase = 0;
                 
                 receiver.direction = 1;
                 receiver.isFlipped = false;
                 
-                switch (currentScenario) {
-                    case 1:
-                    case 3:
-                        animate(); 
-                        break;
-                    case 2: 
-                        updateWallPositionScenario2(); 
-                        break;
-                }
+                animate();
             }
         
             window.resetSimulation = () => {
@@ -386,27 +402,29 @@
                 document.getElementById('wallSlider3').value = "700";
                 document.getElementById('scenario1').checked = true;
                 messageDiv.textContent = '';
-                if(signalCtx) signalCtx.clearRect(0, 0, signalCanvas.width, signalCanvas.height);
                 setScenario(1);
             }
             
             // --- ANIMATION & SCENARIO LOGIC ---
             function animate() {
-                if(currentScenario === 2 || receiver.velocity <= 0) {
+                if(receiver.velocity <= 0 && currentScenario !== 2) {
                     cancelAnimationFrame(animationFrame);
                     animationFrame = null;
                     return; 
                 }
                 
-                updateReceiverPosition();
-
+                if (currentScenario !== 2) {
+                    updateReceiverPosition();
+                }
+                
+                updateSignal();
+                
                 if(currentScenario === 1) updateScenario1Results();
                 if(currentScenario === 3) {
                     updateWallPositionScenario3();
                     updateScenario3Results();
                 }
                 
-                updateSignal();
                 draw();
                 
                 animationFrame = requestAnimationFrame(animate);
@@ -443,7 +461,9 @@
                 wall.height = canvas.height - 100;
                 wallPositionDisplay.textContent = `Wall X Position: ${wallX.toFixed(0)} m`;
                 updateScenario2Results();
-                draw();
+                if (!animationFrame) {
+                    draw();
+                }
             }
 
             function updateWallPositionScenario3() {
@@ -498,60 +518,101 @@
             }
 
             // --- SIGNAL PLOTTING ---
-            function setupSignalCanvas() {
+            // CHANGE: Reworked this function to dynamically build the UI based on the scenario.
+            function rebuildSignalUI() {
                 const container = document.getElementById('signal-graph-container');
-                container.innerHTML = '<h3>Received Signal Visualization</h3>';
+                container.innerHTML = ''; // Clear previous canvases
+                
+                if (currentScenario === 2) {
+                    // Create UI for Direct Path Signal
+                    const directTitle = document.createElement('h4');
+                    directTitle.textContent = 'Direct Path Signal';
+                    directTitle.style.cssText = 'margin-top: 15px; margin-bottom: 5px;';
+                    container.appendChild(directTitle);
+                    
+                    const directCanvas = document.createElement('canvas');
+                    directCanvas.id = 'directSignalCanvas';
+                    directCanvas.width = 360; directCanvas.height = 100;
+                    directCanvas.style.border = '1px solid #ddd';
+                    container.appendChild(directCanvas);
+
+                    // Create UI for Reflected Path Signal
+                    const reflectedTitle = document.createElement('h4');
+                    reflectedTitle.textContent = 'Reflected Path Signal';
+                    reflectedTitle.style.cssText = 'margin-top: 15px; margin-bottom: 5px;';
+                    container.appendChild(reflectedTitle);
+
+                    const reflectedCanvas = document.createElement('canvas');
+                    reflectedCanvas.id = 'reflectedSignalCanvas';
+                    reflectedCanvas.width = 360; reflectedCanvas.height = 100;
+                    reflectedCanvas.style.border = '1px solid #ddd';
+                    container.appendChild(reflectedCanvas);
+
+                    // Create UI for Combined Signal
+                    const combinedTitle = document.createElement('h4');
+                    combinedTitle.textContent = 'Combined Signal (Superposition)';
+                    combinedTitle.style.cssText = 'margin-top: 15px; margin-bottom: 5px;';
+                    container.appendChild(combinedTitle);
+                } else {
+                     container.innerHTML = '<h3>Received Signal Waveform</h3>';
+                }
+                
+                // Create the main canvas for the final signal (used by all scenarios)
                 signalCanvas = document.createElement('canvas');
                 signalCanvas.width = 360; signalCanvas.height = 150;
-                signalCanvas.style.border = '1px solid #ddd'; container.appendChild(signalCanvas);
+                signalCanvas.style.border = '1px solid #ddd'; 
+                container.appendChild(signalCanvas);
                 signalCtx = signalCanvas.getContext('2d');
             }
             
-            // [MODIFIED] This function now handles each scenario's signal generation correctly.
             function updateSignal() {
                 if (!signalCtx) return;
-
+                
                 let signalValue = 0;
-
-                switch (currentScenario) {
-                    case 1: { // Doppler Only (Frequency Modulation, constant amplitude)
-                        const dopplerShift = calculateInstantaneousDopplerShift();
-                        const freqMod = (maxDopplerShift > 0) ? (dopplerShift / maxDopplerShift) * modulationDepth : 0;
-                        currentPhase += (baseCarrierFreq + freqMod) * dt_visual;
-                        signalValue = Math.sin(currentPhase);
-                        break;
-                    }
-
-                    case 2: { // Multipath Fading Only (Amplitude changes, constant frequency)
-                        currentPhase += baseCarrierFreq * dt_visual; // No frequency shift
-                        const directPath = Math.hypot(receiver.x - transmitter.x, receiver.y - transmitter.y);
-                        const wavelength = c / frequency;
-                        const tx_image_x = wall.x + (wall.x - transmitter.x);
-                        const reflectedPath = Math.hypot(receiver.x - tx_image_x, receiver.y - transmitter.y);
-                        const phaseDiff = (2 * Math.PI * (reflectedPath - directPath)) / wavelength;
-                        
-                        // Superposition of two signals causes amplitude change (fading)
-                        signalValue = Math.sin(currentPhase) + 0.8 * Math.sin(currentPhase + phaseDiff);
-                        signalValue /= 1.8; // Normalize amplitude
-                        break;
-                    }
-
-                    case 3: { // Combined Doppler and Multipath
-                        const dopplerShift = calculateInstantaneousDopplerShift();
-                        const freqMod = (maxDopplerShift > 0) ? (dopplerShift / maxDopplerShift) * modulationDepth : 0;
-                        currentPhase += (baseCarrierFreq + freqMod) * dt_visual;
-                        
-                        const directPath = Math.hypot(receiver.x - transmitter.x, receiver.y - transmitter.y);
-                        const wavelength = c / frequency;
-                        const tx_image_x = wall.x + (wall.x - transmitter.x);
-                        const reflectedPath = Math.hypot(receiver.x - tx_image_x, receiver.y - transmitter.y);
-                        const phaseDiff = (2 * Math.PI * (reflectedPath - directPath)) / wavelength;
-
-                        // Superposition for amplitude change + phase update for frequency change
-                        signalValue = Math.sin(currentPhase) + 0.8 * Math.sin(currentPhase + phaseDiff);
-                        signalValue /= 1.8; // Normalize amplitude
-                        break;
-                    }
+                
+                if (currentScenario === 1) {
+                    let dopplerShift = calculateInstantaneousDopplerShift();
+                    let normalizedDoppler = (maxDopplerShift > 0) ? (dopplerShift / maxDopplerShift) : 0;
+                    let freqDeviation = normalizedDoppler * 0.15;
+                    let instantFreq = baseCarrierFreq + freqDeviation;
+                    currentPhase += instantFreq * dt_visual;
+                    signalValue = Math.sin(currentPhase);
+                    
+                } else if (currentScenario === 2) {
+                    const directPath = Math.hypot(receiver.x - transmitter.x, receiver.y - transmitter.y);
+                    const wavelength = c / frequency;
+                    const tx_image_x = wall.x + (wall.x - transmitter.x);
+                    const reflectedPath = Math.hypot(receiver.x - tx_image_x, receiver.y - transmitter.y);
+                    const pathDifference = reflectedPath - directPath;
+                    const phaseDifference = (2 * Math.PI * pathDifference) / wavelength;
+                    
+                    currentPhase += baseCarrierFreq * dt_visual;
+                    
+                    // CHANGE: Calculate and store individual signals
+                    const directSignal = 1.0 * Math.sin(currentPhase);
+                    const reflectedSignal = 0.7 * Math.sin(currentPhase + phaseDifference);
+                    
+                    directSignalHistory.push(directSignal);
+                    reflectedSignalHistory.push(reflectedSignal);
+                    if (directSignalHistory.length > maxSignalPoints) directSignalHistory.shift();
+                    if (reflectedSignalHistory.length > maxSignalPoints) reflectedSignalHistory.shift();
+                    
+                    signalValue = (directSignal + reflectedSignal) / 1.7; // Normalize combined signal
+                    
+                } else if (currentScenario === 3) {
+                    let dopplerShift = calculateInstantaneousDopplerShift();
+                    let normalizedDoppler = (maxDopplerShift > 0) ? (dopplerShift / maxDopplerShift) : 0;
+                    let freqDeviation = normalizedDoppler * 0.15;
+                    let instantFreq = baseCarrierFreq + freqDeviation;
+                    currentPhase += instantFreq * dt_visual;
+                    
+                    const directPath = Math.hypot(receiver.x - transmitter.x, receiver.y - transmitter.y);
+                    const wavelength = c / frequency;
+                    const tx_image_x = wall.x + (wall.x - transmitter.x);
+                    const reflectedPath = Math.hypot(receiver.x - tx_image_x, receiver.y - transmitter.y);
+                    const phaseDiff = (2 * Math.PI * (reflectedPath - directPath)) / wavelength;
+                    
+                    signalValue = (Math.sin(currentPhase) + 0.8 * Math.sin(currentPhase + phaseDiff)) / 1.8;
                 }
                 
                 signalHistory.push(signalValue);
@@ -560,15 +621,42 @@
         
             function drawSignal() {
                 if (!signalCtx) return;
-                signalCtx.clearRect(0, 0, signalCanvas.width, signalCanvas.height);
-                signalCtx.fillStyle = '#f8fafc'; signalCtx.fillRect(0, 0, signalCanvas.width, signalCanvas.height);
-                signalCtx.beginPath(); signalCtx.strokeStyle = '#1877f2'; signalCtx.lineWidth = 2;
-                const stepX = signalCanvas.width / (maxSignalPoints - 1);
-                signalHistory.forEach((val, i) => {
-                    const y = signalCanvas.height / 2 - val * (signalCanvas.height / 2.5);
-                    if (i === 0) signalCtx.moveTo(i * stepX, y); else signalCtx.lineTo(i * stepX, y);
+                
+                // CHANGE: Draw individual signals if in Scenario 2
+                if (currentScenario === 2) {
+                    const directCanvas = document.getElementById('directSignalCanvas');
+                    if (directCanvas) {
+                        drawIndividualSignal(directCanvas, directSignalHistory, '#2563eb'); // Blue
+                    }
+                    
+                    const reflectedCanvas = document.getElementById('reflectedSignalCanvas');
+                    if (reflectedCanvas) {
+                        drawIndividualSignal(reflectedCanvas, reflectedSignalHistory, '#dc2626'); // Red
+                    }
+                }
+                
+                // Draw the final combined/main signal (works for all scenarios)
+                drawIndividualSignal(signalCanvas, signalHistory, '#16a085'); // Green/Teal
+            }
+
+            // CHANGE: New reusable helper function to draw any signal
+            function drawIndividualSignal(canvas, history, color) {
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#f8fafc';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                ctx.beginPath();
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 2;
+                const stepX = canvas.width / (maxSignalPoints - 1);
+                
+                history.forEach((val, i) => {
+                    const y = canvas.height / 2 - val * (canvas.height / 2.5);
+                    if (i === 0) ctx.moveTo(i * stepX, y);
+                    else ctx.lineTo(i * stepX, y);
                 });
-                signalCtx.stroke();
+                ctx.stroke();
             }
 
             // --- DRAWING FUNCTIONS ---
