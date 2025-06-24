@@ -139,13 +139,20 @@
     
         input[type="radio"] {
             margin-right: 10px;
+            vertical-align: middle;
         }
     
         input[type="radio"] + label {
             display: inline-block;
-            margin-bottom: 10px;
+            vertical-align: middle;
+            margin-bottom: 0; /* Adjusted from 10px */
             font-weight: normal;
             color: #1c1e21;
+        }
+
+        /* Styling for the div containing the radio buttons */
+        .controls > div:has(input[type="radio"]) {
+             margin-bottom: 12px;
         }
     
         #wallPositionDisplay, #wallPositionDisplay3 {
@@ -201,12 +208,21 @@
             <h2>Inputs</h2>
             <div class="controls">
                 <h3>Select Scenario:</h3>
-                <input type="radio" id="scenario1" name="scenario" value="1" checked onchange="setScenario(1)">
-                <label for="scenario1">Scenario 1: Doppler (Free Space)</label><br>
-                <input type="radio" id="scenario2" name="scenario" value="2" onchange="setScenario(2)">
-                <label for="scenario2">Scenario 2: Multipath (Static)</label><br>
-                <input type="radio" id="scenario3" name="scenario" value="3" onchange="setScenario(3)">
-                <label for="scenario3">Scenario 3: Doppler + Multipath</label><br><br>
+                <!-- CHANGE 1 START: Restructured radio buttons for correct layout -->
+                <div>
+                    <input type="radio" id="scenario1" name="scenario" value="1" checked onchange="setScenario(1)">
+                    <label for="scenario1">Scenario 1: Doppler (Free Space)</label>
+                </div>
+                <div>
+                    <input type="radio" id="scenario2" name="scenario" value="2" onchange="setScenario(2)">
+                    <label for="scenario2">Scenario 2: Multipath (Static)</label>
+                </div>
+                <div>
+                    <input type="radio" id="scenario3" name="scenario" value="3" onchange="setScenario(3)">
+                    <label for="scenario3">Scenario 3: Doppler + Multipath</label>
+                </div>
+                <br>
+                <!-- CHANGE 1 END -->
 
                 <label for="frequency">Frequency (f) in MHz:</label>
                 <input type="number" id="frequency" value="900" step="1" min="1" required>
@@ -272,11 +288,13 @@
         
             // --- Signal Plotting Variables ---
             let signalCanvas, signalCtx;
+            let currentPhase = 0;
+            let reflectedPhase = 0;
             const signalHistory = [];
             const maxSignalPoints = 400;
-            let graphTitle = "";
-            let yAxisLabel = "";
-            let yMax = 1;
+            const baseCarrierFreq = 0.4; 
+            const dt_visual = 0.08;
+            let timeStep = 0;      
             
             let imagesLoaded = 0;
             const totalImages = 2;
@@ -294,8 +312,8 @@
                 }
             }
             
-            transmitter.img.src = 'static/images/antenna-svgrepo-com.svg';
-            receiver.img.src = 'static/images/car.svg';
+            transmitter.img.src = 'static/images/antenna-svgrepo-com.svg'; // antenna
+            receiver.img.src = 'static/images/car.svg'; // car
 
             transmitter.img.onload = imageLoaded;
             receiver.img.onload = imageLoaded;
@@ -320,7 +338,7 @@
             
                 resultsDiv.innerHTML = `<p>Scenario ${num} selected. Configure inputs and click 'Start'.</p>`;
                 signalHistory.length = 0;
-                
+            
                 if (num === 1) {
                     transmitter.x = canvas.width / 2;
                     transmitter.y = canvas.height / 6;
@@ -340,7 +358,6 @@
                     updateWallPositionScenario3();
                 }
                 draw();
-                drawSignalGraph();
             }
 
             window.startCalculation = () => {
@@ -361,19 +378,12 @@
                 receiver.velocity = (currentScenario === 2) ? 0 : vel;
                 maxDopplerShift = calculateMaxDopplerShift(frequency, receiver.velocity);
                 signalHistory.length = 0;
+                currentPhase = 0;
                 
                 receiver.direction = 1;
                 receiver.isFlipped = false;
                 
-                switch (currentScenario) {
-                    case 1:
-                    case 3:
-                        animate(); 
-                        break;
-                    case 2: 
-                        updateWallPositionScenario2(); 
-                        break;
-                }
+                animate(); // Start animation for all scenarios
             }
         
             window.resetSimulation = () => {
@@ -391,13 +401,16 @@
             
             // --- ANIMATION & SCENARIO LOGIC ---
             function animate() {
-                if(currentScenario === 2 || receiver.velocity <= 0) {
+                if(receiver.velocity <= 0 && currentScenario !== 2) {
                     cancelAnimationFrame(animationFrame);
                     animationFrame = null;
                     return; 
                 }
                 
-                updateReceiverPosition();
+                if (currentScenario !== 2) {
+                    updateReceiverPosition();
+                }
+                
                 updateSignal();
                 
                 if(currentScenario === 1) updateScenario1Results();
@@ -442,8 +455,9 @@
                 wall.height = canvas.height - 100;
                 wallPositionDisplay.textContent = `Wall X Position: ${wallX.toFixed(0)} m`;
                 updateScenario2Results();
-                updateSignal(); // Update signal plot for static scene
-                draw();
+                if (!animationFrame) {
+                    draw();
+                }
             }
 
             function updateWallPositionScenario3() {
@@ -500,113 +514,102 @@
             // --- SIGNAL PLOTTING ---
             function setupSignalCanvas() {
                 const container = document.getElementById('signal-graph-container');
+                container.innerHTML = '<h3>Received Signal Waveform</h3>';
                 signalCanvas = document.createElement('canvas');
-                signalCanvas.width = 360; signalCanvas.height = 200; // Taller for labels
-                signalCanvas.style.border = '1px solid #ddd'; 
-                container.appendChild(signalCanvas);
+                signalCanvas.width = 360; signalCanvas.height = 150;
+                signalCanvas.style.border = '1px solid #ddd'; container.appendChild(signalCanvas);
                 signalCtx = signalCanvas.getContext('2d');
             }
-
-            // [MODIFIED] This function now calculates the correct physical quantity to be plotted.
+            
+            // [CORRECTED] This function properly handles FM modulation for Doppler effect
             function updateSignal() {
-                let plotValue = 0;
-                switch (currentScenario) {
-                    case 1: { // Plot Doppler Shift vs. Time
-                        graphTitle = "Doppler Shift vs. Time";
-                        yAxisLabel = "Doppler Shift (Hz)";
-                        yMax = maxDopplerShift > 0 ? maxDopplerShift : 1;
-                        plotValue = calculateInstantaneousDopplerShift();
-                        break;
-                    }
-                    case 2: { // Plot Combined Amplitude vs. Time (will be a flat line)
-                        graphTitle = "Signal Amplitude vs. Time";
-                        yAxisLabel = "Amplitude";
-                        yMax = 1.8; // Max possible amplitude is 1 (direct) + 0.8 (reflected)
-                        
-                        const directPath = Math.hypot(receiver.x - transmitter.x, receiver.y - transmitter.y);
-                        const wavelength = c / frequency;
-                        const tx_image_x = wall.x + (wall.x - transmitter.x);
-                        const reflectedPath = Math.hypot(receiver.x - tx_image_x, receiver.y - transmitter.y);
-                        const phaseDiff = (2 * Math.PI * (reflectedPath - directPath)) / wavelength;
-                        
-                        // Phasor addition to find the combined amplitude
-                        const realPart = 1 + 0.8 * Math.cos(phaseDiff);
-                        const imagPart = 0.8 * Math.sin(phaseDiff);
-                        plotValue = Math.hypot(realPart, imagPart);
-                        break;
-                    }
-                    case 3: { // Plot Combined Amplitude Envelope vs. Time
-                        graphTitle = "Signal Amplitude Envelope vs. Time";
-                        yAxisLabel = "Amplitude";
-                        yMax = 1.8; 
-
-                        const directPath = Math.hypot(receiver.x - transmitter.x, receiver.y - transmitter.y);
-                        const wavelength = c / frequency;
-                        const tx_image_x = wall.x + (wall.x - transmitter.x);
-                        const reflectedPath = Math.hypot(receiver.x - tx_image_x, receiver.y - transmitter.y);
-                        const phaseDiff = (2 * Math.PI * (reflectedPath - directPath)) / wavelength;
-                        
-                        const realPart = 1 + 0.8 * Math.cos(phaseDiff);
-                        const imagPart = 0.8 * Math.sin(phaseDiff);
-                        plotValue = Math.hypot(realPart, imagPart);
-                        break;
-                    }
+                if (!signalCtx) return;
+                
+                let signalValue = 0;
+                timeStep += dt_visual;
+                
+                if (currentScenario === 1) {
+                    // Scenario 1: Pure FM modulation due to Doppler effect - More sensitive but constant amplitude
+                    let dopplerShift = calculateInstantaneousDopplerShift();
+                    
+                    // More sensitive frequency modulation but smaller to avoid amplitude issues
+                    let normalizedDoppler = (maxDopplerShift > 0) ? (dopplerShift / maxDopplerShift) : 0;
+                    let freqDeviation = normalizedDoppler * 0.25; // Moderate increase for sensitivity
+                    
+                    // Instantaneous frequency = carrier + modulation
+                    let instantFreq = baseCarrierFreq + freqDeviation;
+                    
+                    // Update phase by integrating the instantaneous frequency
+                    currentPhase += instantFreq * dt_visual;
+                    
+                    // Generate pure FM signal with constant amplitude
+                    signalValue = Math.sin(currentPhase);
+                    
+                } else if (currentScenario === 2) {
+                    // Scenario 2: Beat frequency pattern from multipath interference
+                    const directPath = Math.hypot(receiver.x - transmitter.x, receiver.y - transmitter.y);
+                    const wavelength = c / frequency;
+                    const tx_image_x = wall.x + (wall.x - transmitter.x);
+                    const reflectedPath = Math.hypot(receiver.x - tx_image_x, receiver.y - transmitter.y);
+                    
+                    // Calculate path difference
+                    const pathDifference = reflectedPath - directPath;
+                    
+                    // Create slight frequency difference for beat pattern
+                    const frequencyOffset = 0.02; // Small frequency difference
+                    
+                    // Update phases
+                    currentPhase += baseCarrierFreq * dt_visual;
+                    reflectedPhase += (baseCarrierFreq + frequencyOffset) * dt_visual;
+                    
+                    // Direct and reflected signals with beat frequency effect
+                    const directSignal = Math.sin(currentPhase);
+                    const reflectedSignal = 0.8 * Math.sin(reflectedPhase);
+                    
+                    // Superposition creates beat frequency pattern
+                    signalValue = directSignal + reflectedSignal;
+                    
+                } else if (currentScenario === 3) {
+                    // Scenario 3: Both Doppler (FM) and Multipath
+                    let dopplerShift = calculateInstantaneousDopplerShift();
+                    let normalizedDoppler = (maxDopplerShift > 0) ? (dopplerShift / maxDopplerShift) : 0;
+                    let freqDeviation = normalizedDoppler * 0.15;
+                    
+                    // Update phase with frequency modulation
+                    let instantFreq = baseCarrierFreq + freqDeviation;
+                    currentPhase += instantFreq * dt_visual;
+                    
+                    // Calculate multipath parameters
+                    const directPath = Math.hypot(receiver.x - transmitter.x, receiver.y - transmitter.y);
+                    const wavelength = c / frequency;
+                    const tx_image_x = wall.x + (wall.x - transmitter.x);
+                    const reflectedPath = Math.hypot(receiver.x - tx_image_x, receiver.y - transmitter.y);
+                    const phaseDiff = (2 * Math.PI * (reflectedPath - directPath)) / wavelength;
+                    
+                    // Superposition with FM modulation on both paths
+                    signalValue = Math.sin(currentPhase) + 0.8 * Math.sin(currentPhase + phaseDiff);
+                    signalValue /= 1.8; // Normalize
                 }
-                signalHistory.push(plotValue);
+                
+                signalHistory.push(signalValue);
                 if (signalHistory.length > maxSignalPoints) signalHistory.shift();
             }
         
-            // [NEW] Centralized function for drawing the signal graph with labels and axes.
-            function drawSignalGraph() {
+            function drawSignal() {
                 if (!signalCtx) return;
-                
-                const padding = 40;
                 signalCtx.clearRect(0, 0, signalCanvas.width, signalCanvas.height);
-                signalCtx.fillStyle = '#f8fafc';
+                signalCtx.fillStyle = '#f8fafc'; 
                 signalCtx.fillRect(0, 0, signalCanvas.width, signalCanvas.height);
-
-                // Draw Title
-                signalCtx.fillStyle = '#333';
-                signalCtx.font = 'bold 14px Arial';
-                signalCtx.textAlign = 'center';
-                signalCtx.fillText(graphTitle, signalCanvas.width / 2, padding / 2);
-
-                // Draw Axes
-                signalCtx.beginPath();
-                signalCtx.strokeStyle = '#666';
-                signalCtx.lineWidth = 1;
-                signalCtx.moveTo(padding, padding);
-                signalCtx.lineTo(padding, signalCanvas.height - padding);
-                signalCtx.lineTo(signalCanvas.width - padding / 2, signalCanvas.height - padding);
-                signalCtx.stroke();
-
-                // Draw Axis Labels
-                signalCtx.font = '12px Arial';
-                signalCtx.fillText("Time", signalCanvas.width / 2, signalCanvas.height - 5);
-                signalCtx.save();
-                signalCtx.translate(15, signalCanvas.height / 2);
-                signalCtx.rotate(-Math.PI / 2);
-                signalCtx.fillText(yAxisLabel, 0, 0);
-                signalCtx.restore();
-
-                // Draw Plot Line
+                
                 signalCtx.beginPath();
                 signalCtx.strokeStyle = '#1877f2';
                 signalCtx.lineWidth = 2;
-
-                const plotWidth = signalCanvas.width - padding * 1.5;
-                const plotHeight = signalCanvas.height - padding * 2;
-                const stepX = plotWidth / (maxSignalPoints - 1);
+                const stepX = signalCanvas.width / (maxSignalPoints - 1);
                 
-                const isSymmetric = (currentScenario === 1); // Only Doppler plot is symmetric around a zero line
-                const yCenter = isSymmetric ? (padding + plotHeight / 2) : (signalCanvas.height - padding);
-                const yScale = isSymmetric ? (plotHeight / 2) / yMax : plotHeight / yMax;
-
                 signalHistory.forEach((val, i) => {
-                    const x = padding + i * stepX;
-                    const y = yCenter - val * yScale;
-                    if (i === 0) signalCtx.moveTo(x, y);
-                    else signalCtx.lineTo(x, y);
+                    const y = signalCanvas.height / 2 - val * (signalCanvas.height / 2.5);
+                    if (i === 0) signalCtx.moveTo(i * stepX, y); 
+                    else signalCtx.lineTo(i * stepX, y);
                 });
                 signalCtx.stroke();
             }
@@ -619,7 +622,7 @@
                 if (currentScenario === 2 || currentScenario === 3) drawWall();
                 drawTransmitter();
                 drawReceiver();
-                drawSignalGraph();
+                if(signalCtx) drawSignal();
             }
 
             function drawLabels() {
