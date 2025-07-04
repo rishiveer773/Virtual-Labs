@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Complete OFDM Block Diagram Simulator</title>
+    <!-- KaTeX for rendering mathematical formulas -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" integrity="sha384-n8MVd4RsNIU0KOVEMmg9ikOAldvrXj9ZGSRTGNvANxVDRYWEe08hdASdwQxPWZQf" crossorigin="anonymous">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0i8" crossorigin="anonymous"></script>
+    
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background-color: #f0f2f5; color: #333; height: 100vh; overflow: hidden; }
+        .container { display: flex; height: 100vh; }
+        .column { padding: 20px; overflow-y: auto; display: flex; flex-direction: column; }
+        .input-column { width: 25%; background-color: #ffffff; border-right: 1px solid #ddd; }
+        .simulation-column { width: 50%; background-color: #f8f9fa; }
+        .output-column { width: 25%; background-color: #ffffff; border-left: 1px solid #ddd; }
+        h2 { color: #1e3a59; margin-bottom: 20px; text-align: center; font-size: 1.2em; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+        .input-group { margin-bottom: 18px; }
+        label { display: block; margin-bottom: 6px; font-weight: bold; color: #34495e; font-size: 0.9em; }
+        input[type="number"], select { width: 100%; padding: 10px; border: 1px solid #bdc3c7; border-radius: 5px; font-size: 1em; background-color: #fff; }
+        input:focus, select:focus { outline: none; border-color: #3498db; box-shadow: 0 0 5px rgba(52, 152, 219, 0.5); }
+        .main-button { width: 100%; padding: 12px; background-color: #27ae60; color: white; border: none; border-radius: 5px; font-size: 1.1em; cursor: pointer; margin-top: 10px; transition: background-color 0.3s; }
+        .main-button:hover { background-color: #229954; }
+
+        #statusBar { width: 100%; background-color: #eaf2f8; border: 1px solid #aed6f1; padding: 10px; text-align: center; font-weight: bold; color: #1a5276; border-radius: 5px; margin-bottom: 15px; height: 45px; display: flex; align-items: center; justify-content: center; }
+        
+        /* Layout for combined diagram and plot view */
+        #stageDisplay {
+            flex-grow: 1; display: flex; flex-direction: column; 
+            align-items: center; justify-content: flex-start; width: 100%;
+        }
+        #diagram-container {
+            position: relative; width: 100%; max-width: 800px;
+        }
+        #diagram-image {
+            width: 100%; display: block;
+        }
+        #highlighter {
+            position: absolute; background-color: rgba(52, 152, 219, 0.4); 
+            border: 2px solid #3498db; border-radius: 5px;
+            transition: all 0.3s ease-in-out; pointer-events: none; opacity: 0;
+        }
+        #plot-container {
+            width: 100%; margin-top: 20px; text-align: center;
+        }
+        #plot-container .equation { font-size: 1.2em; margin: 10px 0; padding: 10px; background-color: #eaf2f8; border-radius: 5px; }
+        #plot-container canvas { max-width: 100%; height: auto; aspect-ratio: 16 / 9; background-color: white; border: 1px solid #ccc; border-radius: 8px; margin-top: 10px; }
+        #plot-container .constellation-canvas { aspect-ratio: 1 / 1; }
+        #plot-container h3 { color: #2c3e50; margin-bottom: 5px; font-size: 1.1em; }
+
+        #navigation { display: flex; justify-content: space-between; width: 100%; margin-top: 15px; }
+        .nav-button { width: 48%; padding: 10px; font-size: 1em; border-radius: 5px; border: 1px solid #3498db; cursor: pointer; }
+        .nav-button:disabled { background-color: #ecf0f1; color: #bdc3c7; border-color: #ddd; cursor: not-allowed; }
+        #prevButton { background-color: #f8f9fa; color: #3498db; }
+        #nextButton { background-color: #3498db; color: white; }
+        .output-item { margin-bottom: 15px; padding: 10px; background-color: #f8f9fa; border-radius: 5px; border-left: 4px solid #3498db; }
+        .output-label { font-weight: bold; color: #2c3e50; font-size: 0.8em; margin-bottom: 5px; text-transform: uppercase; }
+        .output-value { font-size: 1.1em; color: #34495e; font-family: 'Courier New', Courier, monospace; }
+        .info-box { background-color: #e8f4fd; border: 1px solid #3498db; border-radius: 5px; padding: 10px; margin-top: 20px; font-size: 0.85em; line-height: 1.4; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Input Column -->
+        <div class="column input-column">
+            <h2>Input Parameters</h2>
+            <div class="input-group"><label for="subcarriers">Subcarriers (N):</label><input type="number" id="subcarriers" min="8" max="256" value="16" step="2"></div>
+            <div class="input-group"><label for="modulation">Modulation:</label><select id="modulation"><option value="2">BPSK</option><option value="4" selected>QPSK</option><option value="16">16-QAM</option><option value="64">64-QAM</option></select></div>
+            <div class="input-group"><label for="channelLength">Channel Length (μ):</label><input type="number" id="channelLength" min="1" max="16" value="3"></div>
+            <div class="input-group"><label for="cpLength">Cyclic Prefix (Lcp):</label><input type="number" id="cpLength" min="0" max="32" value="4"></div>
+            <div class="input-group"><label for="snr">SNR (dB):</label><input type="number" id="snr" min="-10" max="40" value="20"></div>
+            <button class="main-button" onclick="resetSimulation()">Start New Simulation</button>
+            <div class="info-box"><strong>OFDM Principle:</strong><br>A high-rate data stream is split into N lower-rate streams. A <strong>Cyclic Prefix (CP)</strong> is added to eliminate Inter-Symbol Interference (ISI), provided <strong>Lcp ≥ μ-1</strong>. This simplifies channel equalization.</div>
+        </div>
+
+        <!-- Simulation Column -->
+        <div class="column simulation-column">
+            <h2 id="simulationTitle">OFDM Transmission Chain</h2>
+            <div id="statusBar">Click "Start" to begin.</div>
+            <div id="stageDisplay">
+                 <!-- The diagram and plot will be injected here -->
+            </div>
+            <div id="navigation">
+                <button id="prevButton" class="nav-button" onclick="handlePrevious()">Previous</button>
+                <button id="nextButton" class="nav-button" onclick="handleNext()">Next</button>
+            </div>
+        </div>
+
+        <!-- Output Column -->
+        <div class="column output-column">
+            <h2>Analysis Results</h2>
+            <div class="output-item"><div class="output-label">Bit Error Rate (BER)</div><div class="output-value" id="outputBER">N/A</div></div>
+            <div class="output-item"><div class="output-label">Total Bits</div><div class="output-value" id="outputTotalBits">N/A</div></div>
+            <div class="output-item"><div class="output-label">Error Bits</div><div class="output-value" id="outputErrorBits">N/A</div></div>
+            <div class="output-item"><div class="output-label">Spectral Efficiency</div><div class="output-value" id="spectralEfficiency">N/A</div></div>
+            <div class="output-item"><div class="output-label">PAPR</div><div class="output-value" id="papr">N/A</div></div>
+            <div class="info-box"><strong>Observations:</strong><br>• As <strong>SNR decreases</strong>, the received points scatter, increasing BER.<br>• If <strong>Lcp < μ-1</strong>, ISI occurs, causing severe distortion.<br>• Higher-order modulation requires higher SNR for the same BER.</div>
+        </div>
+    </div>
+
+    <script>
+        // --- GLOBAL STATE AND CONFIGURATION ---
+        let currentStage = -1;
+        let simState = {};
+        const COORDS = { modulator: { left: 8.5, top: 13.5, width: 24, height: 8 }, ifft: { left: 34.5, top: 7.5, width: 11, height: 20 }, add_cp: { left: 47, top: 7.5, width: 12.5, height: 20 }, channel: { left: 5, top: 48.5, width: 90, height: 4 }, remove_cp: { left: 34, top: 61, width: 12.5, height: 20 }, fft: { left: 48, top: 61, width: 11, height: 20 }, demodulator: { left: 61, top: 67, width: 24, height: 8 }, none: { opacity: 0 } };
+        const STAGES = [
+            { name: "1. QAM Modulation & S/P", calculate: calculateTxSymbols, render: renderTxSymbols, coords: COORDS.modulator, equationHTML: null },
+            { name: "2. IFFT", calculate: calculateIFFT, render: renderTimeSignal, coords: COORDS.ifft, equationHTML: `x[n] = \\frac{1}{N} \\sum_{k=0}^{N-1} X[k] e^{j \\frac{2\\pi k n}{N}}` },
+            { name: "3. Add Cyclic Prefix", calculate: calculateCP, render: renderTimeSignalWithCP, coords: COORDS.add_cp, equationHTML: `x_{cp}[n] \\text{ for } n=0..N+L_{cp}-1` },
+            { name: "4. Channel: Convolution", calculate: calculateChannelConv, render: renderTimeSignalWithCP, coords: COORDS.channel, equationHTML: `y_{conv}[n] = (x_{cp} * h)[n]` },
+            { name: "5. Channel: Add Noise", calculate: calculateNoise, render: renderTimeSignalWithCP, coords: COORDS.channel, equationHTML: `y[n] = y_{conv}[n] + w[n]` },
+            { name: "6. Remove Cyclic Prefix", calculate: calculateCPRemoval, render: renderTimeSignal, coords: COORDS.remove_cp, equationHTML: null },
+            { name: "7. FFT", calculate: calculateFFT, render: renderRxSymbols, coords: COORDS.fft, equationHTML: `Y[k] = \\sum_{n=0}^{N-1} y[n] e^{-j \\frac{2\\pi k n}{N}}` },
+            { name: "8. Channel Equalization", calculate: calculateEqualization, render: renderRxSymbols, coords: COORDS.fft, equationHTML: `\\hat{X}[k] = \\frac{Y[k]}{H[k]}` },
+            { name: "9. P/S & QAM Demodulation", calculate: calculateBER, render: renderResults, coords: COORDS.demodulator, equationHTML: null }
+        ];
+
+        // --- UI CONTROL FUNCTIONS ---
+        const setStatus = (msg) => document.getElementById('statusBar').textContent = msg;
+        const stageDisplay = document.getElementById('stageDisplay');
+        const updateNavButtons = () => { document.getElementById('prevButton').disabled = (currentStage <= 0); document.getElementById('nextButton').disabled = (currentStage >= STAGES.length - 1); }
+        function updateHighlighter(coords) { const h = document.getElementById('highlighter'); if (h && coords) { Object.assign(h.style, { left: `${coords.left}%`, top: `${coords.top}%`, width: `${coords.width}%`, height: `${coords.height}%`, opacity: coords.opacity === 0 ? 0 : 1 }); } }
+        async function runStage(stageIndex) {
+            const stage = STAGES[stageIndex];
+            setStatus(`Calculating: ${stage.name}...`);
+            await new Promise(r => setTimeout(r, 20));
+            stage.calculate();
+            stage.render(); // This now renders the plot in its dedicated container
+            updateHighlighter(stage.coords);
+            if(stage.name.includes("Demodulation")) updateOutputPanel();
+            setStatus(stage.name);
+            updateNavButtons();
+        }
+        async function handleNext() { if (currentStage < STAGES.length - 1) { currentStage++; await runStage(currentStage); } }
+        function handlePrevious() { if (currentStage > 0) { currentStage--; const stage = STAGES[currentStage]; stage.render(); updateHighlighter(stage.coords); setStatus(stage.name); updateNavButtons(); } }
+        function resetSimulation() {
+            currentStage = -1;
+            simState = {};
+            simState.params = { N: parseInt(document.getElementById('subcarriers').value), modOrder: parseInt(document.getElementById('modulation').value), channelLength: parseInt(document.getElementById('channelLength').value), cpLength: parseInt(document.getElementById('cpLength').value), snr_dB: parseFloat(document.getElementById('snr').value) };
+            stageDisplay.innerHTML = `<div id="diagram-container"><img id="diagram-image" src="OFDM_Diagram.png" alt="OFDM Block Diagram"><div id="highlighter"></div></div><div id="plot-container"></div>`;
+            document.getElementById('plot-container').innerHTML = '<h3>Click "Next" to begin the simulation.</h3>';
+            ['outputBER', 'outputTotalBits', 'outputErrorBits', 'spectralEfficiency', 'papr'].forEach(id => document.getElementById(id).textContent = 'N/A');
+            handleNext();
+        }
+        function updateOutputPanel() { /* ... (Same as previous version) ... */ }
+
+        // --- RENDER STAGES (Modified to target plot-container) ---
+        function createPlotHTML(title, hasEquation, canvasClass = '') { const eqHTML = hasEquation ? '<div class="equation"></div>' : ''; document.getElementById('plot-container').innerHTML = `<h3>${title}</h3>${eqHTML}<canvas id="plotCanvas" class="${canvasClass}"></canvas>`; }
+        function renderPlot(stage, plotFunction, ...args) {
+            createPlotHTML(stage.name.split('. ')[1], stage.equationHTML, args[0].includes('constellation') ? 'constellation-canvas' : '');
+            plotFunction('plotCanvas', ...args.slice(1));
+            const eqDiv = document.querySelector('#plot-container .equation');
+            if (eqDiv && stage.equationHTML) { katex.render(stage.equationHTML, eqDiv, { throwOnError: false, displayMode: true }); }
+        }
+        function renderTxSymbols() { renderPlot(STAGES[currentStage], drawConstellation, 'constellation-canvas', simState.txSymbols, simState.params.modOrder, false); }
+        function renderTimeSignal() { renderPlot(STAGES[currentStage], drawTimeSignal, 'time-signal-canvas', simState.receivedBlock || simState.timeSignal); }
+        function renderTimeSignalWithCP() { const signal = simState.noisyReceivedSignal || simState.receivedSignal || simState.signalWithCP; renderPlot(STAGES[currentStage], drawTimeSignal, 'time-signal-canvas', signal, simState.params.cpLength); }
+        function renderRxSymbols() {
+            const isEq = !!simState.X_hat_freq;
+            const stage = STAGES[currentStage];
+            const title = isEq ? 'Equalized Constellation (X̂[k])' : 'Received Constellation (Y[k])';
+            const symbols = isEq ? simState.X_hat_freq : simState.Y_freq;
+            createPlotHTML(title, stage.equationHTML, 'constellation-canvas');
+            drawConstellation('plotCanvas', symbols, simState.params.modOrder, true);
+            const eqDiv = document.querySelector('#plot-container .equation');
+            if (eqDiv && stage.equationHTML) { katex.render(stage.equationHTML, eqDiv, { throwOnError: false, displayMode: true }); }
+        }
+        function renderResults() { renderRxSymbols(); setStatus('9. Demodulation & BER Analysis - Simulation Complete!'); }
+        
+        // --- VISUALIZATION HELPERS (Unchanged logic) ---
+        function drawTimeSignal(canvasId, signal, cpLength = 0) { /* ... (Same as previous version) ... */ }
+        function drawLegend(ctx, x, y, items) { /* ... (Same as previous version) ... */ }
+        function drawConstellation(canvasId, symbols, modOrder, showRx) { /* ... (Same as previous version) ... */ }
+        
+        // --- ALL CALCULATION AND UTILITY FUNCTIONS ---
+        // (These are identical to the previous version and are included here for completeness)
+        updateOutputPanel = function() { const { N, cpLength, modOrder } = simState.params; document.getElementById('outputBER').textContent = simState.ber.toExponential(3); document.getElementById('outputTotalBits').textContent = simState.txBits.length; document.getElementById('outputErrorBits').textContent = simState.errorBits; const bitsPerSymbol = MODULATION_MAPS[modOrder].bits; const spectralEfficiency = (bitsPerSymbol * N) / (N + cpLength); document.getElementById('spectralEfficiency').textContent = spectralEfficiency.toFixed(2); const signalPower = simState.timeSignal.reduce((acc, s) => acc + s.real**2 + s.imag**2, 0) / N; const timeSignalPower = simState.timeSignal.map(s => s.real**2 + s.imag**2); const peakPower = Math.max(...timeSignalPower); const papr = 10 * Math.log10(peakPower / signalPower); document.getElementById('papr').textContent = papr.toFixed(2) + ' dB'; }
+        function drawTimeSignal(canvasId, signal, cpLength = 0) { const canvas = document.getElementById(canvasId); const ctx = canvas.getContext('2d'); const { width, height } = canvas; ctx.clearRect(0, 0, width, height); ctx.strokeStyle = '#f0f0f0'; ctx.lineWidth = 1; for(let i=1; i<10; i++) { const y = i * height/10; ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke(); const x = i * width/10; ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke(); } const max_abs = signal.reduce((max, s) => Math.max(max, Math.abs(s.real), Math.abs(s.imag)), 0) * 1.2 || 1; const scale = height / (2 * max_abs); const stepX = width / signal.length; const centerY = height / 2; if (cpLength > 0) { ctx.fillStyle = 'rgba(0, 0, 0, 0.08)'; ctx.fillRect(0, 0, cpLength * stepX, height); } ctx.strokeStyle = '#3498db'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, centerY - signal[0].real * scale); for (let i = 1; i < signal.length; i++) { ctx.lineTo(i * stepX, centerY - signal[i].real * scale); } ctx.stroke(); ctx.strokeStyle = '#e74c3c'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(0, centerY - signal[0].imag * scale); for (let i = 1; i < signal.length; i++) { ctx.lineTo(i * stepX, centerY - signal[i].imag * scale); } ctx.stroke(); const legendItems = [{color: '#3498db', text: 'Real Part'}, {color: '#e74c3c', text: 'Imaginary Part'}]; if (cpLength > 0) legendItems.push({color: 'rgba(0,0,0,0.5)', text: 'CP Region'}); drawLegend(ctx, width - 120 - 10, 10, legendItems); }
+        function drawLegend(ctx, x, y, items) { ctx.font = '12px Arial'; const lineHeight = 18; const boxPadding = 8; const boxWidth = 110; const boxHeight = items.length * lineHeight + boxPadding; ctx.fillStyle = 'rgba(255, 255, 255, 0.85)'; ctx.strokeStyle = '#ccc'; ctx.lineWidth = 1; ctx.fillRect(x, y, boxWidth, boxHeight); ctx.strokeRect(x, y, boxWidth, boxHeight); items.forEach((item, i) => { const itemY = y + boxPadding + i * lineHeight; ctx.fillStyle = item.color; if (item.text === 'CP Region') { ctx.globalAlpha = 0.5; ctx.fillRect(x + boxPadding, itemY - 6, 20, 12); ctx.globalAlpha = 1.0; } else { ctx.fillRect(x + boxPadding, itemY-1, 20, 2); } ctx.fillStyle = '#333'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(item.text, x + boxPadding + 25, itemY); }); }
+        function drawConstellation(canvasId, symbols, modOrder, showRx) { const canvas = document.getElementById(canvasId); const ctx = canvas.getContext('2d'); const { width, height } = canvas; ctx.clearRect(0, 0, width, height); const modInfo = MODULATION_MAPS[modOrder]; const norm = modInfo.norm || 1; const max_coord = (Math.sqrt(modOrder) - 1) * norm; const plot_max = symbols.reduce((max, s) => Math.max(max, Math.abs(s.real), Math.abs(s.imag)), max_coord) * 1.2 || 1.2; const scale = width / (2 * plot_max); const centerX = width / 2, centerY = height / 2; ctx.strokeStyle = '#bdc3c7'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(0, centerY); ctx.lineTo(width, centerY); ctx.stroke(); ctx.beginPath(); ctx.moveTo(centerX, 0); ctx.lineTo(centerX, height); ctx.stroke(); ctx.fillStyle = '#aaa'; modInfo.map.forEach(p => { const x = centerX + p.real * norm * scale; const y = centerY - p.imag * norm * scale; ctx.fillRect(x - 2, y - 2, 4, 4); }); ctx.fillStyle = showRx ? '#e74c3c' : '#3498db'; symbols.forEach(sym => { const x = centerX + sym.real * scale; const y = centerY - sym.imag * scale; ctx.beginPath(); ctx.arc(x, y, 3, 0, 2 * Math.PI); ctx.fill(); }); }
+        const MODULATION_MAPS = { 2: { bits: 1, map: [{real: -1, imag: 0, bits: [0]}, {real: 1, imag: 0, bits: [1]}] }, 4: { bits: 2, map: [ {real: -1, imag: -1, bits: [0, 0]}, {real: -1, imag: 1, bits: [0, 1]}, {real: 1, imag: -1, bits: [1, 0]}, {real: 1, imag: 1, bits: [1, 1]} ], norm: 1 / Math.sqrt(2) }, 16: { bits: 4, map: [], norm: 1 / Math.sqrt(10) }, 64: { bits: 6, map: [], norm: 1 / Math.sqrt(42) } };
+        function generateQamMap(order, bitsPerSymbol) { const points = []; const side = Math.sqrt(order); const gray = (i) => i ^ (i >> 1); for (let y = 0; y < side; y++) { for (let x = 0; x < side; x++) { const i_bits = gray(x).toString(2).padStart(bitsPerSymbol / 2, '0'); const q_bits = gray(y).toString(2).padStart(bitsPerSymbol / 2, '0'); points.push({ real: (2 * x - (side - 1)), imag: (2 * y - (side - 1)), bits: (i_bits + q_bits).split('').map(Number) }); } } return points; }
+        MODULATION_MAPS[16].map = generateQamMap(16, 4); MODULATION_MAPS[64].map = generateQamMap(64, 6);
+        function demodulate(symbols, modOrder) { const modInfo = MODULATION_MAPS[modOrder]; const norm = modInfo.norm || 1; const estimatedBits = []; for (const sym of symbols) { let bestDist = Infinity; let bestBits = []; for (const p of modInfo.map) { const dist = Math.pow(sym.real - p.real * norm, 2) + Math.pow(sym.imag - p.imag * norm, 2); if (dist < bestDist) { bestDist = dist; bestBits = p.bits; } } estimatedBits.push(...bestBits); } return estimatedBits; }
+        function dft(signal, direction) { const N = signal.length; const output = []; for (let k = 0; k < N; k++) { let sum = { real: 0, imag: 0 }; for (let n = 0; n < N; n++) { const angle = direction * 2 * Math.PI * k * n / N; const c = Math.cos(angle); const s = Math.sin(angle); sum.real += signal[n].real * c - signal[n].imag * s; sum.imag += signal[n].real * s + signal[n].imag * c; } output.push(sum); } return output; }
+        const ifft = (sig) => dft(sig, 1).map(v => ({real: v.real/sig.length, imag: v.imag/sig.length}));
+        const fft = (sig) => dft(sig, -1);
+        function generateGaussianNoise(N, stdDev) { const noise = []; for (let i = 0; i < Math.ceil(N/2); i++) { const u1 = Math.random(), u2 = Math.random(); const mag = stdDev * Math.sqrt(-2.0 * Math.log(u1)); const z1_real = mag * Math.cos(2.0 * Math.PI * u2); const z1_imag = mag * Math.sin(2.0 * Math.PI * u2); noise.push({ real: z1_real, imag: z1_imag }); if (noise.length < N) { noise.push({real: z1_real, imag: -z1_imag});} } return noise.sort(() => .5 - Math.random()).slice(0,N); }
+        function linearConvolve(signal, kernel) { const out = []; for (let i = 0; i < signal.length + kernel.length - 1; i++) { let sum = { real: 0, imag: 0 }; for (let j = 0; j < kernel.length; j++) { if (i - j >= 0 && i - j < signal.length) { const s = signal[i-j], h = kernel[j]; sum.real += s.real * h.real - s.imag * h.imag; sum.imag += s.real * h.imag + s.imag * h.real; } } out.push(sum); } return out; }
+
+        window.onload = () => { updateNavButtons(); stageDisplay.innerHTML = '<h3>Configure parameters and click "Start New Simulation".</h3>'; };
+    </script>
+</body>
+</html>
