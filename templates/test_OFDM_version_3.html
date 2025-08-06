@@ -1,0 +1,1255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced OFDM Virtual Experiment</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Fira+Code&display=swap');
+
+        :root {
+            --primary-color: #4a55a6;
+            --secondary-color: #6d72d2;
+            --success-color: #10b981;
+            --error-color: #e3342f;
+            --warning-color: #f6993f;
+            --bg-primary: #ffffff;
+            --bg-secondary: #f0f4f8;
+            --bg-card: #e2e8f0;
+            --text-primary: #2d3748;
+            --text-secondary: #718096;
+            --border-color: #cbd5e1;
+            --accent-glow: rgba(74, 85, 166, 0.2);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            gap: 24px;
+        }
+
+        .header {
+            text-align: center;
+            padding: 40px 20px;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            border-radius: 16px;
+            color: #fff;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 12px;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            color: rgba(255, 255, 255, 0.9);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .controls-panel {
+            background: var(--bg-primary);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+            border: 1px solid var(--border-color);
+        }
+
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 20px;
+            align-items: end;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .control-group label {
+            font-weight: 500;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        select, input[type="text"] {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 10px 12px;
+            color: var(--text-primary);
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        select:focus, input[type="text"]:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px var(--accent-glow);
+        }
+        
+        .buttons-group {
+            display: flex;
+            gap: 10px;
+            justify-self: end;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            border: none;
+            border-radius: 12px;
+            padding: 14px 24px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(74, 85, 166, 0.4);
+        }
+        .btn-secondary {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 14px 24px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(74, 85, 166, 0.6);
+        }
+        .btn-secondary:hover:not(:disabled) {
+            background: #d3dce6;
+        }
+
+        .btn-primary:disabled, .btn-secondary:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .simulation-section {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 24px;
+            background: var(--bg-primary);
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        .block-diagram {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .process-step {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .process-step.active {
+            border-color: var(--primary-color);
+            background: #e6e8ff;
+            box-shadow: 0 0 10px var(--accent-glow);
+        }
+
+        .process-step.completed {
+            background: var(--success-color);
+            color: white;
+            border-color: var(--success-color);
+        }
+
+        .process-step h4 {
+            font-size: 0.9rem;
+            margin-bottom: 4px;
+        }
+
+        .process-step p {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+        }
+
+        .process-step.active p {
+            color: var(--text-primary);
+        }
+        
+        .process-step.completed p {
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .arrow {
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 1.2rem;
+        }
+
+        .visualization-area {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .status-bar {
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 12px 16px;
+            text-align: center;
+            font-weight: 500;
+            border: 1px solid var(--border-color);
+        }
+
+        .plots-grid {
+    position: relative; /* Add this to make it a positioning context */
+    min-height: 400px; /* Optional: Set a minimum height to prevent collapse */
+}
+
+.plot-container {
+    position: absolute; /* Add this to stack all plots in the same place */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    /* Keep other styles as they are */
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    padding: 16px;
+    border: 1px solid var(--border-color);
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.plot-container.active {
+    visibility: visible;
+    opacity: 1;
+}
+        
+        .plot-container h3 {
+            font-size: 1.1rem;
+            margin-bottom: 12px;
+            color: var(--text-primary);
+            text-align: center;
+        }
+
+        canvas {
+            width: 100%;
+            height: 300px;
+            border-radius: 8px;
+            background: #fff;
+            border: 1px solid var(--border-color);
+        }
+
+        .metrics-panel, .output-panel {
+            background: var(--bg-primary);
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 16px;
+        }
+
+        .metric-card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+            border: 1px solid var(--border-color);
+        }
+
+        .metric-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary-color);
+        }
+
+        .metric-label {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        .output-content {
+            background: var(--bg-secondary);
+            border-radius: 8px;
+            padding: 16px;
+            font-family: 'Fira Code', monospace;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid var(--border-color);
+        }
+
+        .log-entry {
+            margin-bottom: 8px;
+            padding: 4px 0;
+        }
+
+        .log-info { color: var(--text-secondary); }
+        .log-success { color: var(--success-color); }
+        .log-warning { color: var(--warning-color); }
+        .log-error { color: var(--error-color); }
+
+        @media (max-width: 768px) {
+            .simulation-section { grid-template-columns: 1fr; }
+            .controls-grid { grid-template-columns: 1fr; }
+            .plots-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Enhanced OFDM Virtual Experiment</h1>
+            <p>Interactive simulation of Orthogonal Frequency Division Multiplexing with real-time visualization and educational insights</p>
+        </div>
+
+        <div class="controls-panel">
+            <h2 style="margin-bottom: 20px; color: var(--text-primary);">Simulation Parameters</h2>
+            <div class="controls-grid">
+                <div class="control-group">
+                    <label for="modulation">Modulation Scheme</label>
+                    <select id="modulation">
+                        <option value="BPSK">BPSK (1 bit/symbol)</option>
+                        <option value="QPSK" selected>QPSK (2 bits/symbol)</option>
+                        <option value="16QAM">16-QAM (4 bits/symbol)</option>
+                        <option value="64QAM">64-QAM (6 bits/symbol)</option>
+                    </select>
+                </div>
+                
+                <div class="control-group">
+                    <label for="subcarriers">Subcarriers (N)</label>
+                    <input type="text" id="subcarriers" value="32">
+                </div>
+                
+                <div class="control-group">
+                    <label for="snr">SNR (dB)</label>
+                    <input type="text" id="snr" value="15">
+                </div>
+                
+                <div class="control-group">
+                    <label for="cp-length">CP Length (%)</label>
+                    <input type="text" id="cp-length" value="25">
+                </div>
+                
+                <div class="buttons-group">
+                    <button class="btn-secondary" id="back-btn" style="display: none;">Back</button>
+                    <button class="btn-primary" id="control-btn">Start Simulation</button>
+                    <button class="btn-secondary" id="reset-btn" style="display: none;">Reset</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="simulation-section">
+            <div class="block-diagram">
+                <h3 style="margin-bottom: 16px; color: var(--text-primary);">OFDM Process Flow</h3>
+                
+                <div class="process-step" data-step="0">
+                    <h4>Data Generation</h4>
+                    <p>Generate random bits</p>
+                </div>
+                <div class="arrow">↓</div>
+                
+                <div class="process-step" data-step="1">
+                    <h4>Symbol Mapping</h4>
+                    <p>Map bits to constellation</p>
+                </div>
+                <div class="arrow">↓</div>
+
+                <div class="process-step" data-step="2">
+                    <h4>Subcarrier Loading</h4>
+                    <p>Load symbols on subcarriers</p>
+                </div>
+                <div class="arrow">↓</div>
+
+                <div class="process-step" data-step="3">
+                    <h4>IFFT & Pulse Shaping</h4>
+                    <p>Frequency to time domain</p>
+                </div>
+                <div class="arrow">↓</div>
+                
+                <div class="process-step" data-step="4">
+                    <h4>Add Cyclic Prefix</h4>
+                    <p>Insert guard interval</p>
+                </div>
+                <div class="arrow">↓</div>
+                
+                <div class="process-step" data-step="5">
+                    <h4>Channel</h4>
+                    <p>AWGN + Multipath fading</p>
+                </div>
+                <div class="arrow">↓</div>
+                
+                <div class="process-step" data-step="6">
+                    <h4>Remove CP</h4>
+                    <p>Extract OFDM symbol</p>
+                </div>
+                <div class="arrow">↓</div>
+                
+                <div class="process-step" data-step="7">
+                    <h4>FFT</h4>
+                    <p>Time to frequency domain</p>
+                </div>
+                <div class="arrow">↓</div>
+                
+                <div class="process-step" data-step="8">
+                    <h4>Equalization</h4>
+                    <p>Compensate channel effects</p>
+                </div>
+                <div class="arrow">↓</div>
+                
+                <div class="process-step" data-step="9">
+                    <h4>Demapping</h4>
+                    <p>Extract bits from symbols</p>
+                </div>
+            </div>
+
+            <div class="visualization-area">
+                <div class="status-bar" id="status-bar">
+                    Ready to start simulation.
+                </div>
+                
+                <div class="plots-grid">
+                    <div class="plot-container" data-plot-step="0">
+                        <h3>Generated Data Bits</h3>
+                        <canvas id="data-bits"></canvas>
+                    </div>
+                    <div class="plot-container" data-plot-step="1">
+                        <h3>Transmitted Constellation</h3>
+                        <canvas id="tx-constellation"></canvas>
+                    </div>
+                    
+                    <div class="plot-container" data-plot-step="2">
+                        <h3>Frequency Domain (before IFFT)</h3>
+                        <canvas id="frequency-impulses"></canvas>
+                    </div>
+                    
+                    <div class="plot-container" data-plot-step="3">
+                        <h3>Time Domain Signal (before CP)</h3>
+                        <canvas id="time-domain-tx"></canvas>
+                    </div>
+
+                    <div class="plot-container" data-plot-step="3">
+                        <h3>Frequency Domain Spectrum (Sinc)</h3>
+                        <canvas id="frequency-spectrum"></canvas>
+                    </div>
+                    
+                    <div class="plot-container" data-plot-step="4">
+                        <h3>Time Domain Signal (with CP)</h3>
+                        <canvas id="time-domain-cp"></canvas>
+                    </div>
+                    
+                    <div class="plot-container" data-plot-step="5">
+                        <h3>Time Domain Signal (after Channel)</h3>
+                        <canvas id="time-domain-rx-cp"></canvas>
+                    </div>
+                    
+                    <div class="plot-container" data-plot-step="6">
+                        <h3>Time Domain Signal (after CP Removal)</h3>
+                        <canvas id="time-domain-rx"></canvas>
+                    </div>
+                    
+                    <div class="plot-container" data-plot-step="7">
+                        <h3>Received Constellation (before EQ)</h3>
+                        <canvas id="rx-constellation-pre-eq"></canvas>
+                    </div>
+                    
+                    <div class="plot-container" data-plot-step="8">
+                        <h3>Equalized Constellation</h3>
+                        <canvas id="rx-constellation-post-eq"></canvas>
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+
+        <div class="metrics-panel">
+            <h2 style="margin-bottom: 20px; color: var(--text-primary);">Performance Metrics</h2>
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-value" id="ber-value">-</div>
+                    <div class="metric-label">Bit Error Rate</div>
+                </div>
+                
+                <div class="metric-card">
+                    <div class="metric-value" id="ser-value">-</div>
+                    <div class="metric-label">Symbol Error Rate</div>
+                </div>
+                
+                <div class="metric-card">
+                    <div class="metric-value" id="evm-value">-</div>
+                    <div class="metric-label">EVM (%)</div>
+                </div>
+                
+                <div class="metric-card">
+                    <div class="metric-value" id="throughput-value">-</div>
+                    <div class="metric-label">Throughput (Mbps)</div>
+                </div>
+                
+                <div class="metric-card">
+                    <div class="metric-value" id="papr-value">-</div>
+                    <div class="metric-label">PAPR (dB)</div>
+                </div>
+                
+                <div class="metric-card">
+                    <div class="metric-value" id="efficiency-value">-</div>
+                    <div class="metric-label">Spectral Efficiency</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="output-panel">
+            <h2 style="margin-bottom: 16px; color: var(--text-primary);">Simulation Log</h2>
+            <div class="output-content" id="output-log">
+                <div class="log-entry log-info">System ready. Configure parameters and click 'Start Simulation'.</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class EnhancedOFDMSimulator {
+            constructor() {
+                this.initializeElements();
+                this.initializeCanvases();
+                this.setupEventListeners();
+                this.simulationData = {};
+                this.simulationSteps = [
+                    this.stepDataGen, this.stepMapping, this.stepSubcarrierLoading,
+                    this.stepIfft, this.stepAddCp, this.stepChannel, this.stepRemoveCp, 
+                    this.stepFft, this.stepEqualize, this.stepDemapping
+                ];
+                this.currentStep = -1; // -1: initial, 0-9: steps, 10: complete
+                this.isSimulating = false;
+            }
+
+            initializeElements() {
+                this.elements = {
+                    modulation: document.getElementById('modulation'),
+                    subcarriers: document.getElementById('subcarriers'),
+                    snr: document.getElementById('snr'),
+                    cpLength: document.getElementById('cp-length'),
+                    controlBtn: document.getElementById('control-btn'),
+                    backBtn: document.getElementById('back-btn'),
+                    resetBtn: document.getElementById('reset-btn'),
+                    statusBar: document.getElementById('status-bar'),
+                    outputLog: document.getElementById('output-log'),
+                    berValue: document.getElementById('ber-value'),
+                    serValue: document.getElementById('ser-value'),
+                    evmValue: document.getElementById('evm-value'),
+                    throughputValue: document.getElementById('throughput-value'),
+                    paprValue: document.getElementById('papr-value'),
+                    efficiencyValue: document.getElementById('efficiency-value'),
+                    processSteps: document.querySelectorAll('.process-step'),
+                    plotContainers: document.querySelectorAll('.plot-container')
+                };
+            }
+
+            initializeCanvases() {
+                this.canvases = {
+                    txConstellation: document.getElementById('tx-constellation'),
+                    frequencyImpulses: document.getElementById('frequency-impulses'),
+                    timeDomainTx: document.getElementById('time-domain-tx'),
+                    frequencySpectrum: document.getElementById('frequency-spectrum'),
+                    timeDomainCp: document.getElementById('time-domain-cp'),
+                    timeDomainRxCp: document.getElementById('time-domain-rx-cp'),
+                    timeDomainRx: document.getElementById('time-domain-rx'),
+                    rxConstellationPreEq: document.getElementById('rx-constellation-pre-eq'),
+                    rxConstellationPostEq: document.getElementById('rx-constellation-post-eq'),
+                    dataBits: document.getElementById('data-bits'),
+                };
+                Object.keys(this.canvases).forEach(key => {
+                    const canvas = this.canvases[key];
+                    if (!canvas) return;
+                    const ctx = canvas.getContext('2d');
+                    const rect = canvas.getBoundingClientRect();
+                    canvas.width = rect.width * window.devicePixelRatio;
+                    canvas.height = rect.height * window.devicePixelRatio;
+                    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+                    this.canvases[key + 'Ctx'] = ctx;
+                });
+            }
+
+            setupEventListeners() {
+                this.elements.controlBtn.addEventListener('click', () => this.nextStep());
+                this.elements.backBtn.addEventListener('click', () => this.prevStep());
+                this.elements.resetBtn.addEventListener('click', () => this.resetSimulation());
+                this.elements.processSteps.forEach(step => {
+                    step.addEventListener('click', () => this.showStepInfo(step.dataset.step));
+                });
+            }
+            
+            updateControls() {
+                this.elements.backBtn.style.display = this.currentStep > 0 ? '' : 'none';
+                if (this.currentStep === -1) {
+                    this.elements.controlBtn.textContent = 'Start Simulation';
+                    this.elements.resetBtn.style.display = 'none';
+                } else if (this.currentStep >= this.simulationSteps.length) {
+                    this.elements.controlBtn.textContent = 'Finish';
+                    this.elements.controlBtn.disabled = true;
+                    this.elements.backBtn.disabled = false;
+                    this.elements.resetBtn.style.display = '';
+                } else {
+                    this.elements.controlBtn.textContent = 'Next Step';
+                    this.elements.controlBtn.disabled = false;
+                    this.elements.resetBtn.style.display = 'none';
+                }
+            }
+
+            resetSimulation() {
+                this.currentStep = -1;
+                this.isSimulating = false;
+                this.simulationData = {};
+                this.elements.outputLog.innerHTML = `<div class="log-entry log-info">System ready. Configure parameters and click 'Start Simulation'.</div>`;
+                this.updateStatus('Ready to start simulation.');
+                this.elements.processSteps.forEach(step => step.className = 'process-step');
+                this.elements.plotContainers.forEach(container => container.classList.remove('active'));
+                this.updateMetrics({ ber: '-', ser: '-', evm: '-', papr: '-', throughput: '-', spectralEfficiency: '-' });
+                this.updateControls();
+            }
+
+            nextStep() {
+                if (this.currentStep === -1) {
+                    this.isSimulating = true;
+                    this.startSimulation();
+                } else if (this.currentStep < this.simulationSteps.length) {
+                    this.runStep(this.currentStep, 1);
+                }
+                this.updateControls();
+            }
+            
+            prevStep() {
+                if (this.currentStep > 0) {
+                    this.runStep(this.currentStep - 1, -1);
+                }
+                this.updateControls();
+            }
+            
+            startSimulation() {
+                const N = parseInt(this.elements.subcarriers.value, 10);
+                const M = this.getModulationOrder();
+                const bitsPerSymbol = Math.log2(M);
+                const numBits = N * bitsPerSymbol;
+                
+                this.simulationData = {
+                    N, M, bitsPerSymbol,
+                    cpRatio: parseInt(this.elements.cpLength.value, 10),
+                    snrDb: parseInt(this.elements.snr.value, 10),
+                    txBits: this.generateRandomBits(numBits)
+                };
+                this.logMessage(`Simulation initialized with N=${N}, M=${M}, SNR=${this.simulationData.snrDb}dB.`, 'info');
+                this.currentStep = 0;
+                this.runStep(this.currentStep, 1);
+            }
+            
+            runStep(stepIndex, direction) {
+                if (direction === 1) { // Forward step
+                    if (stepIndex > 0) this.setStepCompleted(this.elements.processSteps[stepIndex - 1].dataset.step);
+                    this.setStepActive(this.elements.processSteps[stepIndex].dataset.step);
+                    this.currentStep = stepIndex + 1;
+                } else { // Backward step
+                    // Remove the completed state from the step we are moving back from
+                    if (this.currentStep < this.simulationSteps.length) {
+                        this.elements.processSteps[this.currentStep].classList.remove('completed');
+                    }
+                    // Set the previous step as active
+                    this.setStepActive(this.elements.processSteps[stepIndex].dataset.step);
+                    this.currentStep = stepIndex + 1;
+                }
+                this.simulationSteps[stepIndex].call(this);
+            }
+
+            showStepPlots(stepId) {
+                // Hide all plots first
+                this.elements.plotContainers.forEach(container => {
+                    container.classList.remove('active');
+                });
+                
+                // Show only plots for current step
+                this.elements.plotContainers.forEach(container => {
+                    if (container.dataset.plotStep === stepId.toString()) {
+                        container.classList.add('active');
+                    }
+                });
+            }
+
+            stepDataGen() {
+                this.showStepPlots(0);
+                
+                // Debug logging
+                console.log('Data bits:', this.simulationData.txBits);
+                console.log('Canvas context:', this.canvases.dataBitsCtx);
+                
+                if (this.canvases.dataBitsCtx) {
+                    this.plotDataBits(this.canvases.dataBitsCtx, this.simulationData.txBits);
+                } else {
+                    console.error('dataBitsCtx not found!');
+                }
+                
+                this.logMessage(`Generated ${this.simulationData.txBits.length} random bits.`, 'success');
+                this.updateStatus('Step 1: Data generation complete. Click "Next Step" to map bits.');
+            }
+
+            stepMapping() {
+                this.showStepPlots(1);
+                this.updateStatus('Step 2: Mapping bits to constellation symbols...');
+                this.simulationData.txSymbols = this.modulateSymbols(this.simulationData.txBits, this.simulationData.M);
+                this.plotConstellation(this.canvases.txConstellationCtx, this.simulationData.txSymbols, '#4a55a6');
+                this.logMessage(`Mapped to ${this.simulationData.N} ${this.elements.modulation.value} symbols.`, 'success');
+            }
+            
+            stepSubcarrierLoading() {
+                this.showStepPlots(2);
+                this.updateStatus('Step 3: Loading symbols onto subcarriers...');
+                this.plotFrequencyImpulses(this.canvases.frequencyImpulsesCtx, this.simulationData.txSymbols);
+                this.logMessage('Subcarrier symbols prepared for IFFT.', 'success');
+            }
+
+            stepIfft() {
+                this.showStepPlots(3);
+                this.updateStatus('Step 4: Performing IFFT and pulse shaping...');
+                this.simulationData.timeDomainSignal = this.ifft(this.simulationData.txSymbols);
+                this.plotTimeDomain(this.canvases.timeDomainTxCtx, this.simulationData.timeDomainSignal);
+                this.plotFrequencySpectrum(this.canvases.frequencySpectrumCtx, this.simulationData.txSymbols, this.simulationData.N);
+                this.logMessage('IFFT completed. Time-domain signal and spectrum plotted.', 'success');
+            }
+
+            stepAddCp() {
+                this.showStepPlots(4);
+                this.updateStatus('Step 5: Adding cyclic prefix...');
+                this.simulationData.signalWithCP = this.addCyclicPrefix(this.simulationData.timeDomainSignal, this.simulationData.cpRatio);
+                const cpLength = Math.floor(this.simulationData.N * this.simulationData.cpRatio / 100);
+                this.plotTimeDomain(this.canvases.timeDomainCpCtx, this.simulationData.signalWithCP, true, cpLength);
+                this.logMessage(`Added cyclic prefix of ${cpLength} samples.`, 'success');
+            }
+
+            stepChannel() {
+                this.showStepPlots(5);
+                this.updateStatus('Step 6: Transmitting through the channel...');
+                this.simulationData.receivedSignalWithCP = this.addAWGNNoise(this.simulationData.signalWithCP, this.simulationData.snrDb);
+                const cpLength = Math.floor(this.simulationData.N * this.simulationData.cpRatio / 100);
+                this.plotTimeDomain(this.canvases.timeDomainRxCpCtx, this.simulationData.receivedSignalWithCP, true, cpLength);
+                this.logMessage(`Signal passed through AWGN channel with SNR=${this.simulationData.snrDb}dB.`, 'warning');
+            }
+
+            stepRemoveCp() {
+                this.showStepPlots(6);
+                this.updateStatus('Step 7: Removing cyclic prefix...');
+                this.simulationData.receivedSignal = this.removeCyclicPrefix(this.simulationData.receivedSignalWithCP, this.simulationData.cpRatio, this.simulationData.N);
+                this.plotTimeDomain(this.canvases.timeDomainRxCtx, this.simulationData.receivedSignal);
+                this.logMessage('Cyclic prefix removed.', 'success');
+            }
+
+            stepFft() {
+                this.showStepPlots(7);
+                this.updateStatus('Step 8: Performing FFT to convert to frequency domain...');
+                this.simulationData.rxSymbolsBeforeEQ = this.fft(this.simulationData.receivedSignal);
+                this.plotConstellation(this.canvases.rxConstellationPreEqCtx, this.simulationData.rxSymbolsBeforeEQ, '#e3342f');
+                this.logMessage('FFT completed. Received constellation (before equalization) plotted.', 'success');
+            }
+
+            stepEqualize() {
+                this.showStepPlots(8);
+                this.updateStatus('Step 9: Equalizing received symbols...');
+                this.simulationData.rxSymbols = this.channelEqualization(this.simulationData.rxSymbolsBeforeEQ, this.simulationData.txSymbols);
+                this.plotConstellation(this.canvases.rxConstellationPostEqCtx, this.simulationData.rxSymbols, '#10b981');
+                this.logMessage('Channel equalization completed. Equalized constellation plotted.', 'success');
+            }
+
+            stepDemapping() {
+                // Hide all plots at the end
+                this.elements.plotContainers.forEach(container => {
+                    container.classList.remove('active');
+                });
+                
+                this.updateStatus('Step 10: Demapping symbols back to bits...');
+                this.simulationData.rxBits = this.demodulateSymbols(this.simulationData.rxSymbols, this.simulationData.M);
+                const metrics = this.calculateMetrics(this.simulationData.txBits, this.simulationData.rxBits, this.simulationData.txSymbols, this.simulationData.rxSymbols, this.simulationData.timeDomainSignal);
+                this.updateMetrics(metrics);
+                this.logMessage(`Demapped to ${this.simulationData.rxBits.length} bits. BER: ${metrics.ber.toExponential(2)}`, 'success');
+                this.updateStatus('Simulation completed. See metrics and log for details.');
+            }
+
+            setStepActive(stepId) {
+                this.elements.processSteps.forEach(step => {
+                    step.classList.remove('active');
+                    if (step.dataset.step === stepId) {
+                        step.classList.add('active');
+                    }
+                });
+            }
+
+            setStepCompleted(stepId) {
+                this.elements.processSteps.forEach(step => {
+                    if (step.dataset.step === stepId) {
+                        step.classList.remove('active');
+                        step.classList.add('completed');
+                    }
+                });
+            }
+
+            updateStatus(message) {
+                this.elements.statusBar.textContent = message;
+            }
+
+            logMessage(message, type) {
+                const logEntry = document.createElement('div');
+                logEntry.className = `log-entry log-${type}`;
+                logEntry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+                this.elements.outputLog.appendChild(logEntry);
+                this.elements.outputLog.scrollTop = this.elements.outputLog.scrollHeight;
+            }
+
+            getModulationOrder() {
+                const modulation = this.elements.modulation.value;
+                const orders = { 'BPSK': 2, 'QPSK': 4, '16QAM': 16, '64QAM': 64 };
+                return orders[modulation];
+            }
+
+            generateRandomBits(numBits) {
+                return Array.from({length: numBits}, () => Math.random() > 0.5 ? 1 : 0);
+            }
+
+            modulateSymbols(bits, M) {
+                const bitsPerSymbol = Math.log2(M);
+                const symbols = [];
+                for (let i = 0; i < bits.length; i += bitsPerSymbol) {
+                    const bitGroup = bits.slice(i, i + bitsPerSymbol);
+                    symbols.push(this.mapBitsToSymbol(bitGroup, M));
+                }
+                return symbols;
+            }
+
+            mapBitsToSymbol(bits, M) {
+                const decimal = parseInt(bits.join(''), 2);
+                switch (M) {
+                    case 2: return { re: decimal === 0 ? 1 : -1, im: 0 };
+                    case 4:
+                        const qpskMap = [{re: 1/Math.sqrt(2), im: 1/Math.sqrt(2)}, {re: -1/Math.sqrt(2), im: 1/Math.sqrt(2)}, {re: 1/Math.sqrt(2), im: -1/Math.sqrt(2)}, {re: -1/Math.sqrt(2), im: -1/Math.sqrt(2)}];
+                        return qpskMap[decimal];
+                    case 16:
+                        const i = (decimal >> 2) & 3;
+                        const q = decimal & 3;
+                        const normFactor = 1/Math.sqrt(10);
+                        return { re: (2*i - 3) * normFactor, im: (2*q - 3) * normFactor };
+                    case 64:
+                        const iVal = (decimal >> 3) & 7;
+                        const qVal = decimal & 7;
+                        const norm64 = 1/Math.sqrt(42);
+                        return { re: (2*iVal - 7) * norm64, im: (2*qVal - 7) * norm64 };
+                    default: return { re: 0, im: 0 };
+                }
+            }
+
+            ifft(symbols) {
+                const N = symbols.length;
+                const result = new Array(N);
+                for (let n = 0; n < N; n++) {
+                    let real = 0;
+                    let imag = 0;
+                    for (let k = 0; k < N; k++) {
+                        const angle = 2 * Math.PI * k * n / N;
+                        real += symbols[k].re * Math.cos(angle) + symbols[k].im * Math.sin(angle);
+                        imag += symbols[k].im * Math.cos(angle) - symbols[k].re * Math.sin(angle);
+                    }
+                    result[n] = { re: real, im: imag };
+                }
+                return result;
+            }
+
+            fft(signal) {
+                const N = signal.length;
+                const result = new Array(N);
+                for (let k = 0; k < N; k++) {
+                    let real = 0;
+                    let imag = 0;
+                    for (let n = 0; n < N; n++) {
+                        const angle = -2 * Math.PI * k * n / N;
+                        real += signal[n].re * Math.cos(angle) - signal[n].im * Math.sin(angle);
+                        imag += signal[n].re * Math.sin(angle) + signal[n].im * Math.cos(angle);
+                    }
+                    result[k] = { re: real, im: imag };
+                }
+                return result;
+            }
+
+            addCyclicPrefix(signal, cpRatio) {
+                const N = signal.length;
+                const cpLength = Math.floor(N * cpRatio / 100);
+                const cp = signal.slice(N - cpLength);
+                return [...cp, ...signal];
+            }
+
+            removeCyclicPrefix(signal, cpRatio, originalLength) {
+                const cpLength = Math.floor(originalLength * cpRatio / 100);
+                return signal.slice(cpLength, cpLength + originalLength);
+            }
+
+            addAWGNNoise(signal, snrDb) {
+                const snrLinear = Math.pow(10, snrDb / 10);
+                const signalPower = signal.reduce((sum, s) => sum + s.re * s.re + s.im * s.im, 0) / signal.length;
+                const noisePower = signalPower / snrLinear;
+                const noiseStd = Math.sqrt(noisePower / 2);
+                let hasSpare = false;
+                let spare = 0;
+                const gaussianRandom = () => {
+                    if (hasSpare) { hasSpare = false; return spare; }
+                    hasSpare = true;
+                    const u = Math.random();
+                    const v = Math.random();
+                    const mag = Math.sqrt(-2 * Math.log(u));
+                    spare = mag * Math.cos(2 * Math.PI * v);
+                    return mag * Math.sin(2 * Math.PI * v);
+                };
+                return signal.map(s => ({
+                    re: s.re + gaussianRandom() * noiseStd,
+                    im: s.im + gaussianRandom() * noiseStd
+                }));
+            }
+
+            channelEqualization(received, transmitted) {
+                return received.map((r, i) => {
+                    const t = transmitted[i];
+                    const h = this.estimateChannelGain(r, t);
+                    const hMagSq = h.re * h.re + h.im * h.im;
+                    if (hMagSq > 1e-10) {
+                        return { re: (r.re * h.re + r.im * h.im) / hMagSq, im: (r.im * h.re - r.re * h.im) / hMagSq };
+                    }
+                    return r;
+                });
+            }
+
+            estimateChannelGain(received, transmitted) {
+                const tMagSq = transmitted.re * transmitted.re + transmitted.im * transmitted.im;
+                if (tMagSq > 1e-10) {
+                    return { re: (received.re * transmitted.re + received.im * transmitted.im) / tMagSq, im: (received.im * transmitted.re - received.re * transmitted.im) / tMagSq };
+                }
+                return { re: 1, im: 0 };
+            }
+
+            demodulateSymbols(symbols, M) {
+                const bitsPerSymbol = Math.log2(M);
+                const bits = [];
+                const allBits = Array.from({length: M}, (_, i) => i);
+                
+                symbols.forEach(symbol => {
+                    let minDistance = Infinity;
+                    let bestBits = [];
+                    
+                    for (const i of allBits) {
+                        const bitsArr = i.toString(2).padStart(bitsPerSymbol, '0').split('').map(b => parseInt(b));
+                        const refSymbol = this.mapBitsToSymbol(bitsArr, M);
+                        const distance = Math.pow(symbol.re - refSymbol.re, 2) + Math.pow(symbol.im - refSymbol.im, 2);
+                        
+                        if (distance < minDistance) {
+                            minDistance = distance;
+                            bestBits = bitsArr;
+                        }
+                    }
+                    bits.push(...bestBits);
+                });
+                
+                return bits;
+            }
+
+            calculateMetrics(txBits, rxBits, txSymbols, rxSymbols, timeDomainSignal) {
+                const bitsPerSymbol = Math.log2(this.getModulationOrder());
+                let bitErrors = txBits.filter((b, i) => b !== rxBits[i]).length;
+                const ber = bitErrors / txBits.length;
+                
+                let symbolErrors = 0;
+                for (let i = 0; i < txSymbols.length; i++) {
+                    const txBitsSlice = txBits.slice(i * bitsPerSymbol, (i + 1) * bitsPerSymbol);
+                    const rxBitsSlice = rxBits.slice(i * bitsPerSymbol, (i + 1) * bitsPerSymbol);
+                    if (txBitsSlice.join('') !== rxBitsSlice.join('')) symbolErrors++;
+                }
+                const ser = symbolErrors / txSymbols.length;
+                
+                let evmSum = 0;
+                let refPowerSum = 0;
+                for (let i = 0; i < txSymbols.length; i++) {
+                    const errorRe = rxSymbols[i].re - txSymbols[i].re;
+                    const errorIm = rxSymbols[i].im - txSymbols[i].im;
+                    evmSum += errorRe * errorRe + errorIm * errorIm;
+                    refPowerSum += txSymbols[i].re * txSymbols[i].re + txSymbols[i].im * txSymbols[i].im;
+                }
+                const evm = Math.sqrt(evmSum / refPowerSum) * 100;
+                
+                let maxPower = 0;
+                let avgPower = 0;
+                timeDomainSignal.forEach(sample => {
+                    const power = sample.re * sample.re + sample.im * sample.im;
+                    maxPower = Math.max(maxPower, power);
+                    avgPower += power;
+                });
+                avgPower /= timeDomainSignal.length;
+                const papr = 10 * Math.log10(maxPower / avgPower);
+                
+                const N = parseInt(this.elements.subcarriers.value);
+                const M = this.getModulationOrder();
+                const throughput = N * bitsPerSymbol * 15e3 / 1e6;
+                const spectralEfficiency = bitsPerSymbol * (1 - parseInt(this.elements.cpLength.value) / 100);
+                
+                return { ber, ser, evm, papr, throughput, spectralEfficiency };
+            }
+
+            updateMetrics(metrics) {
+                this.elements.berValue.textContent = metrics.ber !== '-' ? metrics.ber.toExponential(2) : '-';
+                this.elements.serValue.textContent = metrics.ser !== '-' ? metrics.ser.toExponential(2) : '-';
+                this.elements.evmValue.textContent = metrics.evm !== '-' ? metrics.evm.toFixed(2) : '-';
+                this.elements.paprValue.textContent = metrics.papr !== '-' ? metrics.papr.toFixed(2) : '-';
+                this.elements.throughputValue.textContent = metrics.throughput !== '-' ? metrics.throughput.toFixed(1) : '-';
+                this.elements.efficiencyValue.textContent = metrics.spectralEfficiency !== '-' ? metrics.spectralEfficiency.toFixed(2) : '-';
+            }
+
+            clearCanvas(ctx, width, height) {
+                ctx.clearRect(0, 0, width, height);
+            }
+
+            plotDataBits(ctx, bits) {
+                const canvas = ctx.canvas;
+                const rect = canvas.getBoundingClientRect();
+                const width = rect.width;
+                const height = rect.height;
+                
+                console.log('Plotting bits - width:', width, 'height:', height, 'bits length:', bits.length);
+                
+                this.clearCanvas(ctx, width, height);
+                
+                const maxBitsToShow = Math.min(bits.length, 64);
+                const bitWidth = width / maxBitsToShow;
+                const bitHeight = height * 0.6;
+                const startY = (height - bitHeight) / 2;
+                
+                ctx.font = '12px Inter';
+                ctx.textAlign = 'center';
+                ctx.fillStyle = '#a0aec0';
+                ctx.fillText(`Showing first ${maxBitsToShow} of ${bits.length} bits`, width/2, 20);
+                
+                for (let i = 0; i < maxBitsToShow; i++) {
+                    const x = i * bitWidth;
+                    ctx.fillStyle = bits[i] === 1 ? '#4a55a6' : '#e2e8f0';
+                    ctx.fillRect(x, startY, bitWidth - 1, bitHeight);
+                    
+                    ctx.fillStyle = bits[i] === 1 ? '#fff' : '#2d3748';
+                    ctx.fillText(bits[i].toString(), x + bitWidth/2, startY + bitHeight/2 + 5);
+                }
+            }
+
+            plotConstellation(ctx, symbols, color = '#4a55a6', size = 4) {
+                const canvas = ctx.canvas;
+                const rect = canvas.getBoundingClientRect();
+                const width = rect.width;
+                const height = rect.height;
+                this.clearCanvas(ctx, width, height);
+
+                ctx.strokeStyle = '#cbd5e1';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(width/2, 0); ctx.lineTo(width/2, height);
+                ctx.moveTo(0, height/2); ctx.lineTo(width, height/2);
+                ctx.stroke();
+                ctx.fillStyle = '#a0aec0';
+                ctx.font = '12px Inter';
+                ctx.textAlign = 'center';
+                ctx.fillText('I', width - 20, height/2 - 10);
+                ctx.fillText('Q', width/2 + 10, 15);
+                
+                // Check if there are any transmitted symbols for a reference scale
+                let maxTxMag = 1; // Default for QPSK normalized to unit circle
+                if (this.simulationData && this.simulationData.txSymbols) {
+                    maxTxMag = Math.max(...this.simulationData.txSymbols.map(s => Math.sqrt(s.re * s.re + s.im * s.im)));
+                }
+                const plotScale = Math.min(width, height) / (4 * maxTxMag); // A fixed ratio based on tx symbols
+                
+                const centerX = width / 2;
+                const centerY = height / 2;
+                ctx.fillStyle = color;
+                symbols.forEach(symbol => {
+                    const x = centerX + symbol.re * plotScale;
+                    const y = centerY - symbol.im * plotScale;
+                    ctx.beginPath();
+                    ctx.arc(x, y, size, 0, 2 * Math.PI);
+                    ctx.fill();
+                });
+            }
+
+            plotFrequencyImpulses(ctx, symbols) {
+                const canvas = ctx.canvas;
+                const rect = canvas.getBoundingClientRect();
+                const width = rect.width;
+                const height = rect.height;
+                this.clearCanvas(ctx, width, height);
+                
+                const N = symbols.length;
+                const spacing = width / (N + 1);
+                const maxMag = Math.max(...symbols.map(s => Math.sqrt(s.re * s.re + s.im * s.im)));
+
+                ctx.strokeStyle = '#cbd5e1';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(0, height); ctx.lineTo(width, height);
+                ctx.stroke();
+
+                ctx.fillStyle = '#4a55a6';
+                ctx.font = '12px Inter';
+                ctx.textAlign = 'center';
+                ctx.fillText('Frequency', width/2, height - 5);
+                ctx.save();
+                ctx.rotate(-Math.PI/2);
+                ctx.fillText('Amplitude', -height/2 - 30, 15);
+                ctx.restore();
+
+                symbols.forEach((symbol, i) => {
+                    const magnitude = Math.sqrt(symbol.re * symbol.re + symbol.im * symbol.im);
+                    const normalizedHeight = magnitude / maxMag;
+                    const x = (i + 1) * spacing;
+                    const y = height - (normalizedHeight * (height * 0.8));
+                    
+                    ctx.fillStyle = '#4a55a6';
+                    ctx.fillRect(x - 1, y, 2, height - y);
+                });
+            }
+            
+            plotFrequencySpectrum(ctx, symbols, N) {
+                const canvas = ctx.canvas;
+                const rect = canvas.getBoundingClientRect();
+                const width = rect.width;
+                const height = rect.height;
+                this.clearCanvas(ctx, width, height);
+                
+                const maxMag = Math.max(...symbols.map(s => Math.sqrt(s.re * s.re + s.im * s.im)));
+                
+                ctx.strokeStyle = '#cbd5e1';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(0, height); ctx.lineTo(width, height);
+                ctx.stroke();
+
+                ctx.fillStyle = '#a0aec0';
+                ctx.font = '12px Inter';
+                ctx.textAlign = 'center';
+                ctx.fillText('Frequency', width/2, height - 5);
+                ctx.save();
+                ctx.rotate(-Math.PI/2);
+                ctx.fillText('Magnitude', -height/2 - 30, 15);
+                ctx.restore();
+
+                const samples = 256; // High resolution for smooth plot
+                const dx = width / samples;
+                const scaleY = height * 0.8 / (maxMag * N);
+                
+                ctx.strokeStyle = '#10b981';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+
+                for (let i = 0; i < samples; i++) {
+                    const freq = (i / samples) * N;
+                    let totalMag = 0;
+                    symbols.forEach((symbol, k) => {
+                        const freqError = freq - k;
+                        // Sinc function approximation
+                        const sinc = (freqError === 0) ? 1 : Math.sin(Math.PI * freqError) / (Math.PI * freqError);
+                        totalMag += Math.sqrt(symbol.re*symbol.re + symbol.im*symbol.im) * sinc;
+                    });
+                    const y = height - Math.abs(totalMag) * scaleY;
+                    if (i === 0) ctx.moveTo(0, y);
+                    else ctx.lineTo(i * dx, y);
+                }
+                ctx.stroke();
+            }
+
+            plotTimeDomain(ctx, signal, highlightCP = false, cpLength = 0) {
+                const canvas = ctx.canvas;
+                const rect = canvas.getBoundingClientRect();
+                const width = rect.width;
+                const height = rect.height;
+                this.clearCanvas(ctx, width, height);
+                
+                let maxAmplitude = 0;
+                signal.forEach(s => {
+                    maxAmplitude = Math.max(maxAmplitude, Math.abs(s.re), Math.abs(s.im));
+                });
+                const verticalPadding = 1.2;
+                const scaleY = height / (2 * maxAmplitude * verticalPadding);
+                const scaleX = width / signal.length;
+                const centerY = height / 2;
+                
+                ctx.strokeStyle = '#cbd5e1';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(0, centerY); ctx.lineTo(width, centerY);
+                ctx.stroke();
+                
+                if (highlightCP && cpLength > 0) {
+                    const cpWidth = cpLength * scaleX;
+                    ctx.fillStyle = 'rgba(74, 85, 166, 0.1)';
+                    ctx.fillRect(0, 0, cpWidth, height);
+                }
+                
+                ctx.strokeStyle = '#4299e1';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(0, centerY - signal[0].re * scaleY);
+                for (let i = 1; i < signal.length; i++) {
+                    ctx.lineTo(i * scaleX, centerY - signal[i].re * scaleY);
+                }
+                ctx.stroke();
+                
+                ctx.strokeStyle = '#e3342f';
+                ctx.beginPath();
+                ctx.moveTo(0, centerY - signal[0].im * scaleY);
+                for (let i = 1; i < signal.length; i++) {
+                    ctx.lineTo(i * scaleX, centerY - signal[i].im * scaleY);
+                }
+                ctx.stroke();
+                
+                ctx.font = '12px Inter';
+                ctx.fillStyle = '#4299e1';
+                ctx.fillText('Real', 10, 20);
+                ctx.fillStyle = '#e3342f';
+                ctx.fillText('Imaginary', 10, 35);
+            }
+        }
+        window.addEventListener('load', () => {
+            const sim = new EnhancedOFDMSimulator();
+            sim.updateControls(); // Set initial button state
+        });
+    </script>
+</body>
+</html>
