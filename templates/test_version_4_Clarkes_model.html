@@ -65,7 +65,7 @@
 
         .input-group-container .control-group {
             flex: 1;
-            min-width: 250px;
+            min-width: 200px;
             margin-bottom: 0;
         }
 
@@ -80,7 +80,7 @@
             color: #4a5568;
         }
 
-        .control-group input[type="number"] {
+        .control-group input {
             width: 100%;
             padding: 12px;
             border: 2px solid #e2e8f0;
@@ -89,17 +89,13 @@
             transition: all 0.3s ease;
         }
         
-        .control-group input[type="range"] {
-            width: 100%;
+        .control-group input::-webkit-outer-spin-button,
+        .control-group input::-webkit-inner-spin-button {
             -webkit-appearance: none;
-            appearance: none;
-            height: 8px;
-            background: #ddd;
-            outline: none;
-            border-radius: 4px;
+            margin: 0;
         }
-
-        .control-group input[type="range"]::-webkit-slider-thumb {
+        
+        .control-group input::-webkit-slider-thumb {
             -webkit-appearance: none;
             appearance: none;
             width: 20px;
@@ -110,7 +106,7 @@
             border: none;
         }
 
-        .control-group input[type="range"]::-moz-range-thumb {
+        .control-group input::-moz-range-thumb {
             width: 20px;
             height: 20px;
             background: #667eea;
@@ -119,8 +115,7 @@
             border: none;
         }
 
-        .control-group input[type="number"]:focus,
-        .control-group input[type="range"]:focus {
+        .control-group input:focus {
             outline: none;
             border-color: #667eea;
             box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
@@ -159,8 +154,23 @@
 
         .charts-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr; /* Two columns for plots */
+            grid-template-columns: 1fr 1fr;
             gap: 20px;
+        }
+        
+        .chart-panel-wrapper {
+            display: none; /* Initially hidden */
+        }
+        
+        .chart-placeholder {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 300px;
+            color: #a0aec0;
+            font-style: italic;
+            border: 2px dashed #e2e8f0;
+            border-radius: 10px;
         }
 
         .info-box {
@@ -214,7 +224,7 @@
         #simulate-button:hover {
             background-color: #5a6ac2;
         }
-        
+
         @media (max-width: 1000px) {
             .input-group-container {
                 flex-direction: column;
@@ -276,27 +286,31 @@
         </div>
 
         <div class="charts-grid">
-            <div class="chart-panel">
-                <h3>Autocorrelation Function R($\tau$)</h3>
-                <div class="slider-container">
-                    <label for="autocorr-slider">Velocity (m/s):</label>
-                    <input type="range" id="autocorr-slider" min="0" max="100" value="30" step="1">
-                    <span id="autocorr-value">30</span>
-                </div>
-                <div class="chart-container">
-                    <canvas id="autocorrelationChart"></canvas>
+            <div class="chart-panel-wrapper" id="autocorrelationPanel">
+                <div class="chart-panel">
+                    <h3>Autocorrelation Function R($\tau$)</h3>
+                    <div class="slider-container">
+                        <label for="autocorr-slider">Velocity (m/s):</label>
+                        <input type="range" id="autocorr-slider" min="0" max="100" value="30" step="1">
+                        <span id="autocorr-value">30</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="autocorrelationChart"></canvas>
+                    </div>
                 </div>
             </div>
 
-            <div class="chart-panel">
-                <h3>Power Spectral Density S(f)</h3>
-                <div class="slider-container">
-                    <label for="psd-slider">Velocity (m/s):</label>
-                    <input type="range" id="psd-slider" min="0" max="100" value="30" step="1">
-                    <span id="psd-value">30</span>
-                </div>
-                <div class="chart-container">
-                    <canvas id="psdChart"></canvas>
+            <div class="chart-panel-wrapper" id="psdPanel">
+                <div class="chart-panel">
+                    <h3>Power Spectral Density S(f)</h3>
+                    <div class="slider-container">
+                        <label for="psd-slider">Velocity (m/s):</label>
+                        <input type="range" id="psd-slider" min="0" max="100" value="30" step="1">
+                        <span id="psd-value">30</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="psdChart"></canvas>
+                    </div>
                 </div>
             </div>
         </div>
@@ -313,12 +327,18 @@
         const simulateButton = document.getElementById('simulate-button');
         const envCanvas = document.getElementById('environmentCanvas');
         const envCtx = envCanvas.getContext('2d');
+        const autocorrelationPanel = document.getElementById('autocorrelationPanel');
+        const psdPanel = document.getElementById('psdPanel');
         
         // Sliders
         const autocorrSlider = document.getElementById('autocorr-slider');
         const psdSlider = document.getElementById('psd-slider');
         const autocorrValueSpan = document.getElementById('autocorr-value');
         const psdValueSpan = document.getElementById('psd-value');
+
+        // Chart canvases
+        const autocorrCanvas = document.getElementById('autocorrelationChart');
+        const psdCanvas = document.getElementById('psdChart');
 
         let autocorrelationChart = null;
         let psdChart = null;
@@ -472,6 +492,11 @@
             psdSlider.value = currentVelocity;
             autocorrValueSpan.textContent = currentVelocity;
             psdValueSpan.textContent = currentVelocity;
+            
+            // Make plot sections visible
+            autocorrelationPanel.style.display = 'block';
+            psdPanel.style.display = 'block';
+            
             updatePlots(currentVelocity);
             drawEnvironment();
         }
@@ -603,25 +628,31 @@
         autocorrSlider.addEventListener('input', (event) => {
             const velocity = parseFloat(event.target.value);
             autocorrValueSpan.textContent = velocity;
-            updatePlots(velocity);
+            if (autocorrelationChart) {
+              updatePlots(velocity);
+            }
         });
 
         psdSlider.addEventListener('input', (event) => {
             const velocity = parseFloat(event.target.value);
             psdValueSpan.textContent = velocity;
-            updatePlots(velocity);
+            if (psdChart) {
+              updatePlots(velocity);
+            }
         });
         
         window.addEventListener('resize', () => {
             setTimeout(() => {
-                const currentVelocity = parseFloat(velocityInput.value);
-                updatePlots(currentVelocity);
+                if (autocorrelationChart) {
+                    const currentVelocity = parseFloat(velocityInput.value);
+                    updatePlots(currentVelocity);
+                }
                 drawEnvironment();
             }, 100);
         });
 
-        // Initial update on page load
-        updateAllWithMainParams();
+        // Initial state: hide chart panels and draw environment
+        drawEnvironment();
     </script>
 </body>
 </html>
