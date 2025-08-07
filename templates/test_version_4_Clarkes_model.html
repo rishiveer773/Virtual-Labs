@@ -159,7 +159,7 @@
         }
         
         .chart-panel-wrapper {
-            display: none; /* Initially hidden */
+            display: none;
         }
         
         .chart-placeholder {
@@ -230,8 +230,29 @@
                 flex-direction: column;
             }
             .charts-grid {
-                grid-template-columns: 1fr;
+                grid-template-columns: 1fr; /* Plots stack vertically on smaller screens */
             }
+            
+            /* Add this new rule for mobile chart containers */
+            .chart-container {
+                position: relative;
+                height: 250px; /* Slightly smaller on mobile */
+                width: 100%;
+                overflow: hidden; /* Prevent any overflow */
+            }
+            
+            .chart-panel {
+                width: 100%;
+                max-width: 100%;
+                overflow-x: hidden;
+            }
+        }
+
+        /* Add this new CSS rule for better mobile handling */
+        .chart-panel-wrapper {
+            width: 100%;
+            max-width: 100%;
+            overflow-x: hidden;
         }
     </style>
 </head>
@@ -288,7 +309,7 @@
         <div class="charts-grid">
             <div class="chart-panel-wrapper" id="autocorrelationPanel">
                 <div class="chart-panel">
-                    <h3>Autocorrelation Function R($\tau$)</h3>
+                    <h3>Autocorrelation Function R(τ)</h3>
                     <div class="slider-container">
                         <label for="autocorr-slider">Velocity (m/s):</label>
                         <input type="range" id="autocorr-slider" min="0" max="100" value="30" step="1">
