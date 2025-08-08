@@ -1334,11 +1334,14 @@
                     },
                     scales: {
                         x: {
+                            // Correct placement of min and max properties
+                            min: 0,
+                            max: 12,
                             title: {
                                 display: true,
                                 text: 'SNR (dB)',
                                 font: { size: 14, weight: 'bold' },
-                                color: '#4b5563'
+                                color: '#4b5563',
                             },
                             grid: { color: '#e5e7eb' },
                             ticks: { color: '#6b7280' }
@@ -1355,7 +1358,7 @@
                             ticks: {
                                 color: '#6b7280',
                                 callback: function(value, index, values) {
-                                    if (value === 1e-1 || value === 1e-2 || value === 1e-3 || value === 1e-4 || value === 1e-5) {
+                                    if (value === 1e-1 || value === 1e-2 || value === 1e-3 || value === 1e-4 || value === 1e-5 || value === 1e-6) {
                                         return value.toExponential();
                                     }
                                     return null;
@@ -1379,6 +1382,24 @@
 
         function updateTransmittedConstellationChart(symbols) {
             if (constellationChart) {
+                // Add this block of code 👇
+                if (!symbols || symbols.length === 0) {
+                    constellationChart.data.datasets[0].data = [];
+                    constellationChart.update();
+                    return;
+                }
+                let maxVal = 0;
+                symbols.forEach(s => {
+                    if (Math.abs(s.re) > maxVal) maxVal = Math.abs(s.re);
+                    if (Math.abs(s.im) > maxVal) maxVal = Math.abs(s.im);
+                });
+                const axisLimit = Math.ceil(maxVal * 1.1); // Add a 10% buffer
+                constellationChart.options.scales.x.min = -axisLimit;
+                constellationChart.options.scales.x.max = axisLimit;
+                constellationChart.options.scales.y.min = -axisLimit;
+                constellationChart.options.scales.y.max = axisLimit;
+                // End of new code 👆
+
                 const dataPoints = symbols.map(s => ({ x: s.re, y: s.im }));
                 constellationChart.data.datasets[0].data = dataPoints;
                 constellationChart.update();
@@ -1387,6 +1408,24 @@
 
         function updateReceivedConstellationChart(symbols) {
             if (receivedConstellationChart) {
+                // Add this block of code 👇
+                if (!symbols || symbols.length === 0) {
+                    receivedConstellationChart.data.datasets[0].data = [];
+                    receivedConstellationChart.update();
+                    return;
+                }
+                let maxVal = 0;
+                symbols.forEach(s => {
+                    if (Math.abs(s.re) > maxVal) maxVal = Math.abs(s.re);
+                    if (Math.abs(s.im) > maxVal) maxVal = Math.abs(s.im);
+                });
+                const axisLimit = Math.ceil(maxVal * 1.1); // Add a 10% buffer
+                receivedConstellationChart.options.scales.x.min = -axisLimit;
+                receivedConstellationChart.options.scales.x.max = axisLimit;
+                receivedConstellationChart.options.scales.y.min = -axisLimit;
+                receivedConstellationChart.options.scales.y.max = axisLimit;
+                // End of new code 👆
+                
                 const dataPoints = symbols.map(s => ({ x: s.re, y: s.im }));
                 receivedConstellationChart.data.datasets[0].data = dataPoints;
                 receivedConstellationChart.update();
