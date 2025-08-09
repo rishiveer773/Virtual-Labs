@@ -1027,6 +1027,7 @@
             updateConstellationPlots();
         }
         
+        // --- CORRECTED SIGNAL FLOW WITH REVERSED AWGN ARROW ---
         function updateSignalFlow(channelMatrix, noisyReceivedSymbols) {
             const Nt = currentNt;
             const Nr = currentNr;
@@ -1037,7 +1038,7 @@
                 <div class="arrow">→</div>
                 <div class="noise-adder">
                     <div class="noise-adder-circle">+</div>
-                    <div class="noise-arrow">↓</div>
+                    <div class="noise-arrow">↑</div>
                     <div class="noise-adder-label">AWGN</div>
                 </div>
                 <div class="arrow">→</div>
@@ -1093,9 +1094,22 @@
             };
         }
 
-        function calculateSER(o, r) {
-            if (o.length !== r.length || o.length === 0) return 0;
-            return o.reduce((a, v, i) => a + (v !== r[i] ? 1 : 0), 0) / o.length;
+        // --- CORRECTED SER CALCULATION FOR SINGLE SIMULATION ---
+        function calculateSER(originalIndices, demodulatedIndices) {
+            if (!originalIndices || !demodulatedIndices || 
+                originalIndices.length === 0 || demodulatedIndices.length === 0 || 
+                originalIndices.length !== demodulatedIndices.length) {
+                return 1.0; // Return maximum error rate if arrays are invalid
+            }
+            
+            let errorCount = 0;
+            for (let i = 0; i < originalIndices.length; i++) {
+                if (originalIndices[i] !== demodulatedIndices[i]) {
+                    errorCount++;
+                }
+            }
+            
+            return errorCount / originalIndices.length;
         }
 
         function calculateConditionNumber(H) {
@@ -1147,29 +1161,58 @@
             return I;
         }
 
+        // --- IMPROVED MATRIX INVERSION WITH BETTER NUMERICAL STABILITY ---
         function invertMatrix(m) {
             const n = m.length;
-            if (n === 0) return [];
+            if (n === 0) return null;
+            
+            // Create augmented matrix [A | I]
             const A = m.map((r, i) => [...r.map(c => new Complex(c.real, c.imag)), ...identityMatrix(n)[i]]);
+            
+            const eps = 1e-10; // Numerical precision threshold
+            
             for (let i = 0; i < n; i++) {
-                let p = i;
-                while (p < n && A[p][i].magnitudeSq() < 1e-12) p++;
-                if (p === n) return null;
-                [A[i], A[p]] = [A[p], A[i]];
-                let d = A[i][i];
-                for (let j = i; j < 2 * n; j++) A[i][j] = A[i][j].divide(d);
-                for (let k = 0; k < n; k++)
-                    if (i !== k) {
-                        let M = A[k][i];
-                        for (let j = i; j < 2 * n; j++) A[k][j] = A[k][j].subtract(M.multiply(A[i][j]));
+                // Find pivot
+                let maxRow = i;
+                for (let k = i + 1; k < n; k++) {
+                    if (A[k][i].magnitudeSq() > A[maxRow][i].magnitudeSq()) {
+                        maxRow = k;
                     }
+                }
+                
+                // Check for singular matrix
+                if (A[maxRow][i].magnitudeSq() < eps) {
+                    console.warn('Matrix is singular or near-singular');
+                    return null;
+                }
+                
+                // Swap rows
+                [A[i], A[maxRow]] = [A[maxRow], A[i]];
+                
+                // Scale pivot row
+                const pivot = A[i][i];
+                for (let j = i; j < 2 * n; j++) {
+                    A[i][j] = A[i][j].divide(pivot);
+                }
+                
+                // Eliminate column
+                for (let k = 0; k < n; k++) {
+                    if (k !== i) {
+                        const factor = A[k][i];
+                        for (let j = i; j < 2 * n; j++) {
+                            A[k][j] = A[k][j].subtract(factor.multiply(A[i][j]));
+                        }
+                    }
+                }
             }
+            
             return A.map(r => r.slice(n));
         }
 
         // --- CHARTING FUNCTIONS ---
+        // --- CORRECTED SER CALCULATION FUNCTION ---
         async function calculateSERvsSNR(mod, Nt, Nr, equalizer) {
-            const T = 50;
+            const T = 200; // Increased trials for more accurate results
             const snr_dB = Array.from({ length: 11 }, (_, i) => i * 2);
             const c = constellations[mod];
             const E_avg = c.reduce((s, v) => s + v.magnitudeSq(), 0) / c.length;
@@ -1178,6 +1221,7 @@
             for (const db of snr_dB) {
                 const N0 = E_avg / (10 ** (db / 10));
                 let errorCount = 0, totalSymbols = 0;
+                
                 for (let t = 0; t < T; t++) {
                     const H = generateComplexChannel(Nr, Nt);
                     const o = Array.from({ length: Nt }, () => Math.floor(Math.random() * c.length));
@@ -1186,46 +1230,71 @@
                     const noise = Array.from({ length: Nr }, () => generateComplexGaussian().multiply(Math.sqrt(N0)));
                     const y = r.map((s, i) => s.add(noise[i]));
 
-                    let equalizedSymbols;
-                    if (equalizer === 'ZF') {
-                        if (Nr >= Nt) {
-                            const H_H = transposeConjugateMatrix(H);
-                            const H_H_H = multiplyComplexMatrices(H_H, H);
-                            const H_inv = invertMatrix(H_H_H);
-                            const W_zf = H_inv ? multiplyComplexMatrices(H_inv, H_H) : null;
-                            equalizedSymbols = W_zf ? multiplyMatrixVector(W_zf, y) : [];
-                        } else {
-                            const H_H = transposeConjugateMatrix(H);
-                            const H_H_H = multiplyComplexMatrices(H, H_H);
-                            const H_inv = invertMatrix(H_H_H);
-                            const W_zf = H_inv ? multiplyComplexMatrices(H_H, H_inv) : null;
-                            equalizedSymbols = W_zf ? multiplyMatrixVector(W_zf, y) : [];
+                    let equalizedSymbols = [];
+                    
+                    try {
+                        if (equalizer === 'ZF') {
+                            if (Nr >= Nt) {
+                                const H_H = transposeConjugateMatrix(H);
+                                const H_H_H = multiplyComplexMatrices(H_H, H);
+                                const H_inv = invertMatrix(H_H_H);
+                                if (H_inv) {
+                                    const W_zf = multiplyComplexMatrices(H_inv, H_H);
+                                    equalizedSymbols = multiplyMatrixVector(W_zf, y);
+                                }
+                            } else {
+                                const H_H = transposeConjugateMatrix(H);
+                                const H_H_H = multiplyComplexMatrices(H, H_H);
+                                const H_inv = invertMatrix(H_H_H);
+                                if (H_inv) {
+                                    const W_zf = multiplyComplexMatrices(H_H, H_inv);
+                                    equalizedSymbols = multiplyMatrixVector(W_zf, y);
+                                }
+                            }
+                        } else if (equalizer === 'MMSE') {
+                            if (Nr >= Nt) {
+                                const H_H = transposeConjugateMatrix(H);
+                                const H_H_H = multiplyComplexMatrices(H_H, H);
+                                const I = identityMatrix(Nt);
+                                const noiseTerm = multiplyMatrixScalar(I, N0 / E_avg);
+                                const mmse_inv = invertMatrix(addMatrices(H_H_H, noiseTerm));
+                                if (mmse_inv) {
+                                    const W_mmse = multiplyComplexMatrices(mmse_inv, H_H);
+                                    equalizedSymbols = multiplyMatrixVector(W_mmse, y);
+                                }
+                            } else {
+                                const H_H = transposeConjugateMatrix(H);
+                                const H_H_H = multiplyComplexMatrices(H, H_H);
+                                const I = identityMatrix(Nr);
+                                const noiseTerm = multiplyMatrixScalar(I, N0 / E_avg);
+                                const mmse_inv = invertMatrix(addMatrices(H_H_H, noiseTerm));
+                                if (mmse_inv) {
+                                    const W_mmse = multiplyComplexMatrices(H_H, mmse_inv);
+                                    equalizedSymbols = multiplyMatrixVector(W_mmse, y);
+                                }
+                            }
                         }
-                    } else if (equalizer === 'MMSE') {
-                        if (Nr >= Nt) {
-                            const H_H = transposeConjugateMatrix(H);
-                            const H_H_H = multiplyComplexMatrices(H_H, H);
-                            const I = identityMatrix(Nt);
-                            const noiseTerm = multiplyMatrixScalar(I, N0 / E_avg);
-                            const mmse_inv = invertMatrix(addMatrices(H_H_H, noiseTerm));
-                            const W_mmse = mmse_inv ? multiplyComplexMatrices(mmse_inv, H_H) : null;
-                            equalizedSymbols = W_mmse ? multiplyMatrixVector(W_mmse, y) : [];
-                        } else {
-                            const H_H = transposeConjugateMatrix(H);
-                            const H_H_H = multiplyComplexMatrices(H, H_H);
-                            const I = identityMatrix(Nr);
-                            const noiseTerm = multiplyMatrixScalar(I, N0 / E_avg);
-                            const mmse_inv = invertMatrix(addMatrices(H_H_H, noiseTerm));
-                            const W_mmse = mmse_inv ? multiplyComplexMatrices(H_H, mmse_inv) : null;
-                            equalizedSymbols = W_mmse ? multiplyMatrixVector(W_mmse, y) : [];
-                        }
+                    } catch (error) {
+                        console.warn('Matrix inversion failed, skipping trial');
+                        continue; // Skip this trial if matrix operations fail
                     }
 
-                    const demodulatedIndices = demodulate(equalizedSymbols, mod).indices;
-                    errorCount += calculateSER(o, demodulatedIndices) * Nt;
-                    totalSymbols += Nt;
+                    if (equalizedSymbols.length > 0) {
+                        const demodulatedIndices = demodulate(equalizedSymbols, mod).indices;
+                        
+                        // Count symbol errors directly (not SER as a ratio)
+                        for (let i = 0; i < Math.min(o.length, demodulatedIndices.length); i++) {
+                            if (o[i] !== demodulatedIndices[i]) {
+                                errorCount++;
+                            }
+                            totalSymbols++;
+                        }
+                    }
                 }
-                serData.push(totalSymbols > 0 ? errorCount / totalSymbols : 1);
+                
+                // Calculate SER as ratio of errored symbols to total symbols
+                const ser = totalSymbols > 0 ? errorCount / totalSymbols : 1.0;
+                serData.push(Math.max(ser, 1e-6)); // Floor at 1e-6 for log scale
             }
             return { labels: snr_dB, data: serData, label: `${mod} ${Nt}x${Nr} (${equalizer})` };
         }
