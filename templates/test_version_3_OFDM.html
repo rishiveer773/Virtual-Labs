@@ -7,80 +7,88 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
         body {
             font-family: 'Inter', sans-serif;
-            background-color: #f0f4f8;
+            background-color: #f8fafc;
             display: flex;
             justify-content: center;
             align-items: flex-start;
             min-height: 100vh;
-            padding: 20px;
+            padding: 2.5rem 1rem;
             box-sizing: border-box;
         }
         .container {
             background-color: #ffffff;
-            border-radius: 1rem;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            border-radius: 1.5rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
             padding: 2.5rem;
             width: 100%;
             max-width: 1400px;
-            display: flex;
+            display: grid;
+            grid-template-columns: 300px 1fr 1fr;
             gap: 2rem;
-            flex-wrap: wrap;
+            min-height: 600px;
         }
 
-        .input-section {
-            flex: 0 0 280px; /* Fixed width for input section */
-        }
-
-        .simulation-area {
-            flex: 2; /* Takes more space than output */
-            min-width: 500px; /* Minimum width for simulation area */
-            max-width: 750px; /* Max width for simulation area */
-        }
-        .output-area {
-            flex: 1; /* Takes less space than simulation */
-            min-width: 350px; /* Minimum width for output section */
-            max-width: 500px; /* Max width for output section */
+        .block-diagram-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            overflow-x: auto;
+            padding: 10px;
         }
 
         @media (max-width: 1200px) {
             .container {
-                flex-direction: column; /* Stack columns vertically on smaller screens */
-                align-items: center;
-            }
-            .input-section, .simulation-area, .output-area {
-                width: 100%;
-                max-width: 700px; /* Limit width when stacked */
+                grid-template-columns: 1fr;
             }
         }
-        
+        h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: #1e293b;
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+        .input-section {
+            border-right: 2px solid #e2e8f0;
+            padding-right: 2rem;
+        }
+        @media (max-width: 1200px) {
+            .input-section {
+                border-right: none;
+                border-bottom: 2px solid #e2e8f0;
+                padding-right: 0;
+                padding-bottom: 2rem;
+            }
+        }
         .input-group {
             display: flex;
             flex-direction: column;
-            margin-bottom: 0.75rem;
+            margin-bottom: 1rem;
         }
         .input-group label {
             font-weight: 600;
             margin-bottom: 0.5rem;
-            color: #374151;
+            color: #475569;
         }
         .input-group input, .input-group select {
             padding: 0.75rem 1rem;
-            border: 1px solid #d1d5db;
+            border: 1px solid #cbd5e1;
             border-radius: 0.5rem;
             font-size: 1rem;
-            color: #4b5563;
+            color: #334155;
             transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
         }
         .input-group input:focus, .input-group select:focus {
             outline: none;
-            border-color: #6366f1;
-            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
         }
-
         .button-primary {
-            background-color: #6366f1;
+            background-color: #3b82f6;
             color: white;
             padding: 0.75rem 1.5rem;
             border-radius: 0.5rem;
@@ -89,31 +97,30 @@
             transition: background-color 0.2s ease-in-out, transform 0.1s ease-in-out;
             border: none;
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            width: 100%;
         }
         .button-primary:hover {
-            background-color: #4f46e5;
+            background-color: #2563eb;
             transform: translateY(-1px);
         }
         .button-primary:active {
-            background-color: #4338ca;
+            background-color: #1d4ed8;
             transform: translateY(0);
         }
-
         .loading-spinner {
             border: 4px solid #f3f3f3;
-            border-top: 4px solid #6366f1;
+            border-top: 4px solid #3b82f6;
             border-radius: 50%;
             width: 30px;
             height: 30px;
             animation: spin 1s linear infinite;
             display: none;
-            margin: 0 auto;
+            margin: 1rem auto;
         }
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-
         .error-message {
             color: #ef4444;
             background-color: #fee2e2;
@@ -123,100 +130,110 @@
             margin-top: 1rem;
             display: none;
         }
-
+        .simulation-area {
+            grid-column: 2 / span 2;
+        }
+        @media (max-width: 1200px) {
+            .simulation-area {
+                grid-column: 1;
+            }
+        }
         .block-diagram-container {
-            width: 100%;
-            margin-bottom: 0.5rem;
             display: flex;
             justify-content: center;
             align-items: center;
-            min-height: 80px;
+            margin-bottom: 1.5rem;
         }
         .ofdm-block {
             fill: #e0e7ff;
-            stroke: #6366f1;
+            stroke: #3b82f6;
             stroke-width: 2;
-            border-radius: 0.5rem;
-            transition: fill 0.3s ease, stroke 0.3s ease;
+            transition: fill 0.3s ease, stroke 0.3s ease, transform 0.3s ease;
         }
         .ofdm-block-text {
             font-family: 'Inter', sans-serif;
-            font-size: 12px;
-            fill: #374151;
+            font-size: 14px;
+            font-weight: 600;
+            fill: #1e293b;
             text-anchor: middle;
             dominant-baseline: central;
             pointer-events: none;
         }
         .ofdm-block.highlighted {
             fill: #93c5fd;
-            stroke: #2563eb;
+            stroke: #1d4ed8;
             stroke-width: 3;
+            transform: scale(1.05);
+        }
+        .ofdm-block-text.highlighted {
+             font-weight: 700;
         }
         .arrow {
-            stroke: #4b5563;
+            stroke: #64748b;
             stroke-width: 2;
             fill: none;
             marker-end: url(#arrowhead);
+            transition: stroke 0.3s ease;
         }
         .arrowhead {
-            fill: #4b5563;
+            fill: #64748b;
         }
-        .block-group {
-            display: none;
+        .arrow.highlighted {
+            stroke: #1d4ed8;
         }
-        .block-group.active {
-            display: block;
+        .chart-container {
+            margin-top: 2rem;
         }
-
+        .chart-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #374151;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
         .nav-buttons {
             display: flex;
             justify-content: center;
             gap: 1rem;
-            margin-top: 1rem;
+            margin-top: 1.5rem;
         }
-
-        .simulation-area canvas {
-            width: 100% !important;
-            max-width: 100%;
-            height: 250px !important;
-            box-sizing: border-box;
-            display: none;
+        .output-area {
+            grid-column: 3;
         }
-        
-        .output-area canvas {
-            width: 100% !important;
-            max-width: 100%;
-            height: 300px !important;
-            box-sizing: border-box;
-            display: none;
+        @media (max-width: 1200px) {
+            .output-area {
+                grid-column: 1;
+            }
         }
-
-        .chart-title {
-            font-size: 1.125rem; /* text-lg */
-            font-weight: 600; /* font-semibold */
-            color: #374151;
-            text-align: center;
-            margin-bottom: 0.5rem;
+        .simulation-info {
+            background-color: #f1f5f9;
+            border-radius: 0.75rem;
+            padding: 1.5rem;
+            margin-top: 1.5rem;
+            border: 1px solid #e2e8f0;
         }
-
-        #blockOutputDisplay {
-            background-color: #e2e8f0; /* bg-blue-100 */
-            border: 1px solid #94a3b8; /* border-blue-300 */
-            padding: 1rem;
-            border-radius: 0.5rem;
-            margin-top: 0.5rem; /* Reduced margin */
+        .simulation-info h3 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 0.75rem;
+        }
+        .simulation-info p {
             font-family: 'monospace', sans-serif;
-            font-size: 0.875rem; /* text-sm */
-            color: #1e293b; /* text-slate-800 */
-            min-height: 80px; /* Ensure some height even when empty */
-            overflow-y: auto; /* Allow scrolling for long outputs */
+            font-size: 0.875rem;
+            color: #334155;
+            line-height: 1.5;
+            white-space: pre-wrap; /* Preserve formatting */
+            word-wrap: break-word; /* Break long words */
+            max-height: 200px;
+            overflow-y: auto;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="input-section">
-            <h2 class="text-2xl font-bold text-center text-gray-800 mb-4">Inputs</h2>
+            <h2 class="text-2xl font-bold text-center text-gray-800 mb-4">Simulation Inputs</h2>
             <div class="input-grid">
                 <div class="input-group">
                     <label for="nFFTSize">FFT Size (N):</label>
@@ -247,193 +264,147 @@
                     <input type="number" id="numSymbolsBer" value="1000" min="100" step="100">
                 </div>
             </div>
-            <button id="runStepByStepBtn" class="button-primary w-full mt-4">Run Step-by-Step Simulation</button>
-            <button id="runBerSimBtn" class="button-primary w-full mt-2 bg-green-500 hover:bg-green-600">Run BER Simulation</button>
-            <button id="resetBtn" class="button-primary w-full mt-2 bg-gray-500 hover:bg-gray-600">Reset Simulation</button>
-            <div id="loadingSpinner" class="loading-spinner mt-4"></div>
+            <button id="runStepByStepBtn" class="button-primary w-full mt-4 bg-blue-500 hover:bg-blue-600">Run Step-by-Step Simulation</button>
+            <button id="runBerSimBtn" class="button-primary w-full mt-2 bg-emerald-500 hover:bg-emerald-600">Run BER Simulation</button>
+            <button id="resetBtn" class="button-primary w-full mt-2 bg-slate-500 hover:bg-slate-600">Reset Simulation</button>
+            <div id="loadingSpinner" class="loading-spinner"></div>
             <div id="errorMessage" class="error-message"></div>
         </div>
 
         <div class="simulation-area">
-            <h2 class="text-2xl font-bold text-center text-gray-800 mb-4">Simulation Flow</h2>
+            <h2 class="text-2xl font-bold text-center text-gray-800 mb-4">OFDM Signal Flow</h2>
             <div class="block-diagram-container">
-                <svg id="ofdmBlockDiagram" width="800" height="200" viewBox="0 0 800 200">
+                <svg id="ofdmBlockDiagram" width="600" height="350" viewBox="0 0 600 350">
                     <defs>
-                        <marker id="arrowhead" markerWidth="10" markerHeight="7"
-                                refX="10" refY="3.5" orient="auto">
-                            <polygon points="0 0, 10 3.5, 0 7" />
+                        <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+                            <polygon points="0 0, 10 3.5, 0 7" class="arrowhead" />
                         </marker>
                     </defs>
 
-                    <g id="tx-group" class="block-group">
-                        <rect id="block-bits" class="ofdm-block" x="10" y="50" width="60" height="40" rx="8"></rect>
-                        <text class="ofdm-block-text" x="40" y="70">Bits</text>
-                        <line x1="70" y1="70" x2="90" y2="70" class="arrow" />
+                    <rect id="block-tx" class="ofdm-block" x="10" y="20" width="120" height="60" rx="8" ry="8"></rect>
+                    <text class="ofdm-block-text" x="70" y="40">S/P</text>
+                    <text class="ofdm-block-text" x="70" y="60">+ Mapping</text>
+                    <line id="tx-to-idft" x1="70" y1="80" x2="70" y2="100" class="arrow" />
 
-                        <rect id="block-sp" class="ofdm-block" x="90" y="50" width="60" height="40" rx="8"></rect>
-                        <text class="ofdm-block-text" x="120" y="70">S/P</text>
-                        <line x1="150" y1="70" x2="170" y2="70" class="arrow" />
+                    <rect id="block-idft" class="ofdm-block" x="10" y="100" width="120" height="60" rx="8" ry="8"></rect>
+                    <text class="ofdm-block-text" x="70" y="130">IDFT</text>
+                    <line id="idft-to-addcp" x1="70" y1="160" x2="70" y2="180" class="arrow" />
 
-                        <rect id="block-mapping" class="ofdm-block" x="170" y="50" width="60" height="40" rx="8"></rect>
-                        <text class="ofdm-block-text" x="200" y="70">Mapping</text>
-                        <line x1="230" y1="70" x2="250" y2="70" class="arrow" />
+                    <rect id="block-addcp" class="ofdm-block" x="10" y="180" width="120" height="60" rx="8" ry="8"></rect>
+                    <text class="ofdm-block-text" x="70" y="210">Add CP</text>
 
-                        <rect id="block-idft" class="ofdm-block" x="250" y="50" width="60" height="40" rx="8"></rect>
-                        <text class="ofdm-block-text" x="280" y="70">IDFT</text>
-                        <line x1="310" y1="70" x2="330" y2="70" class="arrow" />
+                    <line id="tx-to-channel" x1="130" y1="210" x2="250" y2="210" class="arrow" />
 
-                        <rect id="block-addcp" class="ofdm-block" x="330" y="50" width="60" height="40" rx="8"></rect>
-                        <text class="ofdm-block-text" x="360" y="70">Add CP</text>
-                        <line x1="390" y1="70" x2="410" y2="70" class="arrow" />
-                    </g>
+                    <rect id="block-channel" class="ofdm-block" x="250" y="180" width="100" height="60" rx="8" ry="8"></rect>
+                    <text class="ofdm-block-text" x="300" y="210">Channel</text>
 
-                    <g id="channel-group" class="block-group">
-                        <rect id="block-channel" class="ofdm-block" x="410" y="50" width="80" height="40" rx="8"></rect>
-                        <text class="ofdm-block-text" x="450" y="70">Channel</text>
-                        <line x1="450" y1="90" x2="450" y2="130" class="arrow" />
-                        <line x1="450" y1="130" x2="470" y2="130" class="arrow" />
-                    </g>
+                    <line id="channel-to-rx" x1="350" y1="210" x2="470" y2="210" class="arrow" />
 
-                    <g id="rx-group" class="block-group">
-                        <rect id="block-removecp" class="ofdm-block" x="470" y="110" width="80" height="40" rx="8"></rect>
-                        <text class="ofdm-block-text" x="510" y="130">Remove CP</text>
-                        <line x1="550" y1="130" x2="570" y2="130" class="arrow" />
+                    <rect id="block-removecp" class="ofdm-block" x="470" y="180" width="120" height="60" rx="8" ry="8"></rect>
+                    <text class="ofdm-block-text" x="530" y="210">Remove CP</text>
+                    <line id="removecp-to-dft" x1="530" y1="180" x2="530" y2="160" class="arrow" />
 
-                        <rect id="block-fft" class="ofdm-block" x="570" y="110" width="60" height="40" rx="8"></rect>
-                        <text class="ofdm-block-text" x="600" y="130">FFT</text>
-                        <line x1="630" y1="130" x2="650" y2="130" class="arrow" />
+                    <rect id="block-fft" class="ofdm-block" x="470" y="100" width="120" height="60" rx="8" ry="8"></rect>
+                    <text class="ofdm-block-text" x="530" y="130">FFT</text>
+                    <line id="dft-to-demapping" x1="530" y1="100" x2="530" y2="80" class="arrow" />
 
-                        <rect id="block-equalize" class="ofdm-block" x="650" y="110" width="70" height="40" rx="8"></rect>
-                        <text class="ofdm-block-text" x="685" y="130">Equalize</text>
-                        <line x1="720" y1="130" x2="740" y2="130" class="arrow" />
-
-                        <rect id="block-demapping" class="ofdm-block" x="740" y="110" width="70" height="40" rx="8"></rect>
-                        <text class="ofdm-block-text" x="775" y="130">Demapping</text>
-                        <line x1="810" y1="130" x2="830" y2="130" class="arrow" style="display:none;" />
-                    </g>
+                    <rect id="block-rx" class="ofdm-block" x="470" y="20" width="120" height="60" rx="8" ry="8"></rect>
+                    <text class="ofdm-block-text" x="530" y="40">Demapping</text>
+                    <text class="ofdm-block-text" x="530" y="60">+ P/S</text>
                 </svg>
             </div>
+
+            <div class="nav-buttons">
+                <button id="prevBlockBtn" class="button-primary w-40 disabled:opacity-50 disabled:cursor-not-allowed">Previous Step</button>
+                <button id="nextBlockBtn" class="button-primary w-40 disabled:opacity-50 disabled:cursor-not-allowed">Next Step</button>
+            </div>
             
-            <div id="blockOutputDisplay" class="mt-0.5"></div>
-            
+            <div class="simulation-info">
+                <h3 id="blockOutputTitle">Simulation Step Output</h3>
+                <p id="blockOutputDisplay">Run a simulation to see the step-by-step output here.</p>
+            </div>
+
             <div class="chart-container">
                 <h3 class="chart-title" id="constellationChartTitle">Transmitted Constellation Diagram</h3>
-                <canvas id="constellationChart"></canvas>
+                <canvas id="constellationChart" style="display: none;"></canvas>
             </div>
             <div class="chart-container">
                 <h3 class="chart-title" id="preChannelSpectrumChartTitle">Pre-Channel Spectrum</h3>
-                <canvas id="preChannelSpectrumChart"></canvas>
+                <canvas id="preChannelSpectrumChart" style="display: none;"></canvas>
             </div>
             <div class="chart-container">
                 <h3 class="chart-title" id="postChannelSpectrumChartTitle">Post-Channel Spectrum</h3>
-                <canvas id="postChannelSpectrumChart"></canvas>
-            </div>
-            
-            <div class="nav-buttons">
-                <button id="prevBlockBtn" class="button-primary">Previous Step</button>
-                <button id="nextBlockBtn" class="button-primary">Next Step</button>
+                <canvas id="postChannelSpectrumChart" style="display: none;"></canvas>
             </div>
         </div>
 
         <div class="output-area">
-            <h2 class="text-2xl font-bold text-center text-gray-800 mb-4">Outputs</h2>
+            <h2 class="text-2xl font-bold text-center text-gray-800 mb-4">Results</h2>
             <div class="chart-container">
                 <h3 class="chart-title" id="receivedConstellationChartTitle">Received Constellation Diagram</h3>
-                <canvas id="receivedConstellationChart"></canvas>
+                <canvas id="receivedConstellationChart" style="display: none;"></canvas>
             </div>
             <div class="chart-container">
                 <h3 class="chart-title" id="berCurveChartTitle">BER Curve</h3>
-                <canvas id="berCurveChart"></canvas>
+                <canvas id="berCurveChart" style="display: none;"></canvas>
             </div>
         </div>
     </div>
 
     <script>
-        // --- Global Variables for Simulation Results ---
-        let globalTransmittedBits = [];
-        let globalModulatedSymbols = [];
-        let globalTxWaveformPreChannel = []; // After Add CP
-        let globalRxWaveformPostChannel = []; // After Channel + AWGN
-        let globalRxNoCP = []; // After Remove CP
-        let globalRxFFTOutput = []; // After FFT
-        let globalReceivedSymbols = []; // After Equalization
-        let globalChannelGainsFFT = []; // Store for equalization step output
-
-        // Define frequencies for spectrum plots
-        const fsMHz = 20; // Sampling frequency in MHz
-        const fftLengthForSpectrum = 4096;
-        const frequencies = Array.from({ length: fftLengthForSpectrum }, (_, i) =>
-            (i - fftLengthForSpectrum / 2) * fsMHz / fftLengthForSpectrum
-        );
-
-        // --- Complex Number Class ---
+        // --- Complex Number Class and DSP Helper Functions (kept as-is) ---
         class Complex {
             constructor(re, im = 0) {
                 this.re = re;
                 this.im = im;
             }
-
             add(other) {
                 return new Complex(this.re + other.re, this.im + other.im);
             }
-
             sub(other) {
                 return new Complex(this.re - other.re, this.im - other.im);
             }
-
             mul(other) {
                 return new Complex(
                     this.re * other.re - this.im * other.im,
                     this.re * other.im + this.im * other.re
                 );
             }
-
             div(other) {
-                if (other.re === 0 && other.im === 0) {
-                    return new Complex(Infinity, Infinity);
-                }
+                if (other.re === 0 && other.im === 0) return new Complex(Infinity, Infinity);
                 const den = other.re * other.re + other.im * other.im;
                 return new Complex(
                     (this.re * other.re + this.im * other.im) / den,
                     (this.im * other.re - this.re * other.im) / den
                 );
             }
-
             magSq() {
                 return this.re * this.re + this.im * this.im;
             }
-
             mag() {
                 return Math.sqrt(this.magSq());
             }
-
             conj() {
                 return new Complex(this.re, -this.im);
             }
-
             toString() {
-                if (this.im === 0) return this.re.toFixed(2);
-                if (this.re === 0) return `${this.im.toFixed(2)}i`;
-                return `${this.re.toFixed(2)} + ${this.im.toFixed(2)}i`;
+                if (this.im === 0) return this.re.toFixed(3);
+                if (this.re === 0) return `${this.im.toFixed(3)}i`;
+                const sign = this.im > 0 ? '+' : '';
+                return `${this.re.toFixed(3)}${sign}${this.im.toFixed(3)}i`;
             }
         }
-
-        // --- DSP Helper Functions ---
-
         function fft(x) {
             const N = x.length;
             if (N <= 1) return x;
-
             const even = [];
             const odd = [];
             for (let i = 0; i < N / 2; i++) {
                 even[i] = x[i * 2];
                 odd[i] = x[i * 2 + 1];
             }
-
             const Y_even = fft(even);
             const Y_odd = fft(odd);
-
             const Y = new Array(N);
             for (let k = 0; k < N / 2; k++) {
                 const t = new Complex(Math.cos(-2 * Math.PI * k / N), Math.sin(-2 * Math.PI * k / N)).mul(Y_odd[k]);
@@ -442,110 +413,70 @@
             }
             return Y;
         }
-
         function ifft(X) {
             const N = X.length;
             if (N <= 1) return X;
-
             const X_conj = X.map(c => new Complex(c.re, -c.im));
             const y_conj = fft(X_conj);
             return y_conj.map(c => new Complex(c.re / N, -c.im / N));
         }
-
         function fftshift(arr) {
             const mid = Math.floor(arr.length / 2);
             return [...arr.slice(mid), ...arr.slice(0, mid)];
         }
-
         function dbToLinear(db) {
             return Math.pow(10, db / 10);
         }
-
         function linearToDb(linear) {
-            return 10 * Math.log10(linear);
+            if (linear <= 0 || !isFinite(linear)) return -100;
+            const dbValue = 10 * Math.log10(linear);
+            return isFinite(dbValue) ? dbValue : -100;
         }
-
         function randn() {
             let u = 0, v = 0;
             while (u === 0) u = Math.random();
             while (v === 0) v = Math.random();
             return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
         }
-
-        // --- Modulation Schemes ---
-
-        function bpskModulate(bit) {
-            return new Complex(2 * bit - 1);
-        }
-
+        function bpskModulate(bit) { return new Complex(2 * bit - 1); }
         function qpskModulate(bits) {
             const real = (2 * bits[0] - 1) / Math.sqrt(2);
             const imag = (2 * bits[1] - 1) / Math.sqrt(2);
             return new Complex(real, imag);
         }
-
         function qam16Modulate(bits) {
             const map = {
-                "0000": new Complex(-3 / Math.sqrt(10), -3 / Math.sqrt(10)),
-                "0001": new Complex(-3 / Math.sqrt(10), -1 / Math.sqrt(10)),
-                "0010": new Complex(-3 / Math.sqrt(10), 3 / Math.sqrt(10)),
-                "0011": new Complex(-3 / Math.sqrt(10), 1 / Math.sqrt(10)),
-                "0100": new Complex(-1 / Math.sqrt(10), -3 / Math.sqrt(10)),
-                "0101": new Complex(-1 / Math.sqrt(10), -1 / Math.sqrt(10)),
-                "0110": new Complex(-1 / Math.sqrt(10), 3 / Math.sqrt(10)),
-                "0111": new Complex(-1 / Math.sqrt(10), 1 / Math.sqrt(10)),
-                "1000": new Complex(3 / Math.sqrt(10), -3 / Math.sqrt(10)),
-                "1001": new Complex(3 / Math.sqrt(10), -1 / Math.sqrt(10)),
-                "1010": new Complex(3 / Math.sqrt(10), 3 / Math.sqrt(10)),
-                "1011": new Complex(3 / Math.sqrt(10), 1 / Math.sqrt(10)),
-                "1100": new Complex(1 / Math.sqrt(10), -3 / Math.sqrt(10)),
-                "1101": new Complex(1 / Math.sqrt(10), -1 / Math.sqrt(10)),
-                "1110": new Complex(1 / Math.sqrt(10), 3 / Math.sqrt(10)),
-                "1111": new Complex(1 / Math.sqrt(10), 1 / Math.sqrt(10)),
+                "0000": new Complex(-3 / Math.sqrt(10), -3 / Math.sqrt(10)), "0001": new Complex(-3 / Math.sqrt(10), -1 / Math.sqrt(10)),
+                "0010": new Complex(-3 / Math.sqrt(10), 3 / Math.sqrt(10)), "0011": new Complex(-3 / Math.sqrt(10), 1 / Math.sqrt(10)),
+                "0100": new Complex(-1 / Math.sqrt(10), -3 / Math.sqrt(10)), "0101": new Complex(-1 / Math.sqrt(10), -1 / Math.sqrt(10)),
+                "0110": new Complex(-1 / Math.sqrt(10), 3 / Math.sqrt(10)), "0111": new Complex(-1 / Math.sqrt(10), 1 / Math.sqrt(10)),
+                "1000": new Complex(3 / Math.sqrt(10), -3 / Math.sqrt(10)), "1001": new Complex(3 / Math.sqrt(10), -1 / Math.sqrt(10)),
+                "1010": new Complex(3 / Math.sqrt(10), 3 / Math.sqrt(10)), "1011": new Complex(3 / Math.sqrt(10), 1 / Math.sqrt(10)),
+                "1100": new Complex(1 / Math.sqrt(10), -3 / Math.sqrt(10)), "1101": new Complex(1 / Math.sqrt(10), -1 / Math.sqrt(10)),
+                "1110": new Complex(1 / Math.sqrt(10), 3 / Math.sqrt(10)), "1111": new Complex(1 / Math.sqrt(10), 1 / Math.sqrt(10)),
             };
-            const bitString = bits.join('');
-            return map[bitString];
+            return map[bits.join('')];
         }
-
-        // --- Demodulation Schemes ---
-
-        function bpskDemodulate(symbol) {
-            return symbol.re > 0 ? 1 : 0;
-        }
-
+        function bpskDemodulate(symbol) { return symbol.re > 0 ? 1 : 0; }
         function qpskDemodulate(symbol) {
-            const bits = [];
-            bits.push(symbol.re > 0 ? 1 : 0);
-            bits.push(symbol.im > 0 ? 1 : 0);
-            return bits;
+            return [symbol.re > 0 ? 1 : 0, symbol.im > 0 ? 1 : 0];
         }
-
         function qam16Demodulate(symbol) {
             const constellationPoints = {
-                "0000": new Complex(-3 / Math.sqrt(10), -3 / Math.sqrt(10)),
-                "0001": new Complex(-3 / Math.sqrt(10), -1 / Math.sqrt(10)),
-                "0010": new Complex(-3 / Math.sqrt(10), 3 / Math.sqrt(10)),
-                "0011": new Complex(-3 / Math.sqrt(10), 1 / Math.sqrt(10)),
-                "0100": new Complex(-1 / Math.sqrt(10), -3 / Math.sqrt(10)),
-                "0101": new Complex(-1 / Math.sqrt(10), -1 / Math.sqrt(10)),
-                "0110": new Complex(-1 / Math.sqrt(10), 3 / Math.sqrt(10)),
-                "0111": new Complex(-1 / Math.sqrt(10), 1 / Math.sqrt(10)),
-                "1000": new Complex(3 / Math.sqrt(10), -3 / Math.sqrt(10)),
-                "1001": new Complex(3 / Math.sqrt(10), -1 / Math.sqrt(10)),
-                "1010": new Complex(3 / Math.sqrt(10), 3 / Math.sqrt(10)),
-                "1011": new Complex(3 / Math.sqrt(10), 1 / Math.sqrt(10)),
-                "1100": new Complex(1 / Math.sqrt(10), -3 / Math.sqrt(10)),
-                "1101": new Complex(1 / Math.sqrt(10), -1 / Math.sqrt(10)),
-                "1110": new Complex(1 / Math.sqrt(10), 3 / Math.sqrt(10)),
-                "1111": new Complex(1 / Math.sqrt(10), 1 / Math.sqrt(10)),
+                "0000": new Complex(-3 / Math.sqrt(10), -3 / Math.sqrt(10)), "0001": new Complex(-3 / Math.sqrt(10), -1 / Math.sqrt(10)),
+                "0010": new Complex(-3 / Math.sqrt(10), 3 / Math.sqrt(10)), "0011": new Complex(-3 / Math.sqrt(10), 1 / Math.sqrt(10)),
+                "0100": new Complex(-1 / Math.sqrt(10), -3 / Math.sqrt(10)), "0101": new Complex(-1 / Math.sqrt(10), -1 / Math.sqrt(10)),
+                "0110": new Complex(-1 / Math.sqrt(10), 3 / Math.sqrt(10)), "0111": new Complex(-1 / Math.sqrt(10), 1 / Math.sqrt(10)),
+                "1000": new Complex(3 / Math.sqrt(10), -3 / Math.sqrt(10)), "1001": new Complex(3 / Math.sqrt(10), -1 / Math.sqrt(10)),
+                "1010": new Complex(3 / Math.sqrt(10), 3 / Math.sqrt(10)), "1011": new Complex(3 / Math.sqrt(10), 1 / Math.sqrt(10)),
+                "1100": new Complex(1 / Math.sqrt(10), -3 / Math.sqrt(10)), "1101": new Complex(1 / Math.sqrt(10), -1 / Math.sqrt(10)),
+                "1110": new Complex(1 / Math.sqrt(10), 3 / Math.sqrt(10)), "1111": new Complex(1 / Math.sqrt(10), 1 / Math.sqrt(10)),
             };
-
             let minDistanceSq = Infinity;
             let demodulatedBits = '';
-
             for (const bitString in constellationPoints) {
                 const idealPoint = constellationPoints[bitString];
-                const distanceSq = (symbol.re - idealPoint.re)**2 + (symbol.im - idealPoint.im)**2;
+                const distanceSq = (symbol.re - idealPoint.re) ** 2 + (symbol.im - idealPoint.im) ** 2;
                 if (distanceSq < minDistanceSq) {
                     minDistanceSq = distanceSq;
                     demodulatedBits = bitString;
@@ -553,13 +484,7 @@
             }
             return demodulatedBits.split('').map(Number);
         }
-
-        // --- OFDM Simulation Functions ---
-
-        function generateBits(numBits) {
-            return Array.from({ length: numBits }, () => Math.random() > 0.5 ? 1 : 0);
-        }
-
+        function generateBits(numBits) { return Array.from({ length: numBits }, () => Math.random() > 0.5 ? 1 : 0); }
         function modulate(bits, modulationScheme, bitsPerSymbol) {
             const modulatedSymbols = [];
             let modulateFunc;
@@ -569,7 +494,6 @@
                 case '16QAM': modulateFunc = qam16Modulate; break;
                 default: throw new Error('Invalid modulation scheme.');
             }
-
             for (let i = 0; i < bits.length; i += bitsPerSymbol) {
                 const currentBits = bits.slice(i, i + bitsPerSymbol);
                 if (bitsPerSymbol === 1) {
@@ -580,42 +504,29 @@
             }
             return modulatedSymbols;
         }
-
         function mapToSubcarriers(symbols, nFFTSize, numSubcarriers) {
             const inputiFFT = Array.from({ length: nFFTSize }, () => new Complex(0));
-            
             let symbolIdx = 0;
             if (nFFTSize === 64 && numSubcarriers === 52) {
                 const subcarrierIndices80211a = [-26, -25, -24, -23, -22, -21, -20, -19, -18, -17, -16, -15, -14, -13, -12, -11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1,
-                                                1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26];
+                                                 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26];
                 for (const scIdx of subcarrierIndices80211a) {
-                    let arrayIdx;
-                    if (scIdx > 0) {
-                        arrayIdx = scIdx;
-                    } else {
-                        arrayIdx = nFFTSize + scIdx;
-                    }
+                    let arrayIdx = scIdx > 0 ? scIdx : nFFTSize + scIdx;
                     if (symbolIdx < symbols.length) {
                         inputiFFT[arrayIdx] = symbols[symbolIdx++];
                     }
                 }
             } else {
                 const halfSubcarriers = Math.floor(numSubcarriers / 2);
-                for (let i = 1; i <= halfSubcarriers && symbolIdx < symbols.length; i++) {
-                    inputiFFT[i] = symbols[symbolIdx++];
-                }
-                for (let i = nFFTSize - halfSubcarriers; i < nFFTSize && symbolIdx < symbols.length; i++) {
-                    inputiFFT[i] = symbols[symbolIdx++];
-                }
+                for (let i = 1; i <= halfSubcarriers && symbolIdx < symbols.length; i++) { inputiFFT[i] = symbols[symbolIdx++]; }
+                for (let i = nFFTSize - halfSubcarriers; i < nFFTSize && symbolIdx < symbols.length; i++) { inputiFFT[i] = symbols[symbolIdx++]; }
             }
             return inputiFFT;
         }
-
         function addCyclicPrefix(signal, cpLength) {
             const cyclicPrefix = signal.slice(signal.length - cpLength);
             return [...cyclicPrefix, ...signal];
         }
-
         function applyRayleighFading(signal) {
             const fadedSignal = [];
             const channelGains = [];
@@ -628,33 +539,35 @@
             }
             return { fadedSignal, channelGains };
         }
-
         function addAwgn(signal, snrDb) {
             const signalPower = signal.reduce((sum, val) => sum + val.magSq(), 0) / signal.length;
             const snrLinear = dbToLinear(snrDb);
             const noisePower = signalPower / snrLinear;
             const noiseStdDev = Math.sqrt(noisePower / 2);
-
             return signal.map(sample => {
                 const noiseReal = randn() * noiseStdDev;
                 const noiseImag = randn() * noiseStdDev;
                 return sample.add(new Complex(noiseReal, noiseImag));
             });
         }
-
         function removeCyclicPrefix(signalWithCP, cpLength, nFFTSize) {
             return signalWithCP.slice(cpLength, cpLength + nFFTSize);
         }
-
         function equalize(receivedSymbolsFFT, channelGainsFFT) {
             return receivedSymbolsFFT.map((sym, i) => {
-                if (channelGainsFFT[i].magSq() < 1e-10) {
-                    return new Complex(0);
+                const channelGain = channelGainsFFT[i];
+                if (channelGain.magSq() < 1e-10) { 
+                    return new Complex(0, 0); 
                 }
-                return sym.div(channelGainsFFT[i]);
+                const result = sym.div(channelGain);
+                // Bound the result to prevent infinite values
+                if (!isFinite(result.re) || !isFinite(result.im) || 
+                    Math.abs(result.re) > 100 || Math.abs(result.im) > 100) {
+                    return new Complex(0, 0);
+                }
+                return result;
             });
         }
-
         function demodulate(symbols, modulationScheme) {
             const demodulatedBits = [];
             let demodulateFunc;
@@ -664,7 +577,6 @@
                 case '16QAM': demodulateFunc = qam16Demodulate; break;
                 default: throw new Error('Invalid modulation scheme.');
             }
-
             for (const symbol of symbols) {
                 const bits = demodulateFunc(symbol);
                 if (Array.isArray(bits)) {
@@ -675,7 +587,6 @@
             }
             return demodulatedBits;
         }
-
         function calculateBer(originalBits, receivedBits) {
             let errors = 0;
             const minLength = Math.min(originalBits.length, receivedBits.length);
@@ -693,14 +604,27 @@
             const sample = arr.slice(0, count).map(c => c.toString()).join(', ');
             return `[${sample}${arr.length > count ? ', ...' : ''}]`;
         }
-
-        function formatBitArrayForDisplay(arr, count = 10) {
+        function formatBitArrayForDisplay(arr, count = 20) {
             if (!arr || arr.length === 0) return "N/A";
             const sample = arr.slice(0, count).join('');
             return `${sample}${arr.length > count ? '...' : ''}`;
         }
+        
+        // --- Global Variables & Simulation Logic ---
+        let globalTransmittedBits = [];
+        let globalModulatedSymbols = [];
+        let globalTxWaveformPreChannel = [];
+        let globalRxWaveformPostChannel = [];
+        let globalRxNoCP = [];
+        let globalRxFFTOutput = [];
+        let globalReceivedSymbols = [];
+        let globalChannelGainsFFT = [];
 
-        // --- Main Simulation Functions ---
+        const fsMHz = 20;
+        const fftLengthForSpectrum = 4096;
+        const frequencies = Array.from({ length: fftLengthForSpectrum }, (_, i) =>
+            (i - fftLengthForSpectrum / 2) * fsMHz / fftLengthForSpectrum
+        );
 
         async function runStepByStepSimulation() {
             const nFFTSize = parseInt(document.getElementById('nFFTSize').value);
@@ -713,27 +637,7 @@
             document.getElementById('errorMessage').style.display = 'none';
             document.getElementById('errorMessage').textContent = '';
 
-            if (nFFTSize <= 0 || !Number.isInteger(nFFTSize) || (nFFTSize & (nFFTSize - 1)) !== 0) {
-                displayError('FFT Size must be a positive integer and a power of 2.');
-                return;
-            }
-            if (numSubcarriers <= 0 || numSubcarriers > nFFTSize - 2) {
-                displayError('Number of data subcarriers must be positive and less than FFT Size - 2.');
-                return;
-            }
-            if (cpLength < 0 || cpLength >= nFFTSize) {
-                displayError('Cyclic Prefix Length must be non-negative and less than FFT Size.');
-                return;
-            }
-
-            let bitsPerSymbol;
-            switch (modulationScheme) {
-                case 'BPSK': bitsPerSymbol = 1; break;
-                case 'QPSK': bitsPerSymbol = 2; break;
-                case '16QAM': bitsPerSymbol = 4; break;
-                default: displayError('Invalid modulation scheme selected.'); return;
-            }
-
+            const bitsPerSymbol = (modulationScheme === 'BPSK') ? 1 : (modulationScheme === 'QPSK' ? 2 : 4);
             const numBitsPerOFDMSymbol = numSubcarriers * bitsPerSymbol;
 
             try {
@@ -753,10 +657,10 @@
                 globalChannelGainsFFT = fft(channelGainsNoCP);
                 globalReceivedSymbols = equalize(globalRxFFTOutput, globalChannelGainsFFT);
 
+                // Update charts once at the beginning
                 updateTransmittedConstellationChart(globalModulatedSymbols);
                 updateReceivedConstellationChart(globalReceivedSymbols);
 
-                // Spectrum plots
                 const preChannelPadded = [...globalTxWaveformPreChannel];
                 if (preChannelPadded.length < fftLengthForSpectrum) {
                     preChannelPadded.push(...Array(fftLengthForSpectrum - preChannelPadded.length).fill(new Complex(0)));
@@ -764,9 +668,11 @@
                     preChannelPadded.length = fftLengthForSpectrum;
                 }
                 const preChannelSpectrumFFT = fft(preChannelPadded);
-                const preChannelPsd = preChannelSpectrumFFT.map(c => c.magSq());
-                const preChannelPsd_db = fftshift(preChannelPsd).map(val => linearToDb(val + 1e-10));
-                updateSpectrumChart(preChannelSpectrumChart, frequencies, preChannelPsd_db);
+                const preChannelPsd = preChannelSpectrumFFT.map(c => Math.max(c.magSq(), 1e-12));
+                const preChannelPsd_db = fftshift(preChannelPsd).map(val => {
+                    const dbVal = linearToDb(val);
+                    return isFinite(dbVal) ? Math.max(dbVal, -100) : -100;
+                });
 
                 const postChannelPadded = [...globalRxWaveformPostChannel];
                 if (postChannelPadded.length < fftLengthForSpectrum) {
@@ -775,12 +681,16 @@
                     postChannelPadded.length = fftLengthForSpectrum;
                 }
                 const postChannelSpectrumFFT = fft(postChannelPadded);
-                const postChannelPsd = postChannelSpectrumFFT.map(c => c.magSq());
-                const postChannelPsd_db = fftshift(postChannelPsd).map(val => linearToDb(val + 1e-10));
-                updateSpectrumChart(postChannelSpectrumChart, frequencies, postChannelPsd_db);
+                const postChannelPsd = postChannelSpectrumFFT.map(c => Math.max(c.magSq(), 1e-12));
+                const postChannelPsd_db = fftshift(postChannelPsd).map(val => {
+                    const dbVal = linearToDb(val);
+                    return isFinite(dbVal) ? Math.max(dbVal, -100) : -100;
+                });
 
                 currentBlockIndex = 0;
                 highlightBlock(currentBlockIndex);
+                document.getElementById('nextBlockBtn').disabled = false;
+                document.getElementById('prevBlockBtn').disabled = true;
 
             } catch (error) {
                 console.error("Step-by-step simulation error:", error);
@@ -800,23 +710,13 @@
             const cpLength = parseInt(document.getElementById('cpLength').value);
             const numSymbolsBer = parseInt(document.getElementById('numSymbolsBer').value);
 
-            if (nFFTSize <= 0 || !Number.isInteger(nFFTSize) || (nFFTSize & (nFFTSize - 1)) !== 0) {
-                displayError('FFT Size must be a positive integer and a power of 2.');
-                document.getElementById('loadingSpinner').style.display = 'none';
-                return;
-            }
-
             let bitsPerSymbol;
             switch (modulationScheme) {
                 case 'BPSK': bitsPerSymbol = 1; break;
                 case 'QPSK': bitsPerSymbol = 2; break;
                 case '16QAM': bitsPerSymbol = 4; break;
-                default: 
-                    displayError('Invalid modulation scheme selected.'); 
-                    document.getElementById('loadingSpinner').style.display = 'none';
-                    return;
+                default: displayError('Invalid modulation scheme selected.'); document.getElementById('loadingSpinner').style.display = 'none'; return;
             }
-
             const numBitsPerOFDMSymbol = numSubcarriers * bitsPerSymbol;
             const snrRangeDb = Array.from({ length: 26 }, (_, i) => i);
             const berResults = [];
@@ -829,45 +729,38 @@
                     for (let s = 0; s < numSymbolsBer; s++) {
                         const originalBits = generateBits(numBitsPerOFDMSymbol);
                         const modulatedSymbols = modulate(originalBits, modulationScheme, bitsPerSymbol);
-                        
-                        let ifftInput = mapToSubcarriers(modulatedSymbols, nFFTSize, numSubcarriers);
-                        let ifftOutput = ifft(ifftInput);
-                        let txWaveform = addCyclicPrefix(ifftOutput, cpLength);
+                        const ifftInput = mapToSubcarriers(modulatedSymbols, nFFTSize, numSubcarriers);
+                        const ifftOutput = ifft(ifftInput);
+                        const txWaveform = addCyclicPrefix(ifftOutput, cpLength);
                         
                         const rxWaveform = addAwgn(txWaveform, snr);
                         
                         const rxNoCP = removeCyclicPrefix(rxWaveform, cpLength, nFFTSize);
                         const rxFFT = fft(rxNoCP);
-                        
+
                         const dataSubcarrierIndices = [];
                         if (nFFTSize === 64 && numSubcarriers === 52) {
-                            const subcarrierIndices80211a = [-26, -25, -24, -23, -22, -21, -20, -19, -18, -17, -16, -15, -14, -13, -12, -11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1,
-                                                        1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26];
+                             const subcarrierIndices80211a = [-26, -25, -24, -23, -22, -21, -20, -19, -18, -17, -16, -15, -14, -13, -12, -11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1,
+                                                              1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26];
                             for (const scIdx of subcarrierIndices80211a) {
                                 let arrayIdx = scIdx > 0 ? scIdx : nFFTSize + scIdx;
                                 dataSubcarrierIndices.push(arrayIdx);
                             }
                         } else {
                             const halfSubcarriers = Math.floor(numSubcarriers / 2);
-                            for (let i = 1; i <= halfSubcarriers; i++) { 
-                                dataSubcarrierIndices.push(i); 
-                            }
-                            for (let i = nFFTSize - halfSubcarriers; i < nFFTSize; i++) { 
-                                dataSubcarrierIndices.push(i); 
-                            }
+                            for (let i = 1; i <= halfSubcarriers; i++) { dataSubcarrierIndices.push(i); }
+                            for (let i = nFFTSize - halfSubcarriers; i < nFFTSize; i++) { dataSubcarrierIndices.push(i); }
                         }
                         
                         const receivedDataSymbols = dataSubcarrierIndices.map(idx => rxFFT[idx]);
                         const receivedBits = demodulate(receivedDataSymbols, modulationScheme);
 
-                        const minLength = Math.min(originalBits.length, receivedBits.length);
                         let bitErrorsForSymbol = 0;
-                        for (let i = 0; i < minLength; i++) {
+                        for (let i = 0; i < originalBits.length; i++) {
                             if (originalBits[i] !== receivedBits[i]) {
                                 bitErrorsForSymbol++;
                             }
                         }
-
                         totalErrorsForThisSNR += bitErrorsForSymbol;
                         totalBitsForThisSNR += originalBits.length;
                     }
@@ -878,10 +771,11 @@
 
                 updateBerChart(snrRangeDb, berResults);
                 hideStepByStepCharts();
-                document.getElementById('berCurveChart').style.display = 'block';
-                document.getElementById('berCurveChartTitle').style.display = 'block';
-                hideAllBlockGroups();
-                document.getElementById('blockOutputDisplay').innerHTML = "BER simulation completed. Check the BER curve in the output area.";
+                showOutputChart('berCurveChart');
+                document.getElementById('blockOutputTitle').textContent = "BER Simulation Result";
+                document.getElementById('blockOutputDisplay').innerHTML = `BER simulation completed. The BER curve shows the system's performance across different Signal-to-Noise Ratios (SNR). A lower BER indicates better performance.`;
+                document.getElementById('nextBlockBtn').disabled = true;
+                document.getElementById('prevBlockBtn').disabled = true;
 
             } catch (error) {
                 console.error("BER simulation error:", error);
@@ -890,64 +784,60 @@
                 document.getElementById('loadingSpinner').style.display = 'none';
             }
         }
-
+        
         // --- Block Diagram Navigation ---
-        const blockGroupIds = ['tx-group', 'channel-group', 'rx-group'];
-        const allOfdmBlockIds = [
-            'block-bits', 'block-sp', 'block-mapping', 'block-idft', 'block-addcp',
-            'block-channel',
-            'block-removecp', 'block-fft', 'block-equalize', 'block-demapping'
+        const allOfdmBlockIds = ['block-tx', 'block-idft', 'block-addcp', 'block-channel', 'block-removecp', 'block-fft', 'block-rx'];
+        const blockOutputTitles = [
+            'S/P & Mapping Output',
+            'IDFT Output',
+            'Add CP Output',
+            'Channel Output',
+            'Remove CP Output',
+            'FFT Output',
+            'Demapping & P/S Output'
         ];
         let currentBlockIndex = 0;
 
         function highlightBlock(index) {
             const nextBtn = document.getElementById('nextBlockBtn');
             const prevBtn = document.getElementById('prevBlockBtn');
-
             nextBtn.disabled = (index === allOfdmBlockIds.length - 1);
             prevBtn.disabled = (index === 0);
-
-            let activeGroupElement = null;
-            let viewBoxX = 0;
-            let viewBoxWidth = 800;
-
-            if (index >= 0 && index < 5) {
-                activeGroupElement = document.getElementById('tx-group');
-                viewBoxX = 0;
-                viewBoxWidth = 400;
-            } else if (index === 5) {
-                activeGroupElement = document.getElementById('channel-group');
-                viewBoxX = 380;
-                viewBoxWidth = 140;
-            } else if (index >= 6 && index < allOfdmBlockIds.length) {
-                activeGroupElement = document.getElementById('rx-group');
-                viewBoxX = 450;
-                viewBoxWidth = 370;
-            }
-
-            hideAllBlockGroups();
-
-            if (activeGroupElement) {
-                activeGroupElement.style.display = 'block';
-            }
-
-            const svgElement = document.getElementById('ofdmBlockDiagram');
-            svgElement.setAttribute('viewBox', `${viewBoxX} 0 ${viewBoxWidth} 200`);
 
             allOfdmBlockIds.forEach(id => {
                 const block = document.getElementById(id);
                 if (block) block.classList.remove('highlighted');
+                const text = block.querySelector('.ofdm-block-text');
+                if (text) text.classList.remove('highlighted');
             });
+            
+            // Highlight arrows
+            document.querySelectorAll('.arrow').forEach(arrow => arrow.classList.remove('highlighted'));
 
             if (index >= 0 && index < allOfdmBlockIds.length) {
                 const currentBlockElement = document.getElementById(allOfdmBlockIds[index]);
                 if (currentBlockElement) {
                     currentBlockElement.classList.add('highlighted');
+                    currentBlockElement.querySelectorAll('.ofdm-block-text').forEach(t => t.classList.add('highlighted'));
+                }
+                if (index > 0) {
+                    const prevArrowId = getArrowId(index - 1, index);
+                    document.getElementById(prevArrowId)?.classList.add('highlighted');
                 }
             }
 
             updateChartVisibility(index);
             updateBlockOutputDisplayContent(index);
+        }
+        
+        function getArrowId(fromIndex, toIndex) {
+            if (fromIndex === 0 && toIndex === 1) return 'tx-to-idft';
+            if (fromIndex === 1 && toIndex === 2) return 'idft-to-addcp';
+            if (fromIndex === 2 && toIndex === 3) return 'tx-to-channel';
+            if (fromIndex === 3 && toIndex === 4) return 'channel-to-rx';
+            if (fromIndex === 4 && toIndex === 5) return 'removecp-to-dft';
+            if (fromIndex === 5 && toIndex === 6) return 'dft-to-demapping';
+            return '';
         }
 
         function hideStepByStepCharts() {
@@ -959,6 +849,12 @@
             document.getElementById('postChannelSpectrumChartTitle').style.display = 'none';
         }
 
+        function showOutputChart(chartId) {
+            hideOutputCharts();
+            document.getElementById(chartId).style.display = 'block';
+            document.getElementById(`${chartId}Title`).style.display = 'block';
+        }
+
         function hideOutputCharts() {
             document.getElementById('receivedConstellationChart').style.display = 'none';
             document.getElementById('berCurveChart').style.display = 'none';
@@ -966,92 +862,92 @@
             document.getElementById('berCurveChartTitle').style.display = 'none';
         }
 
-        function hideAllBlockGroups() {
-            blockGroupIds.forEach(groupId => {
-                const group = document.getElementById(groupId);
-                if (group) group.style.display = 'none';
-            });
-        }
-
         function updateChartVisibility(blockIndex) {
             hideStepByStepCharts();
             hideOutputCharts();
-
             switch (allOfdmBlockIds[blockIndex]) {
-                case 'block-mapping':
-                    document.getElementById('constellationChart').style.display = 'block';
-                    document.getElementById('constellationChartTitle').style.display = 'block';
+                case 'block-tx':
+                    showChart('constellationChart');
                     break;
                 case 'block-addcp':
-                    document.getElementById('preChannelSpectrumChart').style.display = 'block';
-                    document.getElementById('preChannelSpectrumChartTitle').style.display = 'block';
+                    showChart('preChannelSpectrumChart');
                     break;
                 case 'block-channel':
-                    document.getElementById('postChannelSpectrumChart').style.display = 'block';
-                    document.getElementById('postChannelSpectrumChartTitle').style.display = 'block';
+                    showChart('postChannelSpectrumChart');
+                    break;
+                case 'block-rx':
+                    showChart('receivedConstellationChart');
                     break;
             }
-
-            if (allOfdmBlockIds[blockIndex] === 'block-demapping') {
-                document.getElementById('receivedConstellationChart').style.display = 'block';
-                document.getElementById('receivedConstellationChartTitle').style.display = 'block';
-            }
+        }
+        function showChart(chartId) {
+            document.getElementById(chartId).style.display = 'block';
+            document.getElementById(`${chartId}Title`).style.display = 'block';
         }
 
+
         function updateBlockOutputDisplayContent(blockIndex) {
+            const titleDiv = document.getElementById('blockOutputTitle');
             const displayDiv = document.getElementById('blockOutputDisplay');
-            let content = "Output of this block will be displayed here.";
+            titleDiv.textContent = blockOutputTitles[blockIndex];
 
             const nFFTSize = parseInt(document.getElementById('nFFTSize').value);
             const cpLength = parseInt(document.getElementById('cpLength').value);
+            let content = "Run a simulation to see the step-by-step output here.";
 
             switch (allOfdmBlockIds[blockIndex]) {
-                case 'block-bits':
-                    content = `Generated Bits: ${formatBitArrayForDisplay(globalTransmittedBits, 20)}`;
-                    break;
-                case 'block-sp':
-                    content = `Serial-to-Parallel Conversion: Bits are now arranged into parallel streams for subcarriers.`;
-                    break;
-                case 'block-mapping':
-                    content = `Modulated Symbols (first 5): ${formatComplexArrayForDisplay(globalModulatedSymbols, 5)}`;
+                case 'block-tx':
+                    if (globalTransmittedBits.length) {
+                        content = `**1. S/P + Mapping (Transmitter)**\n\n`
+                                + `Generated Bits: ${formatBitArrayForDisplay(globalTransmittedBits)}\n`
+                                + `Modulated Symbols (first 5): ${formatComplexArrayForDisplay(globalModulatedSymbols)}`;
+                    }
                     break;
                 case 'block-idft':
-                    content = `IDFT Output (first 5 time-domain samples): ${formatComplexArrayForDisplay(globalTxWaveformPreChannel.slice(cpLength, cpLength + 5), 5)}`;
+                    if (globalTxWaveformPreChannel.length) {
+                        content = `**2. IDFT (Inverse Discrete Fourier Transform)**\n\n`
+                                + `This block converts the frequency-domain symbols into a time-domain signal. The output is a series of samples that represent the superposition of all subcarriers.\n\n`
+                                + `IDFT Output (first 5 samples): ${formatComplexArrayForDisplay(globalTxWaveformPreChannel.slice(cpLength))}`;
+                    }
                     break;
                 case 'block-addcp':
-                    content = `Signal with Cyclic Prefix (first 5 samples): ${formatComplexArrayForDisplay(globalTxWaveformPreChannel, 5)}`;
+                    if (globalTxWaveformPreChannel.length) {
+                        content = `**3. Add CP (Cyclic Prefix)**\n\n`
+                                + `A cyclic prefix is a copy of the end of the IDFT output appended to the beginning of the signal. This helps mitigate Inter-Symbol Interference (ISI) caused by channel multipath. The total length is now ${nFFTSize} (IDFT) + ${cpLength} (CP) = ${nFFTSize + cpLength} samples.\n\n`
+                                + `Signal with CP (first 5 samples): ${formatComplexArrayForDisplay(globalTxWaveformPreChannel)}`;
+                    }
                     break;
                 case 'block-channel':
-                    content = `Signal After Channel (first 5 noisy samples): ${formatComplexArrayForDisplay(globalRxWaveformPostChannel, 5)}`;
+                    if (globalRxWaveformPostChannel.length) {
+                        content = `**4. Channel**\n\n`
+                                + `The signal propagates through a simulated channel, where it is affected by Rayleigh fading (multipath effects) and Additive White Gaussian Noise (AWGN). This degrades the signal quality.\n\n`
+                                + `Signal After Channel (first 5 noisy samples): ${formatComplexArrayForDisplay(globalRxWaveformPostChannel)}`;
+                    }
                     break;
                 case 'block-removecp':
-                    if (globalRxNoCP && globalRxNoCP.length > 0) {
-                        content = `Signal After CP Removal (first 5 samples): ${formatComplexArrayForDisplay(globalRxNoCP, 5)}`;
-                    } else {
-                        content = `Signal After CP Removal: Data not available (Run step-by-step simulation first).`;
+                    if (globalRxNoCP.length) {
+                        content = `**5. Remove CP (Cyclic Prefix)**\n\n`
+                                + `The receiver removes the cyclic prefix, keeping only the main OFDM symbol part. This discards the noisy prefix and ensures the signal is of the correct length for the FFT.\n\n`
+                                + `Signal After CP Removal (first 5 samples): ${formatComplexArrayForDisplay(globalRxNoCP)}`;
                     }
                     break;
                 case 'block-fft':
-                    if (globalRxFFTOutput && globalRxFFTOutput.length > 0) {
-                        content = `FFT Output (first 5 frequency-domain symbols): ${formatComplexArrayForDisplay(globalRxFFTOutput, 5)}`;
-                    } else {
-                        content = `FFT Output:** Data not available (Run step-by-step simulation first).`;
+                    if (globalRxFFTOutput.length) {
+                        content = `**6. FFT (Fast Fourier Transform)**\n\n`
+                                + `This block converts the time-domain signal back into the frequency domain, separating the individual subcarriers. The output contains the received symbols for each subcarrier.\n\n`
+                                + `FFT Output (first 5 frequency-domain symbols): ${formatComplexArrayForDisplay(globalRxFFTOutput)}`;
                     }
                     break;
-                case 'block-equalize':
-                    content = `Equalized Symbols (first 5): ${formatComplexArrayForDisplay(globalReceivedSymbols, 5)}`;
-                    break;
-                case 'block-demapping':
-                    if (globalReceivedSymbols && globalReceivedSymbols.length > 0) {
+                case 'block-rx':
+                    if (globalReceivedSymbols.length) {
                         const modulationScheme = document.getElementById('modulationScheme').value;
                         const demodulatedBits = demodulate(globalReceivedSymbols, modulationScheme);
-                        content = `Demodulated Bits (first 20): ${formatBitArrayForDisplay(demodulatedBits, 20)}`;
-                    } else {
-                        content = `Demodulated Bits: Data not available (Run step-by-step simulation first).`;
+                        const ber = calculateBer(globalTransmittedBits, demodulatedBits).toExponential(2);
+                        content = `**7. Demapping + P/S (Demodulation & Parallel-to-Serial)**\n\n`
+                                + `The received symbols are decoded back into a bitstream. The constellation points are mapped to the closest ideal points to recover the original bits. A Bit Error Rate (BER) is then calculated.\n\n`
+                                + `Demodulated Bits (first 20): ${formatBitArrayForDisplay(demodulatedBits)}\n`
+                                + `Calculated BER: ${ber}`;
                     }
-                    break;
-                default:
-                    content = "Output of this block will be displayed here.";
                     break;
             }
             displayDiv.innerHTML = content;
@@ -1062,9 +958,7 @@
             charts.forEach(chart => {
                 if (chart) {
                     chart.data.labels = [];
-                    chart.data.datasets.forEach(dataset => {
-                        dataset.data = [];
-                    });
+                    chart.data.datasets.forEach(dataset => { dataset.data = []; });
                     chart.update();
                 }
             });
@@ -1074,16 +968,14 @@
             clearAllChartData();
             hideStepByStepCharts();
             hideOutputCharts();
-            hideAllBlockGroups();
 
             currentBlockIndex = 0;
             highlightBlock(currentBlockIndex);
+            
             document.getElementById('errorMessage').style.display = 'none';
             document.getElementById('loadingSpinner').style.display = 'none';
-            document.getElementById('blockOutputDisplay').innerHTML = "Output of this block will be displayed here.";
-
-            document.getElementById('nextBlockBtn').disabled = false;
-            document.getElementById('prevBlockBtn').disabled = false;
+            document.getElementById('blockOutputTitle').textContent = "Simulation Step Output";
+            document.getElementById('blockOutputDisplay').innerHTML = "Run a simulation to see the step-by-step output here.";
 
             document.getElementById('nFFTSize').value = 64;
             document.getElementById('numSubcarriers').value = 52;
@@ -1093,345 +985,82 @@
             document.getElementById('numSymbolsBer').value = 1000;
         }
 
-        // --- Chart.js Setup ---
-        let constellationChart;
-        let preChannelSpectrumChart;
-        let postChannelSpectrumChart;
-        let receivedConstellationChart;
-        let berCurveChart;
+        // --- Chart.js Setup and Update Functions (kept as-is) ---
+        let constellationChart, preChannelSpectrumChart, postChannelSpectrumChart, receivedConstellationChart, berCurveChart;
 
         function initializeCharts() {
-            constellationChart = new Chart(document.getElementById('constellationChart').getContext('2d'), {
-                type: 'scatter',
-                data: {
-                    datasets: [{
-                        label: 'Transmitted Constellation Diagram',
-                        data: [],
-                        backgroundColor: 'rgb(236, 72, 153)',
-                        pointRadius: 5,
-                        pointHoverRadius: 7
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        title: { display: false },
-                        legend: { display: false },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return `(${context.parsed.x.toFixed(2)}, ${context.parsed.y.toFixed(2)}i)`;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            type: 'linear',
-                            position: 'bottom',
-                            title: {
-                                display: true,
-                                text: 'In-phase (Real)',
-                                font: { size: 14, weight: 'bold' },
-                                color: '#4b5563'
-                            },
-                            grid: { color: '#e5e7eb' },
-                            ticks: { color: '#6b7280' },
-                            min: -2,
-                            max: 2
-                        },
-                        y: {
-                            type: 'linear',
-                            position: 'left',
-                            title: {
-                                display: true,
-                                text: 'Quadrature (Imaginary)',
-                                font: { size: 14, weight: 'bold' },
-                                color: '#4b5563'
-                            },
-                            grid: { color: '#e5e7eb' },
-                            ticks: { color: '#6b7280' },
-                            min: -2,
-                            max: 2
-                        }
-                    }
-                }
-            });
-
-            preChannelSpectrumChart = new Chart(document.getElementById('preChannelSpectrumChart').getContext('2d'), {
-                type: 'line',
-                data: {
-                    datasets: [{
-                        label: 'Pre-Channel Power Spectral Density (dB)',
-                        data: [],
-                        borderColor: 'rgb(99, 102, 241)',
-                        backgroundColor: 'rgba(99, 102, 241, 0.2)',
-                        borderWidth: 2,
-                        pointRadius: 0,
-                        fill: false,
-                        tension: 0.1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        title: { display: false },
-                        legend: { display: false }
-                    },
-                    scales: {
-                        x: {
-                            title: {
-                                display: true,
-                                text: 'Frequency (MHz)',
-                                font: { size: 14, weight: 'bold' },
-                                color: '#4b5563'
-                            },
-                            grid: { color: '#e5e7eb' },
-                            ticks: { color: '#6b7280' }
-                        },
-                        y: {
-                            title: {
-                                display: true,
-                                text: 'Power Spectral Density (dB)',
-                                font: { size: 14, weight: 'bold' },
-                                color: '#4b5563'
-                            },
-                            grid: { color: '#e5e7eb' },
-                            ticks: { color: '#6b7280' }
-                        }
-                    }
-                }
-            });
-
-            postChannelSpectrumChart = new Chart(document.getElementById('postChannelSpectrumChart').getContext('2d'), {
-                type: 'line',
-                data: {
-                    datasets: [{
-                        label: 'Post-Channel Power Spectral Density (dB)',
-                        data: [],
-                        borderColor: 'rgb(234, 88, 12)',
-                        backgroundColor: 'rgba(234, 88, 12, 0.2)',
-                        borderWidth: 2,
-                        pointRadius: 0,
-                        fill: false,
-                        tension: 0.1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        title: { display: false },
-                        legend: { display: false }
-                    },
-                    scales: {
-                        x: {
-                            title: {
-                                display: true,
-                                text: 'Frequency (MHz)',
-                                font: { size: 14, weight: 'bold' },
-                                color: '#4b5563'
-                            },
-                            grid: { color: '#e5e7eb' },
-                            ticks: { color: '#6b7280' }
-                        },
-                        y: {
-                            title: {
-                                display: true,
-                                text: 'Power Spectral Density (dB)',
-                                font: { size: 14, weight: 'bold' },
-                                color: '#4b5563'
-                            },
-                            grid: { color: '#e5e7eb' },
-                            ticks: { color: '#6b7280' }
-                        }
-                    }
-                }
-            });
-
-            receivedConstellationChart = new Chart(document.getElementById('receivedConstellationChart').getContext('2d'), {
-                type: 'scatter',
-                data: {
-                    datasets: [{
-                        label: 'Received Constellation Diagram',
-                        data: [],
-                        backgroundColor: 'rgb(59, 130, 246)',
-                        pointRadius: 5,
-                        pointHoverRadius: 7
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        title: { display: false },
-                        legend: { display: false },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    return `(${context.parsed.x.toFixed(2)}, ${context.parsed.y.toFixed(2)}i)`;
-                                }
-                            }
-                        }
-                    },
-                    scales: {
-                        x: {
-                            type: 'linear',
-                            position: 'bottom',
-                            title: {
-                                display: true,
-                                text: 'In-phase (Real)',
-                                font: { size: 14, weight: 'bold' },
-                                color: '#4b5563'
-                            },
-                            grid: { color: '#e5e7eb' },
-                            ticks: { color: '#6b7280' },
-                            min: -2,
-                            max: 2
-                        },
-                        y: {
-                            type: 'linear',
-                            position: 'left',
-                            title: {
-                                display: true,
-                                text: 'Quadrature (Imaginary)',
-                                font: { size: 14, weight: 'bold' },
-                                color: '#4b5563'
-                            },
-                            grid: { color: '#e5e7eb' },
-                            ticks: { color: '#6b7280' },
-                            min: -2,
-                            max: 2
-                        }
-                    }
-                }
-            });
-
-            berCurveChart = new Chart(document.getElementById('berCurveChart').getContext('2d'), {
-                type: 'line',
-                data: {
-                    labels: [],
-                    datasets: [{
-                        label: 'BER',
-                        data: [],
-                        borderColor: 'rgb(34, 197, 94)',
-                        backgroundColor: 'rgba(34, 197, 94, 0.2)',
-                        borderWidth: 2,
-                        pointRadius: 3,
-                        pointBackgroundColor: 'rgb(34, 197, 94)',
-                        fill: false,
-                        tension: 0.1
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        title: { display: false },
-                        legend: { display: false }
-                    },
-                    scales: {
-                        x: {
-                            // Correct placement of min and max properties
-                            min: 0,
-                            max: 12,
-                            title: {
-                                display: true,
-                                text: 'SNR (dB)',
-                                font: { size: 14, weight: 'bold' },
-                                color: '#4b5563',
-                            },
-                            grid: { color: '#e5e7eb' },
-                            ticks: { color: '#6b7280' }
-                        },
-                        y: {
-                            type: 'logarithmic',
-                            title: {
-                                display: true,
-                                text: 'BER',
-                                font: { size: 14, weight: 'bold' },
-                                color: '#4b5563'
-                            },
-                            grid: { color: '#e5e7eb' },
-                            ticks: {
-                                color: '#6b7280',
-                                callback: function(value, index, values) {
-                                    if (value === 1e-1 || value === 1e-2 || value === 1e-3 || value === 1e-4 || value === 1e-5 || value === 1e-6) {
-                                        return value.toExponential();
-                                    }
-                                    return null;
-                                }
-                            },
-                            min: 1e-5,
-                            max: 1
-                        }
-                    }
-                }
-            });
+            const constellationConfig = {
+                type: 'scatter', data: { datasets: [{ label: 'Transmitted Constellation', data: [], backgroundColor: 'rgb(236, 72, 153)', pointRadius: 5, pointHoverRadius: 7 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { title: { display: false }, legend: { display: false }, tooltip: { callbacks: { label: c => `(${c.parsed.x.toFixed(2)}, ${c.parsed.y.toFixed(2)}i)` } } },
+                scales: { x: { type: 'linear', position: 'bottom', title: { display: true, text: 'In-phase (Real)', font: { size: 14, weight: 'bold' }, color: '#4b5563' }, grid: { color: '#e5e7eb' }, ticks: { color: '#6b7280' }, min: -2, max: 2 },
+                y: { type: 'linear', position: 'left', title: { display: true, text: 'Quadrature (Imaginary)', font: { size: 14, weight: 'bold' }, color: '#4b5563' }, grid: { color: '#e5e7eb' }, ticks: { color: '#6b7280' }, min: -2, max: 2 } } }
+            };
+            const spectrumConfig = {
+                type: 'line', data: { datasets: [{ data: [], borderWidth: 2, pointRadius: 0, fill: false, tension: 0.1 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+                scales: { x: { title: { display: true, text: 'Frequency (MHz)', font: { size: 14, weight: 'bold' }, color: '#4b5563' }, grid: { color: '#e2e8f0' } },
+                y: { title: { display: true, text: 'Power Spectral Density (dB)', font: { size: 14, weight: 'bold' }, color: '#4b5563' }, grid: { color: '#e2e8f0' } } } }
+            };
+            const berConfig = {
+                type: 'line', data: { labels: [], datasets: [{ label: 'BER', data: [], borderColor: 'rgb(34, 197, 94)', backgroundColor: 'rgba(34, 197, 94, 0.2)', borderWidth: 2, pointRadius: 3, pointBackgroundColor: 'rgb(34, 197, 94)', fill: false, tension: 0.1 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+                scales: { x: { min: 0, max: 25, title: { display: true, text: 'SNR (dB)', font: { size: 14, weight: 'bold' }, color: '#4b5563' } },
+                y: { type: 'logarithmic', title: { display: true, text: 'BER', font: { size: 14, weight: 'bold' }, color: '#4b5563' }, min: 1e-6, max: 1,
+                ticks: { callback: v => (v === 1e-1 || v === 1e-2 || v === 1e-3 || v === 1e-4 || v === 1e-5 || v === 1e-6) ? v.toExponential() : null } } } }
+            };
+            
+            constellationChart = new Chart(document.getElementById('constellationChart').getContext('2d'), constellationConfig);
+            preChannelSpectrumChart = new Chart(document.getElementById('preChannelSpectrumChart').getContext('2d'), { ...spectrumConfig, data: { datasets: [{ ...spectrumConfig.data.datasets[0], borderColor: 'rgb(59, 130, 246)', backgroundColor: 'rgba(59, 130, 246, 0.2)' }] } });
+            postChannelSpectrumChart = new Chart(document.getElementById('postChannelSpectrumChart').getContext('2d'), { ...spectrumConfig, data: { datasets: [{ ...spectrumConfig.data.datasets[0], borderColor: 'rgb(234, 88, 12)', backgroundColor: 'rgba(234, 88, 12, 0.2)' }] } });
+            receivedConstellationChart = new Chart(document.getElementById('receivedConstellationChart').getContext('2d'), { ...constellationConfig, data: { datasets: [{ ...constellationConfig.data.datasets[0], label: 'Received Constellation', backgroundColor: 'rgb(34, 197, 94)' }] } });
+            berCurveChart = new Chart(document.getElementById('berCurveChart').getContext('2d'), berConfig);
         }
 
         function updateSpectrumChart(chartInstance, labels, data) {
             if (chartInstance) {
-                chartInstance.data.labels = labels.map(f => f.toFixed(2));
-                chartInstance.data.datasets[0].data = data;
+                // Filter out invalid values and limit range
+                const validIndices = [];
+                const validLabels = [];
+                const validData = [];
+                
+                for (let i = 0; i < data.length; i++) {
+                    const value = data[i];
+                    if (isFinite(value) && !isNaN(value) && value > -200 && value < 100) {
+                        validIndices.push(i);
+                        validLabels.push(parseFloat(labels[i]).toFixed(2));
+                        validData.push(value);
+                    }
+                }
+                
+                chartInstance.data.labels = validLabels;
+                chartInstance.data.datasets[0].data = validData;
                 chartInstance.update();
             }
         }
 
         function updateTransmittedConstellationChart(symbols) {
             if (constellationChart) {
-                // Add this block of code 👇
-                if (!symbols || symbols.length === 0) {
-                    constellationChart.data.datasets[0].data = [];
-                    constellationChart.update();
-                    return;
-                }
-                let maxVal = 0;
-                symbols.forEach(s => {
-                    if (Math.abs(s.re) > maxVal) maxVal = Math.abs(s.re);
-                    if (Math.abs(s.im) > maxVal) maxVal = Math.abs(s.im);
-                });
-                const axisLimit = Math.ceil(maxVal * 1.1); // Add a 10% buffer
-                constellationChart.options.scales.x.min = -axisLimit;
-                constellationChart.options.scales.x.max = axisLimit;
-                constellationChart.options.scales.y.min = -axisLimit;
-                constellationChart.options.scales.y.max = axisLimit;
-                // End of new code 👆
-
-                const dataPoints = symbols.map(s => ({ x: s.re, y: s.im }));
-                constellationChart.data.datasets[0].data = dataPoints;
+                const validData = symbols.filter(s => 
+                    isFinite(s.re) && isFinite(s.im) && 
+                    Math.abs(s.re) < 10 && Math.abs(s.im) < 10
+                ).map(s => ({ x: s.re, y: s.im }));
+                
+                constellationChart.data.datasets[0].data = validData;
                 constellationChart.update();
             }
         }
 
         function updateReceivedConstellationChart(symbols) {
             if (receivedConstellationChart) {
-                // Add this block of code 👇
-                if (!symbols || symbols.length === 0) {
-                    receivedConstellationChart.data.datasets[0].data = [];
-                    receivedConstellationChart.update();
-                    return;
-                }
-                let maxVal = 0;
-                symbols.forEach(s => {
-                    if (Math.abs(s.re) > maxVal) maxVal = Math.abs(s.re);
-                    if (Math.abs(s.im) > maxVal) maxVal = Math.abs(s.im);
-                });
-                const axisLimit = Math.ceil(maxVal * 1.1); // Add a 10% buffer
-                receivedConstellationChart.options.scales.x.min = -axisLimit;
-                receivedConstellationChart.options.scales.x.max = axisLimit;
-                receivedConstellationChart.options.scales.y.min = -axisLimit;
-                receivedConstellationChart.options.scales.y.max = axisLimit;
-                // End of new code 👆
+                const validData = symbols.filter(s => 
+                    isFinite(s.re) && isFinite(s.im) && 
+                    Math.abs(s.re) < 10 && Math.abs(s.im) < 10
+                ).map(s => ({ x: s.re, y: s.im }));
                 
-                const dataPoints = symbols.map(s => ({ x: s.re, y: s.im }));
-                receivedConstellationChart.data.datasets[0].data = dataPoints;
+                receivedConstellationChart.data.datasets[0].data = validData;
                 receivedConstellationChart.update();
             }
         }
-
         function updateBerChart(snrLabels, berData) {
             if (berCurveChart) {
                 berCurveChart.data.labels = snrLabels;
@@ -1439,7 +1068,6 @@
                 berCurveChart.update();
             }
         }
-
         function displayError(message) {
             const errorMessageDiv = document.getElementById('errorMessage');
             errorMessageDiv.textContent = message;
@@ -1453,24 +1081,19 @@
             document.getElementById('runStepByStepBtn').addEventListener('click', runStepByStepSimulation);
             document.getElementById('runBerSimBtn').addEventListener('click', runBerSimulation);
             document.getElementById('resetBtn').addEventListener('click', resetSimulation);
-
             document.getElementById('nextBlockBtn').addEventListener('click', () => {
-                currentBlockIndex = (currentBlockIndex + 1);
-                if (currentBlockIndex >= allOfdmBlockIds.length) {
-                    currentBlockIndex = allOfdmBlockIds.length - 1;
+                if (currentBlockIndex < allOfdmBlockIds.length - 1) {
+                    currentBlockIndex++;
+                    highlightBlock(currentBlockIndex);
                 }
-                highlightBlock(currentBlockIndex);
             });
-            
             document.getElementById('prevBlockBtn').addEventListener('click', () => {
-                currentBlockIndex = (currentBlockIndex - 1);
-                if (currentBlockIndex < 0) {
-                    currentBlockIndex = 0;
+                if (currentBlockIndex > 0) {
+                    currentBlockIndex--;
+                    highlightBlock(currentBlockIndex);
                 }
-                highlightBlock(currentBlockIndex);
             });
-
-            runStepByStepSimulation();
+            resetSimulation();
         };
     </script>
 </body>
