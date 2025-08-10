@@ -8,6 +8,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+
         body {
             font-family: 'Inter', sans-serif;
             background-color: #f8fafc;
@@ -18,17 +19,38 @@
             padding: 2.5rem 1rem;
             box-sizing: border-box;
         }
+
         .container {
             background-color: #ffffff;
             border-radius: 1.5rem;
             box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
-            padding: 2.5rem;
+            padding: 2rem;
             width: 100%;
-            max-width: 1400px;
+            max-width: 1600px;
             display: grid;
-            grid-template-columns: 300px 1fr 1fr;
-            gap: 2rem;
+            grid-template-columns: 280px 1fr 350px;
+            gap: 1.5rem;
             min-height: 600px;
+        }
+
+        @media (max-width: 1400px) {
+            .container {
+                grid-template-columns: 260px 1fr 320px;
+                gap: 1rem;
+            }
+        }
+
+        @media (max-width: 1200px) {
+            .container {
+                grid-template-columns: 1fr;
+                gap: 2rem;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1.5rem;
+            }
         }
 
         .block-diagram-container {
@@ -36,15 +58,11 @@
             justify-content: center;
             align-items: center;
             margin-bottom: 1.5rem;
-            overflow-x: auto;
+            overflow: visible;
             padding: 10px;
+            width: 100%;
         }
 
-        @media (max-width: 1200px) {
-            .container {
-                grid-template-columns: 1fr;
-            }
-        }
         h2 {
             font-size: 1.5rem;
             font-weight: 700;
@@ -52,10 +70,19 @@
             text-align: center;
             margin-bottom: 1.5rem;
         }
+
+        @media (max-width: 768px) {
+            h2 {
+                font-size: 1.25rem;
+            }
+        }
+
         .input-section {
             border-right: 2px solid #e2e8f0;
-            padding-right: 2rem;
+            padding-right: 1.5rem;
+            min-width: 280px;
         }
+
         @media (max-width: 1200px) {
             .input-section {
                 border-right: none;
@@ -64,16 +91,19 @@
                 padding-bottom: 2rem;
             }
         }
+
         .input-group {
             display: flex;
             flex-direction: column;
             margin-bottom: 1rem;
         }
+
         .input-group label {
             font-weight: 600;
             margin-bottom: 0.5rem;
             color: #475569;
         }
+
         .input-group input, .input-group select {
             padding: 0.75rem 1rem;
             border: 1px solid #cbd5e1;
@@ -82,11 +112,13 @@
             color: #334155;
             transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
         }
+
         .input-group input:focus, .input-group select:focus {
             outline: none;
             border-color: #3b82f6;
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
         }
+
         .button-primary {
             background-color: #3b82f6;
             color: white;
@@ -99,14 +131,17 @@
             box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
             width: 100%;
         }
+
         .button-primary:hover {
             background-color: #2563eb;
             transform: translateY(-1px);
         }
+
         .button-primary:active {
             background-color: #1d4ed8;
             transform: translateY(0);
         }
+
         .loading-spinner {
             border: 4px solid #f3f3f3;
             border-top: 4px solid #3b82f6;
@@ -117,10 +152,12 @@
             display: none;
             margin: 1rem auto;
         }
+
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+
         .error-message {
             color: #ef4444;
             background-color: #fee2e2;
@@ -130,44 +167,46 @@
             margin-top: 1rem;
             display: none;
         }
+
         .simulation-area {
-            grid-column: 2 / span 2;
+            grid-column: 2;
+            min-width: 0;
         }
+
         @media (max-width: 1200px) {
             .simulation-area {
                 grid-column: 1;
             }
         }
-        .block-diagram-container {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            margin-bottom: 1.5rem;
-        }
+
         .ofdm-block {
             fill: #e0e7ff;
             stroke: #3b82f6;
             stroke-width: 2;
             transition: fill 0.3s ease, stroke 0.3s ease, transform 0.3s ease;
         }
+
         .ofdm-block-text {
             font-family: 'Inter', sans-serif;
-            font-size: 14px;
+            font-size: 12px;
             font-weight: 600;
             fill: #1e293b;
             text-anchor: middle;
             dominant-baseline: central;
             pointer-events: none;
         }
+
         .ofdm-block.highlighted {
             fill: #93c5fd;
             stroke: #1d4ed8;
             stroke-width: 3;
             transform: scale(1.05);
         }
+
         .ofdm-block-text.highlighted {
-             font-weight: 700;
+            font-weight: 700;
         }
+
         .arrow {
             stroke: #64748b;
             stroke-width: 2;
@@ -175,15 +214,28 @@
             marker-end: url(#arrowhead);
             transition: stroke 0.3s ease;
         }
+
         .arrowhead {
             fill: #64748b;
         }
+
         .arrow.highlighted {
             stroke: #1d4ed8;
         }
+
         .chart-container {
-            margin-top: 2rem;
+            margin-top: 1.5rem;
+            width: 100%;
+            overflow: hidden;
         }
+
+        .chart-container canvas {
+            max-width: 100% !important;
+            max-height: 350px !important;
+            height: 350px !important;
+            width: 100% !important;
+        }
+
         .chart-title {
             font-size: 1.25rem;
             font-weight: 600;
@@ -191,20 +243,43 @@
             text-align: center;
             margin-bottom: 1rem;
         }
+
+        @media (max-width: 768px) {
+            .chart-title {
+                font-size: 1.125rem;
+            }
+        }
+
         .nav-buttons {
             display: flex;
             justify-content: center;
             gap: 1rem;
             margin-top: 1.5rem;
+            flex-wrap: wrap;
         }
+
+        .nav-buttons button {
+            min-width: 120px;
+            flex: 0 1 auto;
+        }
+
         .output-area {
             grid-column: 3;
+            border-left: 2px solid #e2e8f0;
+            padding-left: 1.5rem;
+            min-width: 350px;
         }
+
         @media (max-width: 1200px) {
             .output-area {
                 grid-column: 1;
+                border-left: none;
+                border-top: 2px solid #e2e8f0;
+                padding-left: 0;
+                padding-top: 2rem;
             }
         }
+
         .simulation-info {
             background-color: #f1f5f9;
             border-radius: 0.75rem;
@@ -212,21 +287,37 @@
             margin-top: 1.5rem;
             border: 1px solid #e2e8f0;
         }
+
         .simulation-info h3 {
             font-size: 1.125rem;
             font-weight: 600;
             color: #1e293b;
             margin-bottom: 0.75rem;
         }
+
         .simulation-info p {
             font-family: 'monospace', sans-serif;
             font-size: 0.875rem;
             color: #334155;
             line-height: 1.5;
-            white-space: pre-wrap; /* Preserve formatting */
-            word-wrap: break-word; /* Break long words */
+            white-space: pre-wrap;
+            word-wrap: break-word;
             max-height: 200px;
             overflow-y: auto;
+        }
+
+        #ofdmBlockDiagram {
+            max-width: 100%;
+            height: auto;
+            width: 500px;
+            max-height: 280px;
+        }
+
+        @media (max-width: 768px) {
+            #ofdmBlockDiagram {
+                width: 100%;
+                max-width: 450px;
+            }
         }
     </style>
 </head>
@@ -274,43 +365,49 @@
         <div class="simulation-area">
             <h2 class="text-2xl font-bold text-center text-gray-800 mb-4">OFDM Signal Flow</h2>
             <div class="block-diagram-container">
-                <svg id="ofdmBlockDiagram" width="600" height="350" viewBox="0 0 600 350">
+                <!-- Updated block diagram with better positioning and smaller size -->
+                <svg id="ofdmBlockDiagram" width="500" height="280" viewBox="0 0 500 280">
                     <defs>
                         <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
                             <polygon points="0 0, 10 3.5, 0 7" class="arrowhead" />
                         </marker>
                     </defs>
 
-                    <rect id="block-tx" class="ofdm-block" x="10" y="20" width="120" height="60" rx="8" ry="8"></rect>
-                    <text class="ofdm-block-text" x="70" y="40">S/P</text>
-                    <text class="ofdm-block-text" x="70" y="60">+ Mapping</text>
-                    <line id="tx-to-idft" x1="70" y1="80" x2="70" y2="100" class="arrow" />
+                    <!-- Transmitter side -->
+                    <rect id="block-tx" class="ofdm-block" x="10" y="15" width="100" height="50" rx="6" ry="6"></rect>
+                    <text class="ofdm-block-text" x="60" y="32">S/P</text>
+                    <text class="ofdm-block-text" x="60" y="48">+ Mapping</text>
+                    <line id="tx-to-idft" x1="60" y1="65" x2="60" y2="80" class="arrow" />
 
-                    <rect id="block-idft" class="ofdm-block" x="10" y="100" width="120" height="60" rx="8" ry="8"></rect>
-                    <text class="ofdm-block-text" x="70" y="130">IDFT</text>
-                    <line id="idft-to-addcp" x1="70" y1="160" x2="70" y2="180" class="arrow" />
+                    <rect id="block-idft" class="ofdm-block" x="10" y="80" width="100" height="50" rx="6" ry="6"></rect>
+                    <text class="ofdm-block-text" x="60" y="105">IDFT</text>
+                    <line id="idft-to-addcp" x1="60" y1="130" x2="60" y2="145" class="arrow" />
 
-                    <rect id="block-addcp" class="ofdm-block" x="10" y="180" width="120" height="60" rx="8" ry="8"></rect>
-                    <text class="ofdm-block-text" x="70" y="210">Add CP</text>
+                    <rect id="block-addcp" class="ofdm-block" x="10" y="145" width="100" height="50" rx="6" ry="6"></rect>
+                    <text class="ofdm-block-text" x="60" y="170">Add CP</text>
 
-                    <line id="tx-to-channel" x1="130" y1="210" x2="250" y2="210" class="arrow" />
+                    <!-- Horizontal connection to channel -->
+                    <line id="tx-to-channel" x1="110" y1="170" x2="190" y2="170" class="arrow" />
 
-                    <rect id="block-channel" class="ofdm-block" x="250" y="180" width="100" height="60" rx="8" ry="8"></rect>
-                    <text class="ofdm-block-text" x="300" y="210">Channel</text>
+                    <!-- Channel -->
+                    <rect id="block-channel" class="ofdm-block" x="190" y="145" width="80" height="50" rx="6" ry="6"></rect>
+                    <text class="ofdm-block-text" x="230" y="170">Channel</text>
 
-                    <line id="channel-to-rx" x1="350" y1="210" x2="470" y2="210" class="arrow" />
+                    <!-- Horizontal connection to receiver -->
+                    <line id="channel-to-rx" x1="270" y1="170" x2="350" y2="170" class="arrow" />
 
-                    <rect id="block-removecp" class="ofdm-block" x="470" y="180" width="120" height="60" rx="8" ry="8"></rect>
-                    <text class="ofdm-block-text" x="530" y="210">Remove CP</text>
-                    <line id="removecp-to-dft" x1="530" y1="180" x2="530" y2="160" class="arrow" />
+                    <!-- Receiver side -->
+                    <rect id="block-removecp" class="ofdm-block" x="350" y="145" width="100" height="50" rx="6" ry="6"></rect>
+                    <text class="ofdm-block-text" x="400" y="170">Remove CP</text>
+                    <line id="removecp-to-dft" x1="400" y1="145" x2="400" y2="130" class="arrow" />
 
-                    <rect id="block-fft" class="ofdm-block" x="470" y="100" width="120" height="60" rx="8" ry="8"></rect>
-                    <text class="ofdm-block-text" x="530" y="130">FFT</text>
-                    <line id="dft-to-demapping" x1="530" y1="100" x2="530" y2="80" class="arrow" />
+                    <rect id="block-fft" class="ofdm-block" x="350" y="80" width="100" height="50" rx="6" ry="6"></rect>
+                    <text class="ofdm-block-text" x="400" y="105">FFT</text>
+                    <line id="dft-to-demapping" x1="400" y1="80" x2="400" y2="65" class="arrow" />
 
-                    <rect id="block-rx" class="ofdm-block" x="470" y="20" width="120" height="60" rx="8" ry="8"></rect>
-                    <text class="ofdm-block-text" x="530" y="40">Demapping</text>
-                    <text class="ofdm-block-text" x="530" y="60">+ P/S</text>
+                    <rect id="block-rx" class="ofdm-block" x="350" y="15" width="100" height="50" rx="6" ry="6"></rect>
+                    <text class="ofdm-block-text" x="400" y="32">Demapping</text>
+                    <text class="ofdm-block-text" x="400" y="48">+ P/S</text>
                 </svg>
             </div>
 
@@ -352,7 +449,7 @@
     </div>
 
     <script>
-        // --- Complex Number Class and DSP Helper Functions (kept as-is) ---
+        // --- Complex Number Class and DSP Helper Functions ---
         class Complex {
             constructor(re, im = 0) {
                 this.re = re;
@@ -560,7 +657,6 @@
                     return new Complex(0, 0); 
                 }
                 const result = sym.div(channelGain);
-                // Bound the result to prevent infinite values
                 if (!isFinite(result.re) || !isFinite(result.im) || 
                     Math.abs(result.re) > 100 || Math.abs(result.im) > 100) {
                     return new Complex(0, 0);
@@ -657,9 +753,8 @@
                 globalChannelGainsFFT = fft(channelGainsNoCP);
                 globalReceivedSymbols = equalize(globalRxFFTOutput, globalChannelGainsFFT);
 
-                // Update charts once at the beginning
-                updateTransmittedConstellationChart(globalModulatedSymbols);
-                updateReceivedConstellationChart(globalReceivedSymbols);
+                updateTransmittedConstellationChart(globalModulatedSymbols, modulationScheme);
+                updateReceivedConstellationChart(globalReceivedSymbols, modulationScheme);
 
                 const preChannelPadded = [...globalTxWaveformPreChannel];
                 if (preChannelPadded.length < fftLengthForSpectrum) {
@@ -673,6 +768,7 @@
                     const dbVal = linearToDb(val);
                     return isFinite(dbVal) ? Math.max(dbVal, -100) : -100;
                 });
+                updateSpectrumChart(preChannelSpectrumChart, frequencies, preChannelPsd_db);
 
                 const postChannelPadded = [...globalRxWaveformPostChannel];
                 if (postChannelPadded.length < fftLengthForSpectrum) {
@@ -686,6 +782,7 @@
                     const dbVal = linearToDb(val);
                     return isFinite(dbVal) ? Math.max(dbVal, -100) : -100;
                 });
+                updateSpectrumChart(postChannelSpectrumChart, frequencies, postChannelPsd_db);
 
                 currentBlockIndex = 0;
                 highlightBlock(currentBlockIndex);
@@ -785,7 +882,6 @@
             }
         }
         
-        // --- Block Diagram Navigation ---
         const allOfdmBlockIds = ['block-tx', 'block-idft', 'block-addcp', 'block-channel', 'block-removecp', 'block-fft', 'block-rx'];
         const blockOutputTitles = [
             'S/P & Mapping Output',
@@ -811,7 +907,6 @@
                 if (text) text.classList.remove('highlighted');
             });
             
-            // Highlight arrows
             document.querySelectorAll('.arrow').forEach(arrow => arrow.classList.remove('highlighted'));
 
             if (index >= 0 && index < allOfdmBlockIds.length) {
@@ -884,7 +979,6 @@
             document.getElementById(chartId).style.display = 'block';
             document.getElementById(`${chartId}Title`).style.display = 'block';
         }
-
 
         function updateBlockOutputDisplayContent(blockIndex) {
             const titleDiv = document.getElementById('blockOutputTitle');
@@ -984,49 +1078,189 @@
             document.getElementById('snrDb').value = 20;
             document.getElementById('numSymbolsBer').value = 1000;
         }
+        
+        function getIdealConstellationPoints(modulationScheme) {
+            switch (modulationScheme) {
+                case 'BPSK':
+                    return [new Complex(-1), new Complex(1)];
+                case 'QPSK':
+                    const qpskScale = 1 / Math.sqrt(2);
+                    return [
+                        new Complex(qpskScale, qpskScale), new Complex(qpskScale, -qpskScale),
+                        new Complex(-qpskScale, qpskScale), new Complex(-qpskScale, -qpskScale)
+                    ];
+                case '16QAM':
+                    const qam16Scale = 1 / Math.sqrt(10);
+                    const levels = [-3, -1, 1, 3];
+                    const points = [];
+                    for (const re of levels) {
+                        for (const im of levels) {
+                            points.push(new Complex(re * qam16Scale, im * qam16Scale));
+                        }
+                    }
+                    return points;
+                default:
+                    return [];
+            }
+        }
 
-        // --- Chart.js Setup and Update Functions (kept as-is) ---
         let constellationChart, preChannelSpectrumChart, postChannelSpectrumChart, receivedConstellationChart, berCurveChart;
 
+        // Fixed initializeCharts function - add this to replace the original
+        // Updated initializeCharts function for better responsiveness
         function initializeCharts() {
+            // Set canvas dimensions based on container size
+            const setCanvasDimensions = (id) => {
+                const canvas = document.getElementById(id);
+                if (canvas) {
+                    const container = canvas.parentElement;
+                    const containerWidth = container.offsetWidth;
+                    canvas.style.width = '100%';
+                    canvas.style.height = '350px';
+                    canvas.width = Math.min(containerWidth, 800);
+                    canvas.height = 350;
+                }
+            };
+
+            const canvases = ['constellationChart', 'preChannelSpectrumChart', 'postChannelSpectrumChart', 'receivedConstellationChart', 'berCurveChart'];
+            canvases.forEach(setCanvasDimensions);
+
             const constellationConfig = {
-                type: 'scatter', data: { datasets: [{ label: 'Transmitted Constellation', data: [], backgroundColor: 'rgb(236, 72, 153)', pointRadius: 5, pointHoverRadius: 7 }] },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { title: { display: false }, legend: { display: false }, tooltip: { callbacks: { label: c => `(${c.parsed.x.toFixed(2)}, ${c.parsed.y.toFixed(2)}i)` } } },
-                scales: { x: { type: 'linear', position: 'bottom', title: { display: true, text: 'In-phase (Real)', font: { size: 14, weight: 'bold' }, color: '#4b5563' }, grid: { color: '#e5e7eb' }, ticks: { color: '#6b7280' }, min: -2, max: 2 },
-                y: { type: 'linear', position: 'left', title: { display: true, text: 'Quadrature (Imaginary)', font: { size: 14, weight: 'bold' }, color: '#4b5563' }, grid: { color: '#e5e7eb' }, ticks: { color: '#6b7280' }, min: -2, max: 2 } } }
+                type: 'scatter',
+                data: { datasets: [{ label: 'Constellation Diagram', data: [], backgroundColor: 'rgb(236, 72, 153)', pointRadius: 4, pointHoverRadius: 6 }] },
+                options: {
+                    responsive: true,  // Changed back to true for better responsiveness
+                    maintainAspectRatio: false,
+                    plugins: {
+                        title: { display: false },
+                        legend: { display: false },
+                        tooltip: { callbacks: { label: c => `(${c.parsed.x.toFixed(2)}, ${c.parsed.y.toFixed(2)}i)` } }
+                    },
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            position: 'bottom',
+                            min: -2,
+                            max: 2,
+                            title: { display: true, text: 'In-phase (Real)', font: { size: 12, weight: 'bold' }, color: '#4b5563' },
+                            grid: { color: '#e5e7eb' },
+                            ticks: { color: '#6b7280', font: { size: 10 } }
+                        },
+                        y: {
+                            type: 'linear',
+                            position: 'left',
+                            min: -2,
+                            max: 2,
+                            title: { display: true, text: 'Quadrature (Imaginary)', font: { size: 12, weight: 'bold' }, color: '#4b5563' },
+                            grid: { color: '#e5e7eb' },
+                            ticks: { color: '#6b7280', font: { size: 10 } }
+                        }
+                    }
+                }
             };
+
             const spectrumConfig = {
-                type: 'line', data: { datasets: [{ data: [], borderWidth: 2, pointRadius: 0, fill: false, tension: 0.1 }] },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
-                scales: { x: { title: { display: true, text: 'Frequency (MHz)', font: { size: 14, weight: 'bold' }, color: '#4b5563' }, grid: { color: '#e2e8f0' } },
-                y: { title: { display: true, text: 'Power Spectral Density (dB)', font: { size: 14, weight: 'bold' }, color: '#4b5563' }, grid: { color: '#e2e8f0' } } } }
+                type: 'line',
+                data: { datasets: [{ data: [], borderWidth: 2, pointRadius: 0, fill: false, tension: 0.1 }] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { 
+                            title: { display: true, text: 'Frequency (MHz)', font: { size: 12, weight: 'bold' }, color: '#4b5563' }, 
+                            grid: { color: '#e2e8f0' },
+                            ticks: { font: { size: 10 } }
+                        },
+                        y: { 
+                            title: { display: true, text: 'PSD (dB)', font: { size: 12, weight: 'bold' }, color: '#4b5563' }, 
+                            grid: { color: '#e2e8f0' },
+                            ticks: { font: { size: 10 } }
+                        }
+                    }
+                }
             };
+
             const berConfig = {
-                type: 'line', data: { labels: [], datasets: [{ label: 'BER', data: [], borderColor: 'rgb(34, 197, 94)', backgroundColor: 'rgba(34, 197, 94, 0.2)', borderWidth: 2, pointRadius: 3, pointBackgroundColor: 'rgb(34, 197, 94)', fill: false, tension: 0.1 }] },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
-                scales: { x: { min: 0, max: 25, title: { display: true, text: 'SNR (dB)', font: { size: 14, weight: 'bold' }, color: '#4b5563' } },
-                y: { type: 'logarithmic', title: { display: true, text: 'BER', font: { size: 14, weight: 'bold' }, color: '#4b5563' }, min: 1e-6, max: 1,
-                ticks: { callback: v => (v === 1e-1 || v === 1e-2 || v === 1e-3 || v === 1e-4 || v === 1e-5 || v === 1e-6) ? v.toExponential() : null } } } }
+                type: 'line',
+                data: { labels: [], datasets: [{ label: 'BER', data: [], borderColor: 'rgb(34, 197, 94)', backgroundColor: 'rgba(34, 197, 94, 0.2)', borderWidth: 2, pointRadius: 3, pointBackgroundColor: 'rgb(34, 197, 94)', fill: false, tension: 0.1 }] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { 
+                            min: 0, max: 25, 
+                            title: { display: true, text: 'SNR (dB)', font: { size: 12, weight: 'bold' }, color: '#4b5563' },
+                            ticks: { font: { size: 10 } }
+                        },
+                        y: { 
+                            type: 'logarithmic', 
+                            title: { display: true, text: 'BER', font: { size: 12, weight: 'bold' }, color: '#4b5563' }, 
+                            min: 1e-6, max: 1,
+                            ticks: { 
+                                callback: v => (v === 1e-1 || v === 1e-2 || v === 1e-3 || v === 1e-4 || v === 1e-5 || v === 1e-6) ? v.toExponential() : null,
+                                font: { size: 10 }
+                            }
+                        }
+                    }
+                }
             };
-            
+
             constellationChart = new Chart(document.getElementById('constellationChart').getContext('2d'), constellationConfig);
             preChannelSpectrumChart = new Chart(document.getElementById('preChannelSpectrumChart').getContext('2d'), { ...spectrumConfig, data: { datasets: [{ ...spectrumConfig.data.datasets[0], borderColor: 'rgb(59, 130, 246)', backgroundColor: 'rgba(59, 130, 246, 0.2)' }] } });
             postChannelSpectrumChart = new Chart(document.getElementById('postChannelSpectrumChart').getContext('2d'), { ...spectrumConfig, data: { datasets: [{ ...spectrumConfig.data.datasets[0], borderColor: 'rgb(234, 88, 12)', backgroundColor: 'rgba(234, 88, 12, 0.2)' }] } });
             receivedConstellationChart = new Chart(document.getElementById('receivedConstellationChart').getContext('2d'), { ...constellationConfig, data: { datasets: [{ ...constellationConfig.data.datasets[0], label: 'Received Constellation', backgroundColor: 'rgb(34, 197, 94)' }] } });
             berCurveChart = new Chart(document.getElementById('berCurveChart').getContext('2d'), berConfig);
+
+            // Add window resize handler
+            window.addEventListener('resize', () => {
+                setTimeout(() => {
+                    canvases.forEach(setCanvasDimensions);
+                    [constellationChart, preChannelSpectrumChart, postChannelSpectrumChart, receivedConstellationChart, berCurveChart].forEach(chart => {
+                        if (chart) chart.resize();
+                    });
+                }, 100);
+            });
+        }
+
+        // Fixed updateConstellationChart function
+        function updateConstellationChart(chart, symbols, modulationScheme) {
+            if (!chart) return;
+
+            let axisMax = 2.0; // Default axis range
+            
+            const idealPoints = getIdealConstellationPoints(modulationScheme);
+            if (idealPoints.length > 0) {
+                const maxMag = Math.max(...idealPoints.map(p => Math.max(Math.abs(p.re), Math.abs(p.im))));
+                axisMax = Math.max(maxMag * 1.5, 2.0);
+            }
+            
+            // Cap the range to reasonable limits
+            axisMax = Math.min(axisMax, 5.0);
+
+            const validData = symbols.filter(s => 
+                isFinite(s.re) && isFinite(s.im) &&
+                Math.abs(s.re) <= 10 && Math.abs(s.im) <= 10
+            ).map(s => ({ x: s.re, y: s.im }));
+
+            chart.options.scales.x.min = -axisMax;
+            chart.options.scales.x.max = axisMax;
+            chart.options.scales.y.min = -axisMax;
+            chart.options.scales.y.max = axisMax;
+
+            chart.data.datasets[0].data = validData;
+            chart.update();
         }
 
         function updateSpectrumChart(chartInstance, labels, data) {
             if (chartInstance) {
-                // Filter out invalid values and limit range
-                const validIndices = [];
                 const validLabels = [];
                 const validData = [];
                 
                 for (let i = 0; i < data.length; i++) {
                     const value = data[i];
                     if (isFinite(value) && !isNaN(value) && value > -200 && value < 100) {
-                        validIndices.push(i);
                         validLabels.push(parseFloat(labels[i]).toFixed(2));
                         validData.push(value);
                     }
@@ -1037,30 +1271,49 @@
                 chartInstance.update();
             }
         }
+        
+        function updateConstellationChart(chart, symbols, modulationScheme) {
+    if (!chart) return;
 
-        function updateTransmittedConstellationChart(symbols) {
-            if (constellationChart) {
-                const validData = symbols.filter(s => 
-                    isFinite(s.re) && isFinite(s.im) && 
-                    Math.abs(s.re) < 10 && Math.abs(s.im) < 10
-                ).map(s => ({ x: s.re, y: s.im }));
-                
-                constellationChart.data.datasets[0].data = validData;
-                constellationChart.update();
-            }
+    let maxMag = 0;
+    const idealPoints = getIdealConstellationPoints(modulationScheme);
+    if (idealPoints.length > 0) {
+        maxMag = Math.max(...idealPoints.map(p => Math.max(Math.abs(p.re), Math.abs(p.im))));
+    }
+    
+    // Set a minimum axis range and ensure it's finite
+    let axisMax = Math.max(maxMag * 1.5, 2.0); // Minimum range of 2.0
+    
+    // Safety check to prevent infinite or NaN values
+    if (!isFinite(axisMax) || axisMax <= 0) {
+        axisMax = 2.0; // Default fallback value
+    }
+    
+    // Cap the maximum range to prevent overly large plots
+    axisMax = Math.min(axisMax, 10.0); // Maximum range of 10.0
+
+    const validData = symbols.filter(s => 
+        isFinite(s.re) && isFinite(s.im) &&
+        Math.abs(s.re) <= 20 && Math.abs(s.im) <= 20 // Filter out extreme values
+    ).map(s => ({ x: s.re, y: s.im }));
+
+    chart.options.scales.x.min = -axisMax;
+    chart.options.scales.x.max = axisMax;
+    chart.options.scales.y.min = -axisMax;
+    chart.options.scales.y.max = axisMax;
+
+    chart.data.datasets[0].data = validData;
+    chart.update();
+}
+        
+        function updateTransmittedConstellationChart(symbols, modulationScheme) {
+            updateConstellationChart(constellationChart, symbols, modulationScheme);
         }
 
-        function updateReceivedConstellationChart(symbols) {
-            if (receivedConstellationChart) {
-                const validData = symbols.filter(s => 
-                    isFinite(s.re) && isFinite(s.im) && 
-                    Math.abs(s.re) < 10 && Math.abs(s.im) < 10
-                ).map(s => ({ x: s.re, y: s.im }));
-                
-                receivedConstellationChart.data.datasets[0].data = validData;
-                receivedConstellationChart.update();
-            }
+        function updateReceivedConstellationChart(symbols, modulationScheme) {
+            updateConstellationChart(receivedConstellationChart, symbols, modulationScheme);
         }
+
         function updateBerChart(snrLabels, berData) {
             if (berCurveChart) {
                 berCurveChart.data.labels = snrLabels;
@@ -1068,6 +1321,7 @@
                 berCurveChart.update();
             }
         }
+
         function displayError(message) {
             const errorMessageDiv = document.getElementById('errorMessage');
             errorMessageDiv.textContent = message;
@@ -1075,7 +1329,6 @@
             document.getElementById('loadingSpinner').style.display = 'none';
         }
 
-        // --- Event Listeners ---
         window.onload = function() {
             initializeCharts();
             document.getElementById('runStepByStepBtn').addEventListener('click', runStepByStepSimulation);
