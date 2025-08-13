@@ -744,14 +744,15 @@
                                         <option value="4">4</option>
                                     </select>
                                 </div>
-                                <div class="input-group horizontal" id="channelVariationGroup">
-                                    <label for="channelVariationFactor">Channel Variation (ZF only):</label>
-                                    <select class="form-select" id="channelVariationFactor">
-                                        <option value="1.0" selected>1.0x</option>
-                                        <option value="1.5">1.5x</option>
-                                        <option value="2.0">2.0x</option>
-                                        <option value="3.0">3.0x</option>
-                                        <option value="5.0">5.0x</option>
+                                <div class="input-group horizontal" id="channelConditionGroup">
+                                    <label for="channelConditionFactor">Noise Enhancement Factor:</label>
+                                    <select class="form-select" id="channelConditionFactor">
+                                        <option value="1.0" selected>1.0</option>
+                                        <option value="1.5">1.5</option>
+                                        <option value="2.0">2.0</option>
+                                        <option value="3.0">3.0</option>
+                                        <option value="5.0">5.0</option>
+                                        <option value="10.0">10.0</option>
                                     </select>
                                 </div>
                                 <div class="technique-selector">
@@ -867,24 +868,31 @@
                     tab.show();
                 }
                 
-                // Replace noiseAmplificationFactor with channelVariationFactor
                 const analysisElements = [
                     'analysisNumTxAntennas',
-                    'analysisNumRxAntennas',
+                    'analysisNumRxAntennas', 
                     'analysisModulation',
-                    'channelVariationFactor'  // Changed from noiseAmplificationFactor
+                    'channelConditionFactor'  // Updated name
                 ];
 
-                // Update the radio button event listener
+                analysisElements.forEach(id => {
+                    const element = document.getElementById(id);
+                    if (element) {
+                        element.addEventListener('change', () => {
+                            if (savedCurves.length > 0) updateAnalysisChart();
+                        });
+                    }
+                });
+
                 document.querySelectorAll('input[name="analysisTechnique"]').forEach(radio => {
                     radio.addEventListener('change', () => {
-                        updateChannelVariationVisibility(); // Changed function name
+                        updateChannelConditionVisibility();
                         if (savedCurves.length > 0) updateAnalysisChart();
                     });
                 });
 
-                // Initial setup for the performance tab
-                updateChannelVariationVisibility(); // Changed function name
+                // Initial setup - always show since both equalizers are affected
+                updateChannelConditionVisibility();
                 
                 analysisElements.forEach(id => {
                     const element = document.getElementById(id);
@@ -909,11 +917,12 @@
             }
         });
 
-        function updateChannelVariationVisibility() {
-            const selectedEqualizer = document.querySelector('input[name="analysisTechnique"]:checked').value;
-            const channelVarGroup = document.getElementById('channelVariationGroup');
-            if (channelVarGroup) {
-                channelVarGroup.style.display = (selectedEqualizer === 'ZF') ? 'flex' : 'none';
+
+        function updateChannelConditionVisibility() {
+            // Always show the channel condition factor for both ZF and MMSE
+            const channelCondGroup = document.getElementById('channelConditionGroup');
+            if (channelCondGroup) {
+                channelCondGroup.style.display = 'flex';
             }
         }
 
@@ -1269,10 +1278,9 @@
             }
         }
         
-        // --- CHARTING FUNCTIONS ---
-        async function calculateSERvsSNR(mod, Nt, Nr, equalizer, channelVariationFactor = 1.0) {
-            const numSymbolsPerSNR = 10000; // Reduced for faster computation
-            const snr_dB = Array.from({ length: 21 }, (_, i) => -20 + i * 2); // -20 to 20 dB, step 2
+        async function calculateSERvsSNR(mod, Nt, Nr, equalizer, channelConditionFactor = 1.0) {
+            const numSymbolsPerSNR = 10000;
+            const snr_dB = Array.from({ length: 21 }, (_, i) => -20 + i * 2);
             
             const c = constellations[mod];
             const E_avg = c.reduce((s, v) => s + v.magnitudeSq(), 0) / c.length;
@@ -1281,26 +1289,24 @@
             
             for (const db of snr_dB) {
                 const snr_linear = 10 ** (db / 10);
-                const noiseVariance = 1 / snr_linear; // Based on your MATLAB code
+                const baseNoiseVariance = 1 / snr_linear;
                 
                 let errorCount = 0;
                 let totalSymbols = 0;
-
                 const numberOfTransmissions = Math.floor(numSymbolsPerSNR / Nt);
 
                 for (let t = 0; t < numberOfTransmissions; t++) {
-                    // Generate Rayleigh fading channel (as per MATLAB code)
-                    const H = generateRayleighChannel(Nr, Nt, channelVariationFactor);
+                    // Generate Rayleigh fading channel with condition factor
+                    const H = generateRayleighChannel(Nr, Nt, channelConditionFactor);
                     
                     const originalIndices = Array.from({ length: Nt }, () => Math.floor(Math.random() * c.length));
                     const modulated_symbols = originalIndices.map(i => c[i]);
                     
-                    // Channel multiplication
                     let y = multiplyMatrixVector(H, modulated_symbols);
                     
-                    // Add AWGN noise (as per MATLAB code)
+                    // Add AWGN noise
                     const noise_vector = Array.from({ length: Nr }, () => 
-                        generateComplexGaussian().multiply(Math.sqrt(noiseVariance / 2))
+                        generateComplexGaussian().multiply(Math.sqrt(baseNoiseVariance / 2))
                     );
                     
                     const noisy_y = y.map((s, i) => s.add(noise_vector[i]));
@@ -1309,12 +1315,17 @@
                     let equalized_symbols = [];
 
                     if (equalizer === 'ZF') {
+                        // ZF: W = H^+ (pseudo-inverse)
+                        // Noise enhancement occurs naturally due to H^+ characteristics
                         W = pseudoInverse(H);
                     } else if (equalizer === 'MMSE') {
+                        // MMSE: W = (H^H*H + σ²I)^(-1) * H^H
+                        // Channel condition factor affects the regularization
                         const H_H = transposeConjugateMatrix(H);
                         const H_H_H = multiplyComplexMatrices(H_H, H);
                         const I_term = identityMatrix(Nt);
-                        const MMSE_term = multiplyMatrixScalar(I_term, noiseVariance);
+                        const regularization = baseNoiseVariance / channelConditionFactor; // Better conditioning with higher factor
+                        const MMSE_term = multiplyMatrixScalar(I_term, regularization);
                         const MMSE_matrix = addMatrices(H_H_H, MMSE_term);
                         const inv_MMSE = invertMatrix(MMSE_matrix);
                         if (inv_MMSE) {
@@ -1337,14 +1348,14 @@
                 }
                 
                 const ser = totalSymbols > 0 ? errorCount / totalSymbols : 1.0;
-                serData.push(Math.max(ser, 1e-6));
+                serData.push(Math.max(ser, 0.0001));
             }
             
-            const channelLabel = (channelVariationFactor !== 1.0) ? ` (Channel Var: ${channelVariationFactor}x)` : '';
+            const conditionLabel = (channelConditionFactor !== 1.0) ? ` (η=${channelConditionFactor})` : '';
             return { 
                 labels: snr_dB, 
                 data: serData, 
-                label: `${mod} ${Nt}x${Nr} (${equalizer}${channelLabel})` 
+                label: `${mod} ${Nt}x${Nr} (${equalizer}${conditionLabel})` 
             };
         }
 
@@ -1363,9 +1374,9 @@
                 const Nt = parseInt(document.getElementById('analysisNumTxAntennas').value);
                 const Nr = parseInt(document.getElementById('analysisNumRxAntennas').value);
                 const equalizer = document.querySelector('input[name="analysisTechnique"]:checked').value;
-                const channelVariationFactor = (equalizer === 'ZF') ? parseFloat(document.getElementById('channelVariationFactor').value) : 1.0;
+                const channelConditionFactor = parseFloat(document.getElementById('channelConditionFactor').value);
 
-                const newCurve = await calculateSERvsSNR(mod, Nt, Nr, equalizer, channelVariationFactor);
+                const newCurve = await calculateSERvsSNR(mod, Nt, Nr, equalizer, channelConditionFactor);
                 savedCurves.push(newCurve);
                 updateAnalysisChart();
             } catch (error) {
@@ -1403,6 +1414,10 @@
                 borderWidth: 2
             }));
             
+            // Calculate dynamic y-axis limits
+            const yAxisLimits = calculateDynamicYAxisLimits(datasets);
+            const tickInfo = getDynamicTickLabels(yAxisLimits.min, yAxisLimits.max);
+            
             serChart = new Chart(ctx, {
                 type: 'line',
                 data: {
@@ -1418,34 +1433,31 @@
                         y: {
                             type: 'logarithmic',
                             title: { display: true, text: 'Symbol Error Rate (SER)' },
-                            min: 1e-5,
-                            max: 1,
+                            min: yAxisLimits.min,
+                            max: yAxisLimits.max,
                             ticks: { 
                                 callback: function(v, i, ticks) {
                                     const value = Number(v);
-                                    if (value === 1) return '1';
-                                    if (value === 0.1) return '0.1';
-                                    if (value === 0.01) return '0.01';
-                                    if (value === 0.001) return '0.001';
-                                    if (value === 0.0001) return '0.0001';
-                                    if (value === 0.00001) return '0.00001';
-                                    return '';
+                                    // Only show labels for our dynamic tick values
+                                    const index = tickInfo.values.findIndex(val => Math.abs(val - value) < 1e-10);
+                                    return index !== -1 ? tickInfo.labels[index] : '';
                                 },
                                 color: '#555',
                                 font: { size: 10 },
-                                maxTicksLimit: 6
+                                maxTicksLimit: tickInfo.values.length + 1
                             },
                             grid: { 
                                 color: function(context) {
                                     const value = context.tick.value;
-                                    if ([1, 0.1, 0.01, 0.001, 0.0001, 0.00001].includes(value)) {
+                                    // Highlight grid lines for our dynamic tick values
+                                    if (tickInfo.values.some(val => Math.abs(val - value) < 1e-10)) {
                                         return 'rgba(0,0,0,0.3)';
                                     }
                                     return 'rgba(0,0,0,0.1)';
                                 },
                                 lineWidth: function(context) {
                                     const value = context.tick.value;
-                                    if ([1, 0.1, 0.01, 0.001, 0.0001, 0.00001].includes(value)) {
+                                    if (tickInfo.values.some(val => Math.abs(val - value) < 1e-10)) {
                                         return 1;
                                     }
                                     return 0.5;
@@ -1491,6 +1503,11 @@
         
         function initializeSERChart() {
             const ctx = document.getElementById('serChart').getContext('2d');
+            
+            // Default limits for empty chart
+            const defaultLimits = { min: 0.0001, max: 1 };
+            const defaultTickInfo = getDynamicTickLabels(defaultLimits.min, defaultLimits.max);
+            
             serChart = new Chart(ctx, {
                 type: 'line',
                 data: {
@@ -1506,35 +1523,29 @@
                         y: {
                             type: 'logarithmic',
                             title: { display: true, text: 'Symbol Error Rate (SER)' },
-                            min: 1e-6,
-                            max: 1,
+                            min: defaultLimits.min,
+                            max: defaultLimits.max,
                             ticks: { 
                                 callback: function(v, i, ticks) {
                                     const value = Number(v);
-                                    if (value === 1) return '1';
-                                    if (value === 0.1) return '0.1';
-                                    if (value === 0.01) return '0.01';
-                                    if (value === 0.001) return '0.001';
-                                    if (value === 0.0001) return '0.0001';
-                                    if (value === 0.00001) return '1e-005';
-                                    if (value === 0.000001) return '1e-006';
-                                    return '';
+                                    const index = defaultTickInfo.values.findIndex(val => Math.abs(val - value) < 1e-10);
+                                    return index !== -1 ? defaultTickInfo.labels[index] : '';
                                 },
                                 color: '#555',
                                 font: { size: 10 },
-                                maxTicksLimit: 7
+                                maxTicksLimit: defaultTickInfo.values.length + 1
                             },
                             grid: { 
                                 color: function(context) {
                                     const value = context.tick.value;
-                                    if ([1, 0.1, 0.01, 0.001, 0.0001, 0.00001, 0.000001].includes(value)) {
+                                    if (defaultTickInfo.values.some(val => Math.abs(val - value) < 1e-10)) {
                                         return 'rgba(0,0,0,0.3)';
                                     }
                                     return 'rgba(0,0,0,0.1)';
                                 },
                                 lineWidth: function(context) {
                                     const value = context.tick.value;
-                                    if ([1, 0.1, 0.01, 0.001, 0.0001, 0.00001, 0.000001].includes(value)) {
+                                    if (defaultTickInfo.values.some(val => Math.abs(val - value) < 1e-10)) {
                                         return 1;
                                     }
                                     return 0.5;
@@ -1612,16 +1623,26 @@
             });
         }
         
-        function generateRayleighChannel(Nr, Nt, variationFactor = 1.0) {
-            // Generate complex Rayleigh fading channel as per MATLAB code
-            // H = (randn + 1j*randn) / sqrt(2) * variationFactor
-            return Array.from({ length: Nr }, () => 
+        function generateRayleighChannel(Nr, Nt, conditionFactor = 1.0) {
+            // Generate complex Rayleigh fading channel
+            // For ZF: affects noise enhancement through matrix conditioning
+            // For MMSE: affects regularization balance
+            const baseChannel = Array.from({ length: Nr }, () => 
                 Array.from({ length: Nt }, () => {
                     const real = Math.sqrt(-2 * Math.log(Math.random())) * Math.cos(2 * Math.PI * Math.random());
                     const imag = Math.sqrt(-2 * Math.log(Math.random())) * Math.sin(2 * Math.PI * Math.random());
-                    return new Complex(real * variationFactor / Math.sqrt(2), imag * variationFactor / Math.sqrt(2));
+                    return new Complex(real / Math.sqrt(2), imag / Math.sqrt(2));
                 })
             );
+            
+            // Apply condition factor to create more ill-conditioned channels when factor > 1
+            if (conditionFactor > 1.0) {
+                // Scale some singular values to create condition number issues
+                const scaleFactor = 1.0 / conditionFactor;
+                baseChannel[0] = baseChannel[0].map(val => val.multiply(scaleFactor));
+            }
+            
+            return baseChannel;
         }
 
         function plotConstellation(id, data, ideal, decodedIndices = null) {
@@ -1767,6 +1788,70 @@
             } catch (error) {
                 console.error(`Error creating chart ${id}:`, error);
             }
+        }
+
+        function calculateDynamicYAxisLimits(datasets) {
+            if (!datasets || datasets.length === 0) {
+                return { min: 0.0001, max: 1 };
+            }
+            
+            // Find the minimum and maximum values across all datasets
+            let globalMin = 1;
+            let globalMax = 0;
+            
+            datasets.forEach(dataset => {
+                if (dataset.data && dataset.data.length > 0) {
+                    const dataMin = Math.min(...dataset.data);
+                    const dataMax = Math.max(...dataset.data);
+                    globalMin = Math.min(globalMin, dataMin);
+                    globalMax = Math.max(globalMax, dataMax);
+                }
+            });
+            
+            // Define the logarithmic scale levels
+            const logLevels = [1, 0.1, 0.01, 0.001, 0.0001, 0.00001, 0.000001];
+            
+            // Find appropriate min limit (go one level lower than the minimum data)
+            let yMin = 0.000001; // Default minimum
+            for (let i = 0; i < logLevels.length - 1; i++) {
+                if (globalMin <= logLevels[i] && globalMin > logLevels[i + 1]) {
+                    yMin = logLevels[i + 1];
+                    break;
+                }
+            }
+            
+            // Find appropriate max limit (go one level higher than the maximum data)
+            let yMax = 1; // Default maximum
+            for (let i = logLevels.length - 1; i > 0; i--) {
+                if (globalMax >= logLevels[i] && globalMax < logLevels[i - 1]) {
+                    yMax = logLevels[i - 1];
+                    break;
+                }
+            }
+            
+            return { min: yMin, max: yMax };
+        }
+
+        function getDynamicTickLabels(min, max) {
+            const logLevels = [1, 0.1, 0.01, 0.001, 0.0001, 0.00001, 0.000001];
+            const labels = [];
+            const values = [];
+            
+            // Filter levels that are within our range
+            logLevels.forEach(level => {
+                if (level >= min && level <= max) {
+                    values.push(level);
+                    if (level >= 0.0001) {
+                        labels.push(level.toString());
+                    } else if (level === 0.00001) {
+                        labels.push('1e-005');
+                    } else if (level === 0.000001) {
+                        labels.push('1e-006');
+                    }
+                }
+            });
+            
+            return { values, labels };
         }
     </script>
 </body>
