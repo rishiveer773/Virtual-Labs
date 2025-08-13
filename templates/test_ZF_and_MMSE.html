@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wireless Communication Equalizer</title>
+    <title>Advanced MIMO Wireless Communication Equalizer</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -14,44 +14,44 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f4f7f6;
+            font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #eef2f5;
             min-height: 100vh;
             color: #333;
         }
 
         .container-fluid {
-            padding: 20px;
+            padding: 15px;
         }
 
         .main-header {
             text-align: center;
-            color: #333;
+            color: #2c3e50;
             margin-bottom: 30px;
         }
 
         .main-header h1 {
-            font-size: 2.5rem;
-            font-weight: 700;
+            font-size: clamp(2rem, 5vw, 3rem);
+            font-weight: 800;
             margin-bottom: 10px;
         }
 
         .main-header p {
-            font-size: 1.2rem;
+            font-size: clamp(1rem, 2.5vw, 1.3rem);
             opacity: 0.9;
         }
 
         .experiment-container {
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
-            border: 1px solid #e0e0e0;
+            background: #ffffff;
+            border-radius: 25px;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.1);
+            border: 1px solid #dee2e6;
             overflow: hidden;
             margin-bottom: 30px;
         }
 
         .tab-container {
-            background-color: #f8f9fa;
+            background: #f8f9fa;
             padding: 0;
             border-bottom: 1px solid #dee2e6;
         }
@@ -59,165 +59,532 @@
         .nav-tabs {
             border: none;
             justify-content: center;
+            flex-wrap: wrap;
         }
 
         .nav-tabs .nav-link {
             background: transparent;
             border: none;
             color: #495057;
-            font-weight: 600;
-            padding: 15px 30px;
+            font-weight: 700;
+            padding: 15px 25px;
             margin: 0 5px;
             border-radius: 0;
             transition: all 0.3s ease;
+            font-size: clamp(0.9rem, 2vw, 1.1rem);
+            white-space: nowrap;
         }
 
         .nav-tabs .nav-link:hover {
-            background: #e9ecef;
+            background: rgba(13, 110, 253, 0.05);
             color: #0d6efd;
         }
 
         .nav-tabs .nav-link.active {
             background: white;
             color: #0d6efd;
-            border-radius: 10px 10px 0 0;
-            border-top: 3px solid #0d6efd;
+            border-radius: 15px 15px 0 0;
+            border-top: 4px solid #0d6efd;
+            box-shadow: 0 -5px 15px rgba(0,0,0,0.05);
         }
 
         .tab-content {
-            padding: 30px;
+            padding: 20px;
         }
 
         .instructions-card {
-            background: #e7f3ff;
-            color: #0c5460;
-            border-radius: 15px;
-            padding: 25px;
+            background: linear-gradient(135deg, #e3f2fd, #f3e5f5);
+            color: #1a237e;
+            border-radius: 20px;
+            padding: 20px;
             margin-bottom: 30px;
-            border: 1px solid #b8daff;
+            border: 1px solid rgba(63, 81, 181, 0.1);
+            box-shadow: 0 8px 25px rgba(63, 81, 181, 0.1);
         }
 
-        .instructions-card h3 { margin-bottom: 20px; font-weight: 600; }
-        .instructions-card ol { padding-left: 20px; }
-        .instructions-card li { margin-bottom: 10px; font-size: 1.1rem; }
-
-        .control-panel, .visualization-area, .comparison-panel, .results-panel {
-            background: #f8f9fa;
-            border-radius: 15px;
-            padding: 25px;
-            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
-            border: 1px solid #e0e0e0;
-            height: 100%; /* Ensure columns have consistent height */
-        }
-        
-        .input-group {
+        .instructions-card h3 {
             margin-bottom: 15px;
-            display: flex;
-            align-items: center;
+            font-weight: 700;
+            color: #3f51b5;
+            font-size: clamp(1.2rem, 3vw, 1.5rem);
         }
 
-        .input-group label {
-            font-weight: 600;
-            color: #333;
-            width: 140px; /* Adjusted width for narrower column */
-            text-align: right;
-            margin-right: 15px;
-            flex-shrink: 0;
+        .instructions-card ol, .instructions-card p {
+            padding-left: 20px;
+        }
+
+        .instructions-card li {
+            margin-bottom: 10px;
+            font-size: clamp(0.9rem, 2vw, 1.1rem);
+            line-height: 1.6;
         }
         
-        .form-control {
-            border-radius: 10px; border: 2px solid #e0e0e0; padding: 12px 15px;
-            font-size: 16px; transition: all 0.3s ease;
+        .control-panel, .visualization-area, .output-panel, .analysis-control-panel {
+            background: #f8f9fa;
+            border-radius: 20px;
+            padding: 15px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.05);
+            border: 1px solid #e9ecef;
+            height: 100%;
         }
-        .form-control:focus { border-color: #0d6efd; box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25); }
 
-        /* --- MODIFICATION START --- */
-        #inputData, #noiseVarianceInput {
-            border-radius: 0;
+        .input-group {
+            margin-bottom: 10px;
+            display: flex;
+            flex-direction: column;
         }
-        /* --- MODIFICATION END --- */
+
+        .input-group.horizontal {
+            flex-direction: row;
+            justify-content: space-between;
+            align-items: center;
+            background: white;
+            padding: 10px 15px;
+            border-radius: 10px;
+            border: 1px solid #e9ecef;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            margin-bottom: 10px;
+        }
+
+        .input-group.horizontal label {
+            margin-bottom: 0;
+            flex-grow: 1;
+            text-align: left;
+        }
+
+        .input-group.horizontal .form-select,
+        .input-group.horizontal .form-control {
+            flex-grow: 0;
+            width: 120px;
+            text-align: center;
+            border: none;
+            box-shadow: none;
+            padding: 8px;
+            border-radius: 5px;
+            background-color: #f8f9fa;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .form-control, .form-select {
+            border-radius: 10px;
+            border: 2px solid #e0e0e0;
+            padding: 12px 15px;
+            font-size: clamp(14px, 2vw, 16px);
+            transition: all 0.3s ease;
+            background: white;
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: #0d6efd;
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+        }
+
+        .control-panel h4, .analysis-control-panel h4 {
+            text-align: center;
+            font-weight: 800;
+            margin-bottom: 20px;
+            color: #2c3e50;
+            font-size: 1.5rem;
+        }
+        .control-panel .btn, .analysis-control-panel .btn {
+            font-size: 1rem;
+            padding: 10px;
+        }
+
+        .btn-primary, .btn-secondary, .btn-success {
+            border-radius: 12px;
+            padding: 12px 20px;
+            font-weight: 700;
+            transition: all 0.3s ease;
+            border: none;
+            font-size: clamp(14px, 2vw, 16px);
+        }
 
         .btn-primary {
-            background-color: #0d6efd; border: none; border-radius: 10px;
-            padding: 12px 25px; font-weight: 600; transition: all 0.3s ease;
-            box-shadow: 0 5px 15px rgba(13, 110, 253, 0.2);
+            background: linear-gradient(135deg, #0d6efd, #6610f2);
+            box-shadow: 0 8px 25px rgba(13, 110, 253, 0.3);
+            color: white;
         }
-        .btn-primary:hover { transform: translateY(-2px); background-color: #0b5ed7; box-shadow: 0 8px 25px rgba(13, 110, 253, 0.3); }
-        .btn-primary:disabled { background: #ccc; box-shadow: none; cursor: not-allowed; transform: none; }
+        
+        .btn-secondary {
+            background: #6c757d;
+            box-shadow: 0 8px 25px rgba(108, 117, 125, 0.2);
+            color: white;
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #28a745, #1d9546);
+            box-shadow: 0 8px 25px rgba(40, 167, 69, 0.3);
+            color: white;
+        }
 
-        .technique-selector { background: white; border-radius: 10px; padding: 20px; margin-top: 20px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
-        .technique-options { display: flex; gap: 10px; margin-top: 15px; }
-        .technique-option { flex: 1; position: relative; }
-        .technique-option input[type="radio"] { display: none; }
-        .technique-option label {
-            display: block; padding: 15px; background: #f8f9fa; border: 2px solid #e0e0e0;
-            border-radius: 10px; text-align: center; font-weight: 600; cursor: pointer; transition: all 0.3s ease;
+        .technique-selector {
+            background: white;
+            border-radius: 15px;
+            padding: 15px;
+            margin-top: 15px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.05);
         }
+
+        .technique-options {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        .technique-option {
+            flex: 1;
+            position: relative;
+            min-width: 80px;
+        }
+
+        .technique-option input[type="radio"] { display: none; }
+
+        .technique-option label {
+            display: block;
+            padding: 10px 8px;
+            background: #f8f9fa;
+            border: 3px solid #e0e0e0;
+            border-radius: 15px;
+            text-align: center;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: clamp(12px, 2vw, 14px);
+        }
+
         .technique-option input[type="radio"]:checked + label {
-            background-color: #0d6efd; color: white; border-color: #0d6efd; transform: scale(1.05);
+            background: linear-gradient(135deg, #0d6efd, #6610f2);
+            color: white;
+            border-color: #0d6efd;
+            transform: scale(1.05);
+            box-shadow: 0 8px 25px rgba(13, 110, 253, 0.3);
         }
 
         .visualization-area {
-            min-height: 450px; /* Ensure it has a good default height */
+            min-height: 350px;
             display: flex;
             align-items: center;
-            justify-content: center;
+            padding: 10px;
+            justify-content: flex-start;
             position: relative;
             overflow-x: auto;
         }
 
-        .signal-flow { display: flex; align-items: center; gap: 20px; flex-wrap: nowrap; justify-content: flex-start; }
+        .signal-flow {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: nowrap;
+            justify-content: flex-start;
+            min-width: max-content;
+        }
+
         .signal-block {
-            background: white; border-radius: 15px; padding: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.07);
-            text-align: center; min-width: 150px; transition: all 0.3s ease; flex-shrink: 0; border: 1px solid #eee;
+            background: white;
+            border-radius: 15px;
+            padding: 10px;
+            box-shadow: 0 12px 35px rgba(0,0,0,0.08);
+            text-align: center;
+            min-width: 140px;
+            transition: all 0.3s ease;
+            flex-shrink: 0;
+            border: 1px solid #e9ecef;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
         }
-        .signal-block:hover { transform: translateY(-5px); box-shadow: 0 15px 40px rgba(0,0,0,0.1); }
-        .signal-block h4 { font-size: 1rem; font-weight: 600; margin-bottom: 10px; color: #333; }
-        .signal-value { font-family: 'Courier New', monospace; font-size: 0.9rem; color: #666; word-break: break-all; max-height: 150px; overflow-y: auto; }
-        
-        .arrow { font-size: 2rem; color: #6c757d; animation: pulse 2s infinite; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
-        
-        .results-panel h4, .comparison-panel h4 { color: #333; margin-bottom: 20px; font-weight: 600; }
-        .metric-card { background: white; border-radius: 10px; padding: 15px; margin-bottom: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); border: 1px solid #eee; }
-        .metric-label { font-weight: 600; color: #666; font-size: 0.9rem; }
-        .metric-value { font-size: 1.5rem; font-weight: 700; color: #333; }
 
-        .error-highlight { color: #dc3545; font-weight: bold; }
-        .success-highlight { color: #28a745; }
-        
-        .comparison-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        .comparison-table td { padding: 8px 0; vertical-align: top; }
-        .comparison-table .label { font-family: 'Segoe UI', sans-serif; font-weight: bold; color: #495057; width: 80px; }
-        .comparison-table .data-col { font-family: 'Courier New', monospace; font-size: 1.1rem; }
-        .comparison-table .bit-error { font-size: 0.8rem; color: #6c757d; display: block; margin-top: 2px; }
-        .comparison-table .bit-error.has-errors { color: #dc3545; }
+        .signal-block h4 {
+            font-size: clamp(0.8rem, 2vw, 1rem);
+            font-weight: 700;
+            margin-bottom: 8px;
+            color: #333;
+        }
 
-        .chart-container { background: white; border-radius: 15px; padding: 20px; margin-top: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.07); position: relative; border: 1px solid #e0e0e0; }
+        .signal-value {
+            font-family: 'JetBrains Mono', 'Courier New', monospace;
+            font-size: clamp(0.7rem, 1.5vw, 0.9rem);
+            color: #666;
+            word-break: break-all;
+            line-height: 1.4;
+            text-align: left;
+            padding: 0 5px;
+            flex-grow: 1;
+        }
+
+        .arrow {
+            font-size: clamp(1.5rem, 4vw, 2.5rem);
+            color: #0d6efd;
+            animation: pulse 2s infinite;
+            align-self: center;
+        }
+
+        .noise-adder {
+            align-self: center;
+            text-align: center;
+            color: #333;
+            margin: 0 5px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .noise-arrow {
+            font-size: 1.5rem;
+            color: #6c757d;
+            animation: bounce 1.5s infinite;
+        }
+
+        .noise-adder-circle {
+            border: 2px solid #333;
+            border-radius: 50%;
+            width: 2em;
+            height: 2em;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.2rem;
+            line-height: 1;
+            font-weight: bold;
+        }
+        
+        .noise-adder-label {
+            font-size: 0.8rem;
+            color: #6c757d;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.1); }
+        }
+        
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% {
+                transform: translateY(0);
+            }
+            40% {
+                transform: translateY(-5px);
+            }
+            60% {
+                transform: translateY(-3px);
+            }
+        }
+
+        .results-panel {
+            background: #f8f9fa;
+            border-radius: 20px;
+            padding: 15px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.05);
+            border: 1px solid #e9ecef;
+        }
+
+        .results-panel h4 {
+            color: #333;
+            margin-bottom: 15px;
+            font-weight: 700;
+            font-size: clamp(1.1rem, 2.5vw, 1.3rem);
+        }
+
+        .metric-card {
+            background: white;
+            border-radius: 15px;
+            padding: 12px;
+            margin-bottom: 12px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.05);
+            border: 1px solid #e9ecef;
+        }
+
+        .metric-label {
+            font-weight: 700;
+            color: #666;
+            font-size: clamp(0.8rem, 1.8vw, 0.95rem);
+            margin-bottom: 5px;
+        }
+
+        .metric-value {
+            font-size: clamp(1.3rem, 3vw, 1.8rem);
+            font-weight: 800;
+            color: #333;
+        }
+        
+        .chart-container {
+            background: white;
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 12px 35px rgba(0,0,0,0.08);
+            position: relative;
+            height: 500px;
+            max-height: 500px;
+        }
+
+        .chart-container canvas {
+            max-height: 400px !important;
+        }
+
+        .chart-container .loading {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.9);
+            z-index: 10;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            border-radius: 20px;
+        }
+
+        .constellation-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .constellation-plot {
+            background: white;
+            border-radius: 15px;
+            padding: 15px;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.08);
+            border: 1px solid #e9ecef;
+        }
+
+        .constellation-plot h5 {
+            text-align: center;
+            margin-bottom: 10px;
+            font-weight: 700;
+            color: #333;
+            font-size: clamp(0.9rem, 2vw, 1.1rem);
+        }
+
         .loading {
-            display: none; text-align: center; padding: 20px; position: absolute; top: 0; left: 0;
-            width: 100%; height: 100%; background: rgba(255, 255, 255, 0.8); z-index: 10;
-            justify-content: center; align-items: center; flex-direction: column; border-radius: 15px;
+            display: none;
+            text-align: center;
+            padding: 30px;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(255, 255, 255, 0.95);
+            z-index: 10;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            border-radius: 20px;
+            backdrop-filter: blur(5px);
         }
-        .spinner {
-            border: 4px solid #f3f3f3; border-top: 4px solid #0d6efd; border-radius: 50%;
-            width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto 10px;
-        }
-        #loadingIndicator p, #chartLoadingIndicator p { font-weight: 600; color: #333; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        .perf-analysis-table { background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.05); margin-top: 20px; }
-        .perf-analysis-table table { width: 100%; margin: 0; }
-        .perf-analysis-table th { background: #343a40; color: white; padding: 15px; font-weight: 600; }
-        .perf-analysis-table td { padding: 12px 15px; border-bottom: 1px solid #e0e0e0; }
-        .performance-indicator { display: inline-block; padding: 5px 10px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
-        .excellent { background: #d4edda; color: #155724; }
-        .good { background: #fff3cd; color: #856404; }
-        .poor { background: #f8d7da; color: #721c24; }
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #0d6efd;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        #loadingIndicator p, #chartLoadingIndicator p {
+            font-weight: 700;
+            color: #333;
+            font-size: clamp(0.9rem, 2vw, 1.1rem);
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @media (max-width: 1199px) {
+            .tab-content {
+                padding: 15px;
+            }
+            .control-panel, .visualization-area, .output-panel, .analysis-control-panel {
+                margin-bottom: 15px;
+            }
+        }
 
         @media (max-width: 991px) {
-            .control-panel, .visualization-area, .comparison-panel, .results-panel {
+            .control-panel, .visualization-area, .output-panel, .analysis-control-panel {
                 margin-bottom: 20px;
+            }
+            .constellation-container {
+                grid-template-columns: 1fr;
+            }
+            .input-group {
+                margin-bottom: 10px;
+            }
+            .signal-flow {
+                gap: 10px;
+            }
+            .signal-block {
+                min-width: 120px;
+                padding: 12px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .container-fluid {
+                padding: 10px;
+            }
+            .tab-content {
+                padding: 10px;
+            }
+            .control-panel, .visualization-area, .output-panel, .analysis-control-panel {
+                padding: 10px;
+            }
+            .instructions-card {
+                padding: 15px;
+            }
+            .technique-options {
+                gap: 5px;
+            }
+            .nav-tabs .nav-link {
+                padding: 12px 15px;
+                margin: 0 2px;
+            }
+        }
+
+        @media (max-width: 576px) {
+            .signal-flow {
+                flex-direction: column;
+                align-items: center;
+            }
+            .arrow {
+                transform: rotate(90deg);
+            }
+            .noise-adder {
+                transform: rotate(90deg);
+                flex-direction: row-reverse;
+                justify-content: center;
+                align-items: center;
+            }
+            .noise-arrow {
+                transform: rotate(90deg);
+            }
+            .noise-adder-circle {
+                margin-left: 5px;
+                margin-top: 0;
+            }
+            .noise-adder-label {
+                display: none;
+            }
+            .signal-block {
+                width: 100%;
+                min-width: auto;
+            }
+            .technique-options {
+                flex-direction: column;
+            }
+            .technique-option {
+                min-width: auto;
             }
         }
     </style>
@@ -225,103 +592,191 @@
 <body>
     <div class="container-fluid">
         <div class="main-header">
-            <h1>Wireless Communication Equalizer</h1>
-            <p>Interactive Simulation of ZF and MMSE Equalization Techniques</p>
+            <h1>Advanced MIMO Wireless Communication Equalizer</h1>
+            <p>Interactive Simulation with Complex Channels & Constellation Analysis</p>
         </div>
 
         <div class="experiment-container">
             <div class="tab-container">
-                <ul class="nav nav-tabs" role="tablist">
-                    <li class="nav-item" role="presentation"><button class="nav-link active" id="equalizer-tab" data-bs-toggle="tab" data-bs-target="#equalizer" type="button" role="tab">Equalizer Simulation</button></li>
-                    <li class="nav-item" role="presentation"><button class="nav-link" id="performance-tab" data-bs-toggle="tab" data-bs-target="#performance" type="button" role="tab">Performance Analysis</button></li>
+                <ul class="nav nav-tabs" id="myTab" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="equalizer-tab" data-bs-toggle="tab" data-bs-target="#equalizer" type="button" role="tab">Equalizer Simulation</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="performance-tab" data-bs-toggle="tab" data-bs-target="#performance" type="button" role="tab">Performance Analysis</button>
+                    </li>
                 </ul>
             </div>
 
             <div class="tab-content">
                 <div class="tab-pane fade show active" id="equalizer" role="tabpanel">
                     <div class="instructions-card">
-                        <h3>Experiment Instructions</h3>
+                        <h3>MIMO Experiment Instructions</h3>
                         <ol>
-                            <li>Use the controls on the left to enter your data and set the noise level.</li>
-                            <li>Click "Simulate Channel" to begin. The signal flow will appear in the middle.</li>
-                            <li>Select an equalization technique (ZF or MMSE) to see detailed results and a comparison on the right.</li>
+                            <li>Select your modulation scheme and MIMO configuration (Nt transmit × Nr receive antennas).</li>
+                            <li>Set the desired SNR and click **Simulate Channel** to run equalization.</li>
+                            <li>Observe the signal flow, performance metrics, and constellation plots.</li>
+                            <li>Click **Run with New Symbols** to repeat with new random symbols.</li>
                         </ol>
                     </div>
 
                     <div class="row">
-                        <!-- Column 1: Inputs -->
-                        <div class="col-lg-3">
+                        <div class="col-xl-3 col-lg-4 col-md-12">
                             <div class="control-panel">
-                                <h4>Controls</h4>
-                                <div class="input-group">
-                                    <label for="inputData">Data String:</label>
-                                    <input type="text" class="form-control" id="inputData" placeholder="e.g., 1010110" pattern="[01]*" maxlength="8">
+                                <h4>Inputs</h4>
+                                <div class="input-group horizontal">
+                                    <label for="modulationScheme">Modulation:</label>
+                                    <select class="form-select" id="modulationScheme">
+                                        <option value="BPSK">BPSK</option>
+                                        <option value="QPSK" selected>QPSK</option>
+                                        <option value="16QAM">16-QAM</option>
+                                        <option value="64QAM">64-QAM</option>
+                                    </select>
+                                </div>
+                                <div class="input-group horizontal">
+                                    <label for="numTxAntennas">Tx Antennas (Nt):</label>
+                                    <select class="form-select" id="numTxAntennas">
+                                        <option value="2" selected>2</option>
+                                        <option value="3">3</option>
+                                        <option value="4">4</option>
+                                        <option value="6">6</option>
+                                        <option value="8">8</option>
+                                        <option value="16">16</option>
+                                    </select>
+                                </div>
+                                <div class="input-group horizontal">
+                                    <label for="numRxAntennas">Rx Antennas (Nr):</label>
+                                    <select class="form-select" id="numRxAntennas">
+                                        <option value="2" selected>2</option>
+                                        <option value="3">3</option>
+                                        <option value="4">4</option>
+                                        <option value="6">6</option>
+                                        <option value="8">8</option>
+                                        <option value="16">16</option>
+                                    </select>
+                                </div>
+                                <div class="input-group horizontal">
+                                    <label for="snrInput">SNR (dB):</label>
+                                    <input type="number" class="form-control" id="snrInput" value="10" min="0" max="40" step="1">
                                 </div>
                                 
-                                <div class="input-group">
-                                    <label for="noiseVarianceInput">Noise Variance (σ²):</label>
-                                    <input type="number" class="form-control" id="noiseVarianceInput" value="0.05" min="0" max="1" step="0.01">
-                                </div>
-
                                 <button class="btn btn-primary w-100 mt-3" id="simulateBtn" onclick="runSimulation()">Simulate Channel</button>
-                                
+                                <button class="btn btn-secondary w-100 mt-3" id="regenerateBtn" onclick="runSimulation()" style="display:none;">Run with New Symbols</button>
+
                                 <div class="technique-selector" id="techniqueSelector" style="display: none;">
-                                    <h5>Select Technique:</h5>
+                                    <h5>Equalizer Type:</h5>
                                     <div class="technique-options">
-                                        <div class="technique-option"><input type="radio" id="zf" name="technique" value="ZF"><label for="zf">ZF</label></div>
-                                        <div class="technique-option"><input type="radio" id="mmse" name="technique" value="MMSE"><label for="mmse">MMSE</label></div>
+                                        <div class="technique-option">
+                                            <input type="radio" id="zf" name="technique" value="ZF" checked onchange="updateDisplay()">
+                                            <label for="zf">ZF</label>
+                                        </div>
+                                        <div class="technique-option">
+                                            <input type="radio" id="mmse" name="technique" value="MMSE" onchange="updateDisplay()">
+                                            <label for="mmse">MMSE</label>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- Column 2: Simulation Visualization -->
-                        <div class="col-lg-6">
+                        <div class="col-xl-6 col-lg-8 col-md-12">
                             <div class="visualization-area">
-                                <div id="loadingIndicator" class="loading" style="display: flex; flex-direction: column; justify-content: center; align-items: center;"><div class="spinner"></div><p>Processing...</p></div>
-                                <div class="signal-flow" id="signalFlow"><div class="signal-block"><h4>Signal Flow</h4><div class="signal-value" id="originalData">Use controls on the left to start</div></div></div>
+                                <div id="loadingIndicator" class="loading"><div class="spinner"></div><p>Processing...</p></div>
+                                <div class="signal-flow" id="signalFlow">
+                                </div>
                             </div>
                         </div>
 
-                        <!-- Column 3: Outputs -->
-                        <div class="col-lg-3">
-                            <div id="resultsContainer" style="display: none;">
-                                <div class="comparison-panel">
-                                    <h4>Output Comparison</h4>
-                                    <table class="comparison-table">
-                                        <tbody>
-                                            <tr>
-                                                <td class="label">Original:</td>
-                                                <td class="data-col" id="compareOriginal"></td>
-                                            </tr>
-                                            <tr>
-                                                <td class="label">ZF:</td>
-                                                <td class="data-col" id="compareZf"></td>
-                                            </tr>
-                                            <tr>
-                                                <td class="label">MMSE:</td>
-                                                <td class="data-col" id="compareMmse"></td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
+                        <div class="col-xl-3 col-lg-12 col-md-12">
+                            <div class="output-panel" id="resultsContainer" style="display: none;">
+                                <div class="results-panel">
+                                    <h4>Performance</h4>
+                                    <div class="metric-card"><div class="metric-label">Symbol Error Rate (SER)</div><div class="metric-value" id="serValue">-</div></div>
+                                    <div class="metric-card"><div class="metric-label">Symbols in Error</div><div class="metric-value" id="errorCount">-</div></div>
+                                    <div class="metric-card"><div class="metric-label">Channel Condition</div><div class="metric-value" id="conditionNumber">-</div></div>
                                 </div>
-                                <div class="results-panel mt-4">
-                                    <h4>Detailed Results</h4>
-                                    <div class="metric-card"><div class="metric-label">Bit Error Rate (BER)</div><div class="metric-value" id="berValue">-</div></div>
-                                    <div class="metric-card"><div class="metric-label">Technique Displayed</div><div class="metric-value" id="techniqueUsed">-</div></div>
-                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="row mt-4">
+                        <div class="col-12" id="constellationSection" style="display: none;">
+                            <div class="constellation-container">
+                                <div class="constellation-plot"><h5>Original Transmitted</h5><canvas id="originalConstellation"></canvas></div>
+                                <div class="constellation-plot"><h5>Channel Distorted + Noise</h5><canvas id="distortedConstellation"></canvas></div>
+                                <div class="constellation-plot" id="equalizedPlot"><h5>Equalized (ZF)</h5><canvas id="equalizedConstellation"></canvas></div>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <div class="tab-pane fade" id="performance" role="tabpanel">
-                    <div class="instructions-card"><h3>Performance Comparison</h3><p>This tool runs a Monte Carlo simulation to compare the performance of ZF and MMSE equalizers over a range of Signal-to-Noise Ratios (SNR). Lower Bit Error Rate (BER) is better. Click the button to start the simulation.</p></div>
+                    <div class="instructions-card">
+                        <h3>Performance Analysis</h3>
+                        <p>This tab allows you to compare the Symbol Error Rate (SER) for up to 5 different configurations. Select your parameters, click **Plot Configuration**, and the curve will be added to the chart. Click **Reset Plots** to start over.</p>
+                    </div>
                     <div class="row">
-                        <div class="col-lg-8"><div class="chart-container"><div id="chartLoadingIndicator" class="loading"><div class="spinner"></div><p>Running Monte Carlo simulation... This may take a moment.</p></div><canvas id="performanceChart" width="400" height="200"></canvas></div></div>
-                        <div class="col-lg-4">
-                            <div class="perf-analysis-table"><table class="table table-striped"><thead><tr><th>Technique</th><th>Performance</th><th>Complexity</th></tr></thead><tbody><tr><td><strong>Zero Forcing</strong></td><td><span class="performance-indicator good">Good at High SNR</span></td><td><span class="performance-indicator excellent">Low</span></td></tr><tr><td><strong>MMSE</strong></td><td><span class="performance-indicator excellent">Excellent Overall</span></td><td><span class="performance-indicator good">Medium</span></td></tr></tbody></table></div>
-                            <button class="btn btn-primary w-100 mt-4" id="generateChartBtn" onclick="generatePerformanceChart()">Generate Performance Chart</button>
+                        <div class="col-xl-3 col-lg-4 col-md-12">
+                            <div class="analysis-control-panel">
+                                <h4>Plot Controls</h4>
+                                <div class="input-group horizontal">
+                                    <label for="analysisModulation">Modulation:</label>
+                                    <select class="form-select" id="analysisModulation">
+                                        <option value="BPSK">BPSK</option>
+                                        <option value="QPSK" selected>QPSK</option>
+                                        <option value="16QAM">16-QAM</option>
+                                        <option value="64QAM">64-QAM</option>
+                                    </select>
+                                </div>
+                                <div class="input-group horizontal">
+                                    <label for="analysisNumTxAntennas">Tx Antennas (Nt):</label>
+                                    <select class="form-select" id="analysisNumTxAntennas">
+                                        <option value="2" selected>2</option>
+                                        <option value="3">3</option>
+                                        <option value="4">4</option>
+                                    </select>
+                                </div>
+                                <div class="input-group horizontal">
+                                    <label for="analysisNumRxAntennas">Rx Antennas (Nr):</label>
+                                    <select class="form-select" id="analysisNumRxAntennas">
+                                        <option value="2" selected>2</option>
+                                        <option value="3">3</option>
+                                        <option value="4">4</option>
+                                    </select>
+                                </div>
+                                <div class="input-group horizontal" id="channelVariationGroup">
+                                    <label for="channelVariationFactor">Channel Variation (ZF only):</label>
+                                    <select class="form-select" id="channelVariationFactor">
+                                        <option value="1.0" selected>1.0x</option>
+                                        <option value="1.5">1.5x</option>
+                                        <option value="2.0">2.0x</option>
+                                        <option value="3.0">3.0x</option>
+                                        <option value="5.0">5.0x</option>
+                                    </select>
+                                </div>
+                                <div class="technique-selector">
+                                    <h5>Equalizer Type:</h5>
+                                    <div class="technique-options">
+                                        <div class="technique-option">
+                                            <input type="radio" id="analysisZf" name="analysisTechnique" value="ZF" checked>
+                                            <label for="analysisZf">ZF</label>
+                                        </div>
+                                        <div class="technique-option">
+                                            <input type="radio" id="analysisMmse" name="analysisTechnique" value="MMSE">
+                                            <label for="analysisMmse">MMSE</label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button class="btn btn-success w-100 mt-3" id="plotConfigBtn" onclick="addSERCurve()">Plot Configuration</button>
+                                <button class="btn btn-secondary w-100 mt-3" id="resetPlotsBtn" onclick="resetSERChart()">Reset Plots</button>
+                            </div>
+                        </div>
+                        <div class="col-xl-9 col-lg-8 col-md-12">
+                            <div class="chart-container" id="serChartContainer">
+                                <div id="chartLoadingIndicator" class="loading"><div class="spinner"></div><p>Generating SER curve...</p></div>
+                                <h4>Symbol Error Rate vs. SNR</h4>
+                                <canvas id="serChart"></canvas>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -331,94 +786,988 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // --- Global State Variables ---
-        let originalDataMatrix, channelMatrix, noisyReceivedMatrix;
-        let noiseVariance = 0.05; 
-        let performanceChart = null;
-
-        // --- Helper & Matrix Math Functions (No changes here) ---
-        function gaussianRandom() { let u=0,v=0; while(u===0)u=Math.random(); while(v===0)v=Math.random(); return Math.sqrt(-2.0*Math.log(u))*Math.cos(2.0*Math.PI*v); }
-        function generateGaussianMatrix(r, c, v=1) { let m=[]; for(let i=0;i<r;i++){let row=[]; for(let j=0;j<c;j++){row.push(gaussianRandom()*Math.sqrt(v));} m.push(row);} return m; }
-        function multiplyMatrices(A,B) { const rA=A.length,cA=A[0].length,rB=B.length,cB=B[0].length; if(cA!==rB)throw new Error('Matrix multiplication dimension mismatch'); const C=Array(rA).fill(0).map(()=>Array(cB).fill(0)); for(let i=0;i<rA;i++){for(let j=0;j<cB;j++){for(let k=0;k<cA;k++){C[i][j]+=A[i][k]*B[k][j];}}} return C; }
-        function addMatrices(A,B) { return A.map((row,i)=>row.map((val,j)=>val+B[i][j])); }
-        function transposeMatrix(m) { return m[0].map((_,ci)=>m.map(row=>row[ci])); }
-        function identityMatrix(s) { const m=Array(s).fill(0).map(()=>Array(s).fill(0)); for(let i=0;i<s;i++)m[i][i]=1; return m; }
-        function invertMatrix(m) { const s=m.length; const C=m.map((r,i)=>[...r,...identityMatrix(s)[i]]); for(let i=0;i<s;i++){let p=i; while(p<s&&C[p][i]===0)p++; if(p===s)throw new Error("Matrix is not invertible"); [C[i],C[p]]=[C[p],C[i]]; let d=C[i][i]; for(let j=i;j<2*s;j++)C[i][j]/=d; for(let k=0;k<s;k++){if(i!==k){let mult=C[k][i]; for(let j=i;j<2*s;j++)C[k][j]-=mult*C[i][j];}}} return C.map(r=>r.slice(s)); }
-        function formatMatrixForDisplay(m) { return m.map(r=>'['+r.map(v=>v.toFixed(2)).join(', ')+']').join('<br>'); }
-
-        // --- Core Equalization Algorithms (No changes here) ---
-        function zeroForcing(H) { const H_T=transposeMatrix(H); const H_T_H=multiplyMatrices(H_T,H); const inv_H_T_H=invertMatrix(H_T_H); return multiplyMatrices(inv_H_T_H,H_T); }
-        function mmse(H, n_v) { const H_T=transposeMatrix(H); const H_T_H=multiplyMatrices(H_T,H); const I=identityMatrix(H_T_H.length); const s_sq_I=I.map(r=>r.map(v=>v*n_v)); const term=addMatrices(H_T_H,s_sq_I); const inv=invertMatrix(term); return multiplyMatrices(inv,H_T); }
-
-        // --- Simulation Flow (No changes here) ---
-        function runSimulation() {
-            const input=document.getElementById('inputData').value.trim(); if(!/^[01]{2,8}$/.test(input)){alert('Please enter a binary string with 2 to 8 bits.');return;}
-            const noiseVarianceInput=parseFloat(document.getElementById('noiseVarianceInput').value); if(isNaN(noiseVarianceInput)||noiseVarianceInput<0){alert('Please enter a valid, non-negative number for Noise Variance.');return;}
-            noiseVariance=noiseVarianceInput; document.getElementById('loadingIndicator').style.display='flex'; document.getElementById('simulateBtn').disabled=true;
-            setTimeout(()=>{try{const dataBits=input.split('').map(Number);originalDataMatrix=[dataBits];const N=dataBits.length;channelMatrix=generateGaussianMatrix(N,N);const noiseMatrix=generateGaussianMatrix(1,N,noiseVariance);const transmittedSignal=multiplyMatrices(originalDataMatrix,channelMatrix);noisyReceivedMatrix=addMatrices(transmittedSignal,noiseMatrix);updateSignalFlow_Initial(input,noisyReceivedMatrix);document.getElementById('techniqueSelector').style.display='block';document.getElementById('resultsContainer').style.display='none';const checkedRadio=document.querySelector('input[name="technique"]:checked');if(checkedRadio){checkedRadio.checked=false;}}catch(error){console.error("Simulation Error:",error);alert("A simulation error occurred. The channel matrix might have been non-invertible. Please try again.");}finally{document.getElementById('loadingIndicator').style.display='none';document.getElementById('simulateBtn').disabled=false;}},500);
-        }
-
-        function applyAndCompareEqualizers() {
-            const selectedTechniqueRadio=document.querySelector('input[name="technique"]:checked'); if(!selectedTechniqueRadio)return; const selectedTechnique=selectedTechniqueRadio.value; if(!noisyReceivedMatrix)return;
-            document.getElementById('loadingIndicator').style.display='flex';
-            setTimeout(()=>{try{const equalizerMatrixZF=zeroForcing(channelMatrix);const recoveredSignalZF=multiplyMatrices(noisyReceivedMatrix,equalizerMatrixZF);const recoveredDataZF=makeDecision(recoveredSignalZF[0]);const berZF=calculateBER(originalDataMatrix[0],recoveredDataZF);const equalizerMatrixMMSE=mmse(channelMatrix,noiseVariance);const recoveredSignalMMSE=multiplyMatrices(noisyReceivedMatrix,equalizerMatrixMMSE);const recoveredDataMMSE=makeDecision(recoveredSignalMMSE[0]);const berMMSE=calculateBER(originalDataMatrix[0],recoveredDataMMSE);const input=document.getElementById('inputData').value.trim();updateSignalFlow_Initial(input,noisyReceivedMatrix);if(selectedTechnique==='ZF'){updateSignalFlow_Final('ZF',equalizerMatrixZF,recoveredDataZF);updateResults('ZF',berZF);}else{updateSignalFlow_Final('MMSE',equalizerMatrixMMSE,recoveredDataMMSE);updateResults('MMSE',berMMSE);} updateComparisonTable(originalDataMatrix[0],recoveredDataZF,recoveredDataMMSE);document.getElementById('resultsContainer').style.display='block';}catch(error){console.error("Equalization Error:",error);alert("An error occurred during equalization. The channel matrix might be ill-conditioned. Please simulate again.");}finally{document.getElementById('loadingIndicator').style.display='none';}},500);
-        }
-
-        function makeDecision(signal) { return signal.map(v => v >= 0.5 ? 1 : 0); }
-        function calculateBER(original, recovered) { let errors=0; for(let i=0;i<original.length;i++){if(original[i]!==recovered[i])errors++;} return original.length > 0 ? errors/original.length:0; }
-
-        // --- UI Update Functions ---
-        function updateSignalFlow_Initial(input, noisyMatrix) {
-            const signalFlow=document.getElementById('signalFlow'); const noisyBinary=makeDecision(noisyMatrix[0]).join('');
-            signalFlow.innerHTML=`<div class="signal-block"><h4>Original Data (x)</h4><div class="signal-value">${input}</div></div><div class="arrow">→</div><div class="signal-block"><h4>Channel (H)</h4><div class="signal-value">${formatMatrixForDisplay(channelMatrix)}</div></div><div class="arrow">+</div><div class="signal-block"><h4>Noise (n)</h4><div class="signal-value">Variance: ${noiseVariance.toFixed(3)}</div></div><div class="arrow">→</div><div class="signal-block"><h4>Received (y)</h4><div class="signal-value" title="Received analog values: ${formatMatrixForDisplay(noisyMatrix)}">${noisyBinary} (Decision)</div></div>`;
-        }
+        // --- GLOBAL STATE ---
+        let originalSymbolIndices = [], modulatedSymbols = [], currentModulation = 'QPSK';
+        let zfResults = null, mmseResults = null;
+        let distortedSymbols = [], currentNt = 2, currentNr = 2;
         
-        function updateSignalFlow_Final(technique, equalizerMatrix, recoveredData){
-            document.getElementById('signalFlow').innerHTML+=`<div class="arrow">→</div><div class="signal-block"><h4>${technique} Equalizer (G)</h4><div class="signal-value">${formatMatrixForDisplay(equalizerMatrix)}</div></div><div class="arrow">→</div><div class="signal-block"><h4>Recovered (x̂)</h4><div class="signal-value">${recoveredData.join('')}</div></div>`;
+        let serChart = null;
+        const savedCurves = [];
+        const maxCurves = 5;
+
+        let constellationCharts = {};
+
+        // --- COMPLEX NUMBER CLASS ---
+        class Complex {
+            constructor(r, i = 0) {
+                this.real = r;
+                this.imag = i;
+            }
+            add(o) {
+                return new Complex(this.real + o.real, this.imag + o.imag);
+            }
+            subtract(o) {
+                return new Complex(this.real - o.real, this.imag - o.imag);
+            }
+            multiply(o) {
+                if (typeof o === 'number') return new Complex(this.real * o, this.imag * o);
+                return new Complex(this.real * o.real - this.imag * o.imag, this.real * o.imag + this.imag * o.real);
+            }
+            divide(o) {
+                const d = o.real * o.real + o.imag * o.imag;
+                if (d === 0) return new Complex(Infinity, Infinity);
+                return new Complex((this.real * o.real + this.imag * o.imag) / d, (this.imag * o.real - this.real * o.imag) / d);
+            }
+            conjugate() {
+                return new Complex(this.real, -this.imag);
+            }
+            magnitudeSq() {
+                return this.real * this.real + this.imag * this.imag;
+            }
+            toString(p = 2) {
+                return `${this.real.toFixed(p)}${this.imag >= 0 ? '+' : ''}${this.imag.toFixed(p)}j`;
+            }
         }
 
-        function updateResults(technique, ber) {
-            document.getElementById('berValue').textContent=(ber*100).toFixed(2)+'%'; document.getElementById('berValue').className='metric-value '+(ber===0?'success-highlight':'error-highlight');
-            document.getElementById('techniqueUsed').textContent=technique;
-        }
+        // --- MODULATION CONSTANTS ---
+        const constellations = {
+            BPSK: [new Complex(-1, 0), new Complex(1, 0)],
+            QPSK: (() => {
+                const p = [new Complex(1, 1), new Complex(-1, 1), new Complex(-1, -1), new Complex(1, -1)];
+                const avg_pwr = p.reduce((s, v) => s + v.magnitudeSq(), 0) / p.length;
+                return p.map(c => c.multiply(1 / Math.sqrt(avg_pwr)));
+            })(),
+            '16QAM': (() => {
+                const p = [];
+                for (let i of [-3, -1, 1, 3])
+                    for (let q of [-3, -1, 1, 3])
+                        p.push(new Complex(i, q));
+                const avg_pwr = p.reduce((s, v) => s + v.magnitudeSq(), 0) / p.length;
+                return p.map(c => c.multiply(1 / Math.sqrt(avg_pwr)));
+            })(),
+            '64QAM': (() => {
+                const p = [];
+                for (let i of [-7, -5, -3, -1, 1, 3, 5, 7])
+                    for (let q of [-7, -5, -3, -1, 1, 3, 5, 7])
+                        p.push(new Complex(i, q));
+                const avg_pwr = p.reduce((s, v) => s + v.magnitudeSq(), 0) / p.length;
+                return p.map(c => c.multiply(1 / Math.sqrt(avg_pwr)));
+            })()
+        };
 
-        function updateComparisonTable(original, recoveredZF, recoveredMMSE) {
-            const formatBits = (orig, rec) => {
-                let html = '';
-                let errors = 0;
-                for (let i = 0; i < orig.length; i++) {
-                    if (orig[i] !== rec[i]) {
-                        html += `<span class="error-highlight">${rec[i]}</span>`;
-                        errors++;
-                    } else {
-                        html += rec[i];
-                    }
-                }
-                const errorClass = errors > 0 ? 'has-errors' : '';
-                html += `<span class="bit-error ${errorClass}">${errors} bit error(s)</span>`;
-                return html;
-            };
-
-            document.getElementById('compareOriginal').innerHTML = original.join('');
-            document.getElementById('compareZf').innerHTML = formatBits(original, recoveredZF);
-            document.getElementById('compareMmse').innerHTML = formatBits(original, recoveredMMSE);
-        }
-
-        // --- Performance Analysis Tab (No changes here) ---
-        async function generatePerformanceChart(){document.getElementById('chartLoadingIndicator').style.display='flex';document.getElementById('generateChartBtn').disabled=true;setTimeout(async()=>{const s=[-2,0,2,4,6,8,10,12,14,16];const zB=[],mB=[];for(const snrDb of s){const bz=await runSingleSnrsimulation(snrDb,'ZF');const bm=await runSingleSnrsimulation(snrDb,'MMSE');zB.push(bz);mB.push(bm);} plotPerformanceChart(s,zB,mB);document.getElementById('chartLoadingIndicator').style.display='none';document.getElementById('generateChartBtn').disabled=false;},100);}
-        function runSingleSnrsimulation(s,t){return new Promise(r=>{const M=2,nB=10000;let tE=0;const sL=10**(s/10);const n_v=1/sL;for(let i=0;i<nB/M;i++){let tx_b=Array.from({length:M},()=>Math.round(Math.random()));let tx_s=[tx_b.map(b=>(2*b-1))];let H=generateGaussianMatrix(M,M);let n=generateGaussianMatrix(M,1,n_v);let y=addMatrices(multiplyMatrices(H,transposeMatrix(tx_s)),n);try{let H_T=transposeMatrix(H);let H_TH=multiplyMatrices(H_T,H);let G;if(t==='ZF'){let iH=invertMatrix(H_TH);G=multiplyMatrices(iH,H_T);}else{let term=addMatrices(H_TH,identityMatrix(M).map(row=>row.map(v=>v*n_v)));let iT=invertMatrix(term);G=multiplyMatrices(iT,H_T);}let xh_T=multiplyMatrices(G,y);let xh=transposeMatrix(xh_T)[0];let rx_b=xh.map(v=>v>0?1:0);for(let j=0;j<M;j++){if(tx_b[j]!==rx_b[j])tE++;}}catch(e){tE+=M;}} r(tE/nB);});}
-        function plotPerformanceChart(l,zD,mD){const c=document.getElementById('performanceChart').getContext('2d');if(performanceChart)performanceChart.destroy();performanceChart=new Chart(c,{type:'line',data:{labels:l,datasets:[{label:'Zero Forcing (ZF)',data:zD,borderColor:'#0d6efd',backgroundColor:'rgba(13,110,253,0.1)',tension:0.1},{label:'MMSE',data:mD,borderColor:'#dc3545',backgroundColor:'rgba(220,53,69,0.1)',tension:0.1}]},options:{responsive:true,plugins:{title:{display:true,text:'BER vs. SNR Performance (2x2 MIMO)',font:{size:16}},legend:{position:'top'}},scales:{x:{title:{display:true,text:'SNR (dB)'}},y:{type:'logarithmic',title:{display:true,text:'Bit Error Rate (BER)'}}}}});}
-
-        // --- Initial Setup ---
+        // --- UI & CONTROL FUNCTIONS ---
         document.addEventListener('DOMContentLoaded', () => {
-            document.getElementById('loadingIndicator').style.display = 'none';
-            document.querySelectorAll('input[name="technique"]').forEach(radio => {
-                radio.addEventListener('change', applyAndCompareEqualizers);
-            });
+            try {
+                initializeSERChart();
+                resetSignalFlow();
+                
+                const tabEl = document.querySelector('#myTab .nav-link');
+                if (tabEl) {
+                    const tab = new bootstrap.Tab(tabEl);
+                    tab.show();
+                }
+                
+                // Replace noiseAmplificationFactor with channelVariationFactor
+                const analysisElements = [
+                    'analysisNumTxAntennas',
+                    'analysisNumRxAntennas',
+                    'analysisModulation',
+                    'channelVariationFactor'  // Changed from noiseAmplificationFactor
+                ];
+
+                // Update the radio button event listener
+                document.querySelectorAll('input[name="analysisTechnique"]').forEach(radio => {
+                    radio.addEventListener('change', () => {
+                        updateChannelVariationVisibility(); // Changed function name
+                        if (savedCurves.length > 0) updateAnalysisChart();
+                    });
+                });
+
+                // Initial setup for the performance tab
+                updateChannelVariationVisibility(); // Changed function name
+                
+                analysisElements.forEach(id => {
+                    const element = document.getElementById(id);
+                    if (element) {
+                        element.addEventListener('change', () => {
+                            if (savedCurves.length > 0) updateAnalysisChart();
+                        });
+                    }
+                });
+                
+                document.querySelectorAll('input[name="analysisTechnique"]').forEach(radio => {
+                    radio.addEventListener('change', () => {
+                        updateNoiseAmplificationVisibility();
+                        if (savedCurves.length > 0) updateAnalysisChart();
+                    });
+                });
+
+                // Initial setup for the performance tab
+                updateNoiseAmplificationVisibility();
+            } catch (error) {
+                console.error('Initialization error:', error);
+            }
         });
 
-        // Input validation
-        document.getElementById('inputData').addEventListener('input',function(){const v=this.value;if(v&&!/^[01]*$/.test(v)){this.classList.add('is-invalid');}else{this.classList.remove('is-invalid');}});
+        function updateChannelVariationVisibility() {
+            const selectedEqualizer = document.querySelector('input[name="analysisTechnique"]:checked').value;
+            const channelVarGroup = document.getElementById('channelVariationGroup');
+            if (channelVarGroup) {
+                channelVarGroup.style.display = (selectedEqualizer === 'ZF') ? 'flex' : 'none';
+            }
+        }
+
+
+        function generateRandomSymbols() {
+            currentModulation = document.getElementById('modulationScheme').value;
+            currentNt = parseInt(document.getElementById('numTxAntennas').value);
+            currentNr = parseInt(document.getElementById('numRxAntennas').value);
+            const constPoints = constellations[currentModulation];
+            originalSymbolIndices = [];
+            modulatedSymbols = [];
+            for (let i = 0; i < currentNt; i++) {
+                const idx = Math.floor(Math.random() * constPoints.length);
+                originalSymbolIndices.push(idx);
+                modulatedSymbols.push(constPoints[idx]);
+            }
+        }
+
+        async function runSimulation() {
+            document.getElementById('loadingIndicator').style.display = 'flex';
+            document.getElementById('simulateBtn').disabled = true;
+            document.getElementById('regenerateBtn').disabled = true;
+            
+            await new Promise(resolve => setTimeout(resolve, 10));
+
+            try {
+                generateRandomSymbols();
+                const Nt = currentNt;
+                const Nr = currentNr;
+
+                const snr_dB = parseFloat(document.getElementById('snrInput').value);
+                const constPoints = constellations[currentModulation];
+                const E_avg = constPoints.reduce((s, v) => s + v.magnitudeSq(), 0) / constPoints.length;
+                const noiseVariance = E_avg / (10 ** (snr_dB / 10));
+
+                const H = generateComplexChannel(Nr, Nt);
+                await new Promise(resolve => setTimeout(resolve, 1));
+                
+                const receivedSymbols = multiplyMatrixVector(H, modulatedSymbols);
+                const noise = Array.from({ length: Nr }, () => generateComplexGaussian().multiply(Math.sqrt(noiseVariance)));
+                const noisyReceivedSymbols = receivedSymbols.map((s, i) => s.add(noise[i]));
+                distortedSymbols = noisyReceivedSymbols.slice();
+
+                await new Promise(resolve => setTimeout(resolve, 1));
+                const condNum = calculateConditionNumber(H);
+
+                await new Promise(resolve => setTimeout(resolve, 1));
+                let zf_eq_data, mmse_eq_data;
+
+                // ZF Equalization
+                let W_zf = null;
+                const H_H_zf = transposeConjugateMatrix(H);
+                if (Nr >= Nt) {
+                    const H_H_H_zf = multiplyComplexMatrices(H_H_zf, H);
+                    const H_inv_zf = invertMatrix(H_H_H_zf);
+                    if (H_inv_zf) W_zf = multiplyComplexMatrices(H_inv_zf, H_H_zf);
+                } else {
+                    const H_H_H_zf = multiplyComplexMatrices(H, H_H_zf);
+                    const H_inv_zf = invertMatrix(H_H_H_zf);
+                    if (H_inv_zf) W_zf = multiplyComplexMatrices(H_H_zf, H_inv_zf);
+                }
+                zf_eq_data = W_zf ? multiplyMatrixVector(W_zf, noisyReceivedSymbols) : [];
+
+                // MMSE Equalization
+                let W_mmse = null;
+                const H_H_mmse = transposeConjugateMatrix(H);
+                if (Nr >= Nt) {
+                    const H_H_H_mmse = multiplyComplexMatrices(H_H_mmse, H);
+                    const I = identityMatrix(Nt);
+                    const noiseTerm = multiplyMatrixScalar(I, noiseVariance / E_avg);
+                    const mmse_inv = invertMatrix(addMatrices(H_H_H_mmse, noiseTerm));
+                    if (mmse_inv) W_mmse = multiplyComplexMatrices(mmse_inv, H_H_mmse);
+                } else {
+                    const H_H_H_mmse = multiplyComplexMatrices(H, H_H_mmse);
+                    const I = identityMatrix(Nr);
+                    const noiseTerm = multiplyMatrixScalar(I, noiseVariance / E_avg);
+                    const mmse_inv = invertMatrix(addMatrices(H_H_H_mmse, noiseTerm));
+                    if (mmse_inv) W_mmse = multiplyComplexMatrices(H_H_mmse, mmse_inv);
+                }
+                mmse_eq_data = W_mmse ? multiplyMatrixVector(W_mmse, noisyReceivedSymbols) : [];
+
+
+                await new Promise(resolve => setTimeout(resolve, 1));
+                const zf_demod = demodulate(zf_eq_data, currentModulation);
+                const mmse_demod = demodulate(mmse_eq_data, currentModulation);
+
+                zfResults = {
+                    equalized: zf_eq_data,
+                    ser: calculateSER(originalSymbolIndices, zf_demod.indices),
+                    errors: zf_demod.indices.filter((s, i) => s !== originalSymbolIndices[i]).length,
+                    conditionNumber: condNum,
+                    demodulatedIndices: zf_demod.indices
+                };
+                
+                mmseResults = {
+                    equalized: mmse_eq_data,
+                    ser: calculateSER(originalSymbolIndices, mmse_demod.indices),
+                    errors: mmse_demod.indices.filter((s, i) => s !== originalSymbolIndices[i]).length,
+                    conditionNumber: condNum,
+                    demodulatedIndices: mmse_demod.indices
+                };
+
+                document.getElementById('techniqueSelector').style.display = 'block';
+                document.getElementById('resultsContainer').style.display = 'block';
+                document.getElementById('constellationSection').style.display = 'block';
+                document.getElementById('simulateBtn').style.display = 'none';
+                document.getElementById('regenerateBtn').style.display = 'block';
+
+                await new Promise(resolve => setTimeout(resolve, 5));
+                updateSignalFlow(H, noisyReceivedSymbols);
+                
+                await new Promise(resolve => setTimeout(resolve, 5));
+                updateDisplay();
+                
+                await new Promise(resolve => setTimeout(resolve, 5));
+                updateConstellationPlots();
+
+            } catch (error) {
+                console.error('Simulation error:', error);
+                alert('Simulation failed. Please try again.');
+            } finally {
+                document.getElementById('loadingIndicator').style.display = 'none';
+                document.getElementById('simulateBtn').disabled = false;
+                document.getElementById('regenerateBtn').disabled = false;
+            }
+        }
+
+        function updateDisplay() {
+            const t = document.querySelector('input[name="technique"]:checked').value;
+            const r = (t === 'ZF') ? zfResults : mmseResults;
+            if (!r) return;
+
+            document.getElementById('serValue').innerText = r.ser.toFixed(3);
+            document.getElementById('errorCount').innerText = `${r.errors} / ${originalSymbolIndices.length}`;
+            document.getElementById('conditionNumber').innerText = r.conditionNumber.toFixed(2);
+
+            const equalizedPlot = document.getElementById('equalizedPlot');
+            if (equalizedPlot) {
+                equalizedPlot.querySelector('h5').innerText = `Equalized (${t})`;
+            }
+
+            const eqBlock = document.getElementById('flow-equalized');
+            if (eqBlock) {
+                const eqData = r.equalized.length > 0 ? r.equalized.map(s => s.toString(2)).join('<br>') : 'Equalization failed';
+                eqBlock.innerHTML = `<h4>${t} Equalized (x̂)</h4><div class="signal-value">${eqData}</div>`;
+            }
+            
+            const demodedBlock = document.getElementById('flow-demodulated');
+            if (demodedBlock) {
+                const demodedData = r.demodulatedIndices.length > 0 ? r.demodulatedIndices.map(i => `Symbol ${i}`).join('<br>') : 'Demodulation failed';
+                demodedBlock.innerHTML = `<h4>MAP Detector</h4><div class="signal-value" id="demodulatedOutput">${demodedData}<br><small>(${r.errors} errors)</small></div>`;
+            }
+
+            updateConstellationPlots();
+        }
+        
+        function updateSignalFlow(channelMatrix, noisyReceivedSymbols) {
+            const Nt = currentNt;
+            const Nr = currentNr;
+            document.getElementById('signalFlow').innerHTML = `
+                <div class="signal-block"><h4>Transmitted (x)</h4><div class="signal-value">${modulatedSymbols.map(s => s.toString(2)).join('<br>')}<br><small>${Nt} streams</small></div></div>
+                <div class="arrow">→</div>
+                <div class="signal-block"><h4>Channel (H)</h4><div class="signal-value">${Nr}×${Nt} MIMO<br><small>Rayleigh fading</small></div></div>
+                <div class="arrow">→</div>
+                <div class="noise-adder">
+                    <div class="noise-adder-circle">+</div>
+                    <div class="noise-arrow">↑</div>
+                    <div class="noise-adder-label">AWGN</div>
+                </div>
+                <div class="arrow">→</div>
+                <div class="signal-block"><h4>Received (y)</h4><div class="signal-value">${noisyReceivedSymbols.map(s => s.toString(2)).join('<br>')}<br><small>${Nr} antennas</small></div></div>
+                <div class="arrow">→</div>
+                <div class="signal-block" id="flow-equalized"></div>
+                <div class="arrow">→</div>
+                <div class="signal-block" id="flow-demodulated"></div>
+            `;
+            updateDisplay();
+        }
+
+        function resetSignalFlow() {
+            document.getElementById('signalFlow').innerHTML = '<div class="signal-block" style="width:100%"><h4>MIMO Simulation Flow</h4><div class="signal-value" style="text-align:center; padding-top:20px;">Configure MIMO parameters and click "Simulate Channel" to begin.</div></div>';
+        }
+
+        // --- CORE LOGIC & MATH ---
+        function generateComplexGaussian() {
+            const u1 = Math.random(),
+                u2 = Math.random();
+            return new Complex(Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2) / Math.sqrt(2), Math.sqrt(-2 * Math.log(u1)) * Math.sin(2 * Math.PI * u2) / Math.sqrt(2));
+        }
+
+        function generateComplexChannel(Nr, Nt) {
+            return Array.from({
+                length: Nr
+            }, () => Array.from({
+                length: Nt
+            }, () => generateComplexGaussian()));
+        }
+
+        function demodulate(r, m) {
+            const c = constellations[m];
+            if (!r || r.length === 0 || !c) return {
+                indices: [],
+                symbols: []
+            };
+            const i = r.map(s => {
+                let best = 0,
+                    min = Infinity;
+                for (let j = 0; j < c.length; j++) {
+                    const d = s.subtract(c[j]).magnitudeSq();
+                    if (d < min) {
+                        min = d;
+                        best = j;
+                    }
+                }
+                return best;
+            });
+            return {
+                indices: i,
+                symbols: i.map(j => c[j])
+            };
+        }
+
+        function calculateSER(originalIndices, demodulatedIndices) {
+            if (!originalIndices || !demodulatedIndices || 
+                originalIndices.length === 0 || demodulatedIndices.length === 0 || 
+                originalIndices.length !== demodulatedIndices.length) {
+                return 1.0; 
+            }
+            
+            let errorCount = 0;
+            for (let i = 0; i < originalIndices.length; i++) {
+                if (originalIndices[i] !== demodulatedIndices[i]) {
+                    errorCount++;
+                }
+            }
+            
+            return errorCount / originalIndices.length;
+        }
+
+        function calculateConditionNumber(H) {
+            const H_H = transposeConjugateMatrix(H);
+            const HHH = multiplyComplexMatrices(H_H, H);
+            let trace = 0;
+            let minDiag = Infinity;
+            for (let i = 0; i < Math.min(HHH.length, HHH[0].length); i++) {
+                const diagVal = HHH[i][i].magnitudeSq();
+                trace += Math.sqrt(diagVal);
+                if (Math.sqrt(diagVal) < minDiag) minDiag = Math.sqrt(diagVal);
+            }
+            return minDiag > 0 ? trace / (HHH.length * minDiag) : Infinity;
+        }
+
+        // --- COMPLEX MATRIX ALGEBRA ---
+        function multiplyMatrixVector(m, v) {
+            return m.map(r => r.reduce((a, c, j) => a.add(c.multiply(v[j])), new Complex(0, 0)));
+        }
+
+        function multiplyComplexMatrices(A, B) {
+            const C = Array(A.length).fill(0).map(() => Array(B[0].length).fill(new Complex(0, 0)));
+            for (let i = 0; i < A.length; i++)
+                for (let j = 0; j < B[0].length; j++)
+                    for (let k = 0; k < A[0].length; k++)
+                        C[i][j] = C[i][j].add(A[i][k].multiply(B[k][j]));
+            return C;
+        }
+
+        function transposeConjugateMatrix(m) {
+            const r = Array(m[0].length).fill(0).map(() => Array(m.length));
+            for (let i = 0; i < m.length; i++)
+                for (let j = 0; j < m[0].length; j++)
+                    r[j][i] = m[i][j].conjugate();
+            return r;
+        }
+
+        function addMatrices(A, B) {
+            return A.map((r, i) => r.map((v, j) => v.add(B[i][j])));
+        }
+
+        function multiplyMatrixScalar(m, s) {
+            return m.map(r => r.map(v => v.multiply(s)));
+        }
+
+        function identityMatrix(s) {
+            const I = Array(s).fill(0).map(() => Array(s).fill(new Complex(0, 0)));
+            for (let i = 0; i < s; i++) I[i][i] = new Complex(1, 0);
+            return I;
+        }
+
+        // --- IMPROVED MATRIX INVERSION WITH BETTER NUMERICAL STABILITY (Gaussian elimination) ---
+        function invertMatrix(m) {
+            const n = m.length;
+            if (n === 0) return null;
+            
+            // Create augmented matrix [A | I]
+            const A = m.map((r, i) => [...r.map(c => new Complex(c.real, c.imag)), ...identityMatrix(n)[i]]);
+            
+            const eps = 1e-10; // Numerical precision threshold
+            
+            for (let i = 0; i < n; i++) {
+                // Find pivot
+                let maxRow = i;
+                for (let k = i + 1; k < n; k++) {
+                    if (A[k][i].magnitudeSq() > A[maxRow][i].magnitudeSq()) {
+                        maxRow = k;
+                    }
+                }
+                
+                // Check for singular matrix
+                if (A[maxRow][i].magnitudeSq() < eps) {
+                    console.warn('Matrix is singular or near-singular');
+                    return null;
+                }
+                
+                // Swap rows
+                [A[i], A[maxRow]] = [A[maxRow], A[i]];
+                
+                // Scale pivot row
+                const pivot = A[i][i];
+                for (let j = i; j < 2 * n; j++) {
+                    A[i][j] = A[i][j].divide(pivot);
+                }
+                
+                // Eliminate column
+                for (let k = 0; k < n; k++) {
+                    if (k !== i) {
+                        const factor = A[k][i];
+                        for (let j = i; j < 2 * n; j++) {
+                            A[k][j] = A[k][j].subtract(factor.multiply(A[i][j]));
+                        }
+                    }
+                }
+            }
+            
+            return A.map(r => r.slice(n));
+        }
+
+        // --- PSEUDO-INVERSE FOR NON-SQUARE MATRICES ---
+        function pseudoInverse(H) {
+            const Nr = H.length;
+            const Nt = H[0].length;
+            const H_H = transposeConjugateMatrix(H);
+            
+            if (Nr >= Nt) { // Tall matrix, H^+ = (H^H H)^-1 H^H
+                const H_H_H = multiplyComplexMatrices(H_H, H);
+                const inv_term = invertMatrix(H_H_H);
+                if (!inv_term) return null;
+                return multiplyComplexMatrices(inv_term, H_H);
+            } else { // Wide matrix, H^+ = H^H (H H^H)^-1
+                const H_H_H = multiplyComplexMatrices(H, H_H);
+                const inv_term = invertMatrix(H_H_H);
+                if (!inv_term) return null;
+                return multiplyComplexMatrices(H_H, inv_term);
+            }
+        }
+        
+        // --- CHARTING FUNCTIONS ---
+        async function calculateSERvsSNR(mod, Nt, Nr, equalizer, channelVariationFactor = 1.0) {
+            const numSymbolsPerSNR = 10000; // Reduced for faster computation
+            const snr_dB = Array.from({ length: 21 }, (_, i) => -20 + i * 2); // -20 to 20 dB, step 2
+            
+            const c = constellations[mod];
+            const E_avg = c.reduce((s, v) => s + v.magnitudeSq(), 0) / c.length;
+            
+            const serData = [];
+            
+            for (const db of snr_dB) {
+                const snr_linear = 10 ** (db / 10);
+                const noiseVariance = 1 / snr_linear; // Based on your MATLAB code
+                
+                let errorCount = 0;
+                let totalSymbols = 0;
+
+                const numberOfTransmissions = Math.floor(numSymbolsPerSNR / Nt);
+
+                for (let t = 0; t < numberOfTransmissions; t++) {
+                    // Generate Rayleigh fading channel (as per MATLAB code)
+                    const H = generateRayleighChannel(Nr, Nt, channelVariationFactor);
+                    
+                    const originalIndices = Array.from({ length: Nt }, () => Math.floor(Math.random() * c.length));
+                    const modulated_symbols = originalIndices.map(i => c[i]);
+                    
+                    // Channel multiplication
+                    let y = multiplyMatrixVector(H, modulated_symbols);
+                    
+                    // Add AWGN noise (as per MATLAB code)
+                    const noise_vector = Array.from({ length: Nr }, () => 
+                        generateComplexGaussian().multiply(Math.sqrt(noiseVariance / 2))
+                    );
+                    
+                    const noisy_y = y.map((s, i) => s.add(noise_vector[i]));
+
+                    let W = null;
+                    let equalized_symbols = [];
+
+                    if (equalizer === 'ZF') {
+                        W = pseudoInverse(H);
+                    } else if (equalizer === 'MMSE') {
+                        const H_H = transposeConjugateMatrix(H);
+                        const H_H_H = multiplyComplexMatrices(H_H, H);
+                        const I_term = identityMatrix(Nt);
+                        const MMSE_term = multiplyMatrixScalar(I_term, noiseVariance);
+                        const MMSE_matrix = addMatrices(H_H_H, MMSE_term);
+                        const inv_MMSE = invertMatrix(MMSE_matrix);
+                        if (inv_MMSE) {
+                            W = multiplyComplexMatrices(inv_MMSE, H_H);
+                        }
+                    }
+                    
+                    if (W) {
+                        equalized_symbols = multiplyMatrixVector(W, noisy_y);
+                    }
+                    
+                    const demodulatedIndices = demodulate(equalized_symbols, mod).indices;
+
+                    for (let i = 0; i < Nt; i++) {
+                        if (originalIndices[i] !== demodulatedIndices[i]) {
+                            errorCount++;
+                        }
+                    }
+                    totalSymbols += Nt;
+                }
+                
+                const ser = totalSymbols > 0 ? errorCount / totalSymbols : 1.0;
+                serData.push(Math.max(ser, 1e-6));
+            }
+            
+            const channelLabel = (channelVariationFactor !== 1.0) ? ` (Channel Var: ${channelVariationFactor}x)` : '';
+            return { 
+                labels: snr_dB, 
+                data: serData, 
+                label: `${mod} ${Nt}x${Nr} (${equalizer}${channelLabel})` 
+            };
+        }
+
+        async function addSERCurve() {
+            if (savedCurves.length >= maxCurves) {
+                alert(`You can only plot up to ${maxCurves} configurations. Please reset the plots to add more.`);
+                return;
+            }
+
+            document.getElementById('chartLoadingIndicator').style.display = 'flex';
+            document.getElementById('plotConfigBtn').disabled = true;
+            document.getElementById('resetPlotsBtn').disabled = true;
+
+            try {
+                const mod = document.getElementById('analysisModulation').value;
+                const Nt = parseInt(document.getElementById('analysisNumTxAntennas').value);
+                const Nr = parseInt(document.getElementById('analysisNumRxAntennas').value);
+                const equalizer = document.querySelector('input[name="analysisTechnique"]:checked').value;
+                const channelVariationFactor = (equalizer === 'ZF') ? parseFloat(document.getElementById('channelVariationFactor').value) : 1.0;
+
+                const newCurve = await calculateSERvsSNR(mod, Nt, Nr, equalizer, channelVariationFactor);
+                savedCurves.push(newCurve);
+                updateAnalysisChart();
+            } catch (error) {
+                console.error('Error generating curve:', error);
+                alert('An error occurred while generating the curve. Please check the console for details.');
+            } finally {
+                document.getElementById('chartLoadingIndicator').style.display = 'none';
+                document.getElementById('plotConfigBtn').disabled = false;
+                document.getElementById('resetPlotsBtn').disabled = false;
+            }
+        }
+        
+        function resetSERChart() {
+            savedCurves.length = 0;
+            updateAnalysisChart();
+        }
+
+        const predefinedColors = [
+            '#0d6efd', '#28a745', '#e74c3c', '#ffc107', '#6c757d'
+        ];
+
+        function updateAnalysisChart() {
+            if (serChart) serChart.destroy();
+            const ctx = document.getElementById('serChart').getContext('2d');
+            
+            const datasets = savedCurves.map((curve, index) => ({
+                label: curve.label,
+                data: curve.data,
+                borderColor: predefinedColors[index % predefinedColors.length],
+                backgroundColor: predefinedColors[index % predefinedColors.length],
+                fill: false,
+                tension: 0.2,
+                pointRadius: 2,
+                pointHoverRadius: 4,
+                borderWidth: 2
+            }));
+            
+            serChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: savedCurves.length > 0 ? savedCurves[0].labels : [],
+                    datasets: datasets
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    aspectRatio: 2,
+                    layout: { padding: 10 },
+                    scales: {
+                        y: {
+                            type: 'logarithmic',
+                            title: { display: true, text: 'Symbol Error Rate (SER)' },
+                            min: 1e-5,
+                            max: 1,
+                            ticks: { 
+                                callback: function(v, i, ticks) {
+                                    const value = Number(v);
+                                    if (value === 1) return '1';
+                                    if (value === 0.1) return '0.1';
+                                    if (value === 0.01) return '0.01';
+                                    if (value === 0.001) return '0.001';
+                                    if (value === 0.0001) return '0.0001';
+                                    if (value === 0.00001) return '0.00001';
+                                    return '';
+                                },
+                                color: '#555',
+                                font: { size: 10 },
+                                maxTicksLimit: 6
+                            },
+                            grid: { 
+                                color: function(context) {
+                                    const value = context.tick.value;
+                                    if ([1, 0.1, 0.01, 0.001, 0.0001, 0.00001].includes(value)) {
+                                        return 'rgba(0,0,0,0.3)';
+                                    }
+                                    return 'rgba(0,0,0,0.1)';
+                                },
+                                lineWidth: function(context) {
+                                    const value = context.tick.value;
+                                    if ([1, 0.1, 0.01, 0.001, 0.0001, 0.00001].includes(value)) {
+                                        return 1;
+                                    }
+                                    return 0.5;
+                                }
+                            }
+                        },
+                        x: {
+                            title: { display: true, text: 'Average SNR (dB)' },
+                            min: -20,
+                            max: 20,
+                            ticks: {
+                                stepSize: 5,
+                                color: '#555',
+                                font: { size: 10 }
+                            },
+                            grid: { 
+                                color: 'rgba(0,0,0,0.2)',
+                                lineWidth: 0.5
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Symbol Error Rate vs. SNR for MIMO Equalization',
+                            font: { size: 14, weight: 'normal' },
+                            color: '#333'
+                        },
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            align: 'end',
+                            labels: {
+                                usePointStyle: true,
+                                pointStyle: 'line',
+                                font: { size: 10 }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function initializeSERChart() {
+            const ctx = document.getElementById('serChart').getContext('2d');
+            serChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: []
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    aspectRatio: 2,
+                    layout: { padding: 10 },
+                    scales: {
+                        y: {
+                            type: 'logarithmic',
+                            title: { display: true, text: 'Symbol Error Rate (SER)' },
+                            min: 1e-6,
+                            max: 1,
+                            ticks: { 
+                                callback: function(v, i, ticks) {
+                                    const value = Number(v);
+                                    if (value === 1) return '1';
+                                    if (value === 0.1) return '0.1';
+                                    if (value === 0.01) return '0.01';
+                                    if (value === 0.001) return '0.001';
+                                    if (value === 0.0001) return '0.0001';
+                                    if (value === 0.00001) return '1e-005';
+                                    if (value === 0.000001) return '1e-006';
+                                    return '';
+                                },
+                                color: '#555',
+                                font: { size: 10 },
+                                maxTicksLimit: 7
+                            },
+                            grid: { 
+                                color: function(context) {
+                                    const value = context.tick.value;
+                                    if ([1, 0.1, 0.01, 0.001, 0.0001, 0.00001, 0.000001].includes(value)) {
+                                        return 'rgba(0,0,0,0.3)';
+                                    }
+                                    return 'rgba(0,0,0,0.1)';
+                                },
+                                lineWidth: function(context) {
+                                    const value = context.tick.value;
+                                    if ([1, 0.1, 0.01, 0.001, 0.0001, 0.00001, 0.000001].includes(value)) {
+                                        return 1;
+                                    }
+                                    return 0.5;
+                                }
+                            }
+                        },
+                        x: {
+                            title: { display: true, text: 'Average SNR (dB)' },
+                            min: -20,
+                            max: 20,
+                            ticks: {
+                                stepSize: 5,
+                                color: '#555',
+                                font: { size: 10 }
+                            },
+                            grid: { 
+                                color: 'rgba(0,0,0,0.2)',
+                                lineWidth: 0.5
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Symbol Error Rate vs. SNR for MIMO Equalization',
+                            font: { size: 14, weight: 'normal' },
+                            color: '#333'
+                        },
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            align: 'end',
+                            labels: {
+                                usePointStyle: true,
+                                pointStyle: 'line',
+                                font: { size: 10 }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function updateConstellationPlots() {
+            try {
+                const p = constellations[currentModulation];
+                const selectedTechnique = document.querySelector('input[name="technique"]:checked');
+                
+                if (!selectedTechnique || !p) {
+                    console.warn('Missing technique selection or constellation points');
+                    return;
+                }
+                
+                const results = (selectedTechnique.value === 'ZF') ? zfResults : mmseResults;
+
+                if (!results || !Array.isArray(results.equalized)) {
+                    console.warn('Missing results or equalized data');
+                    return;
+                }
+                
+                plotConstellation('originalConstellation', modulatedSymbols, p);
+                plotConstellation('distortedConstellation', distortedSymbols, p);
+                plotConstellation('equalizedConstellation', results.equalized, p, results.demodulatedIndices);
+            } catch (error) {
+                console.error('Error updating constellation plots:', error);
+            }
+        }
+
+        function resetConstellationPlots() {
+            Object.values(constellationCharts).forEach(c => c.destroy());
+            constellationCharts = {};
+            ['originalConstellation', 'distortedConstellation', 'equalizedConstellation'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.getContext('2d').clearRect(0, 0, el.width, el.height);
+            });
+        }
+        
+        function generateRayleighChannel(Nr, Nt, variationFactor = 1.0) {
+            // Generate complex Rayleigh fading channel as per MATLAB code
+            // H = (randn + 1j*randn) / sqrt(2) * variationFactor
+            return Array.from({ length: Nr }, () => 
+                Array.from({ length: Nt }, () => {
+                    const real = Math.sqrt(-2 * Math.log(Math.random())) * Math.cos(2 * Math.PI * Math.random());
+                    const imag = Math.sqrt(-2 * Math.log(Math.random())) * Math.sin(2 * Math.PI * Math.random());
+                    return new Complex(real * variationFactor / Math.sqrt(2), imag * variationFactor / Math.sqrt(2));
+                })
+            );
+        }
+
+        function plotConstellation(id, data, ideal, decodedIndices = null) {
+            const canvas = document.getElementById(id);
+            if (!canvas) {
+                console.warn(`Canvas element ${id} not found`);
+                return;
+            }
+            
+            const ctx = canvas.getContext('2d');
+            if (constellationCharts[id]) {
+                constellationCharts[id].destroy();
+                delete constellationCharts[id];
+            }
+
+            const dataPts = (data && Array.isArray(data)) ? data.map(p => ({
+                x: p.real || 0,
+                y: p.imag || 0
+            })) : [];
+            
+            const idealPts = (ideal && Array.isArray(ideal)) ? ideal.map(p => ({
+                x: p.real || 0,
+                y: p.imag || 0
+            })) : [];
+
+            const datasets = [{
+                label: 'Ideal',
+                data: idealPts,
+                backgroundColor: '#000000',
+                borderColor: '#000000',
+                pointRadius: 8,
+                pointStyle: 'crossRot',
+                borderWidth: 4
+            }];
+
+            if (dataPts.length > 0) {
+                 datasets.push({
+                    label: 'Signal',
+                    data: dataPts,
+                    backgroundColor: 'rgba(13,110,253,0.7)',
+                    pointRadius: 6
+                });
+            }
+
+            if (dataPts.length > 0 && decodedIndices && ideal && originalSymbolIndices) {
+                const correctMappings = [];
+                const incorrectMappings = [];
+                
+                for (let i = 0; i < Math.min(dataPts.length, decodedIndices.length, originalSymbolIndices.length); i++) {
+                    if (typeof dataPts[i].x !== 'undefined' && typeof dataPts[i].y !== 'undefined' &&
+                        decodedIndices[i] < ideal.length && ideal[decodedIndices[i]]) {
+                        
+                        const receivedPoint = dataPts[i];
+                        const mappedPoint = idealPts[decodedIndices[i]];
+                        
+                        const isCorrect = decodedIndices[i] === originalSymbolIndices[i];
+                        
+                        if (isCorrect) {
+                            correctMappings.push(receivedPoint, mappedPoint, { x: NaN, y: NaN });
+                        } else {
+                            incorrectMappings.push(receivedPoint, mappedPoint, { x: NaN, y: NaN });
+                        }
+                    }
+                }
+
+                if (correctMappings.length > 0) {
+                    datasets.push({
+                        label: 'Correct Mapping',
+                        data: correctMappings,
+                        showLine: true,
+                        borderColor: 'rgba(40, 167, 69, 0.6)',
+                        borderDash: [5, 5],
+                        pointRadius: 0,
+                        fill: false
+                    });
+                }
+
+                if (incorrectMappings.length > 0) {
+                    datasets.push({
+                        label: 'Incorrect Mapping',
+                        data: incorrectMappings,
+                        showLine: true,
+                        borderColor: 'rgba(220, 53, 69, 0.8)',
+                        borderDash: [3, 3],
+                        pointRadius: 0,
+                        fill: false
+                    });
+                }
+            }
+
+            const allPoints = [...dataPts, ...idealPts];
+            const maxAbsValue = allPoints.reduce((max, pt) => {
+                const absReal = Math.abs(pt.x || 0);
+                const absImag = Math.abs(pt.y || 0);
+                return Math.max(max, absReal, absImag);
+            }, 0);
+            
+            const finalAxisLimit = Math.ceil(Math.max(maxAbsValue, 1)) + 1;
+            
+            try {
+                constellationCharts[id] = new Chart(ctx, {
+                    type: 'scatter',
+                    data: { datasets },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        aspectRatio: 1,
+                        scales: {
+                            x: {
+                                title: { display: true, text: 'In-Phase(I)' },
+                                min: -finalAxisLimit,
+                                max: finalAxisLimit,
+                                grid: {
+                                    color: c => c.tick.value === 0 ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.1)',
+                                    lineWidth: c => c.tick.value === 0 ? 2 : 1
+                                },
+                                ticks: { color: '#555' }
+                            },
+                            y: {
+                                title: { display: true, text: 'Quadrature(Q)' },
+                                min: -finalAxisLimit,
+                                max: finalAxisLimit,
+                                grid: {
+                                    color: c => c.tick.value === 0 ? 'rgba(0,0,0,0.6)' : 'rgba(0,0,0,0.1)',
+                                    lineWidth: c => c.tick.value === 0 ? 2 : 1
+                                },
+                                ticks: { color: '#555' }
+                            }
+                        },
+                        plugins: {
+                            legend: {
+                                display: true,
+                                position: 'bottom',
+                                labels: {
+                                    filter: function(legendItem, chartData) {
+                                        return legendItem.text.includes('Mapping');
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error(`Error creating chart ${id}:`, error);
+            }
+        }
     </script>
 </body>
 </html>

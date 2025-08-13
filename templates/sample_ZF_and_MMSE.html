@@ -744,6 +744,16 @@
                                         <option value="4">4</option>
                                     </select>
                                 </div>
+                                <div class="input-group horizontal" id="channelVariationGroup">
+                                    <label for="channelVariationFactor">Channel Variation (ZF only):</label>
+                                    <select class="form-select" id="channelVariationFactor">
+                                        <option value="1.0" selected>1.0x</option>
+                                        <option value="1.5">1.5x</option>
+                                        <option value="2.0">2.0x</option>
+                                        <option value="3.0">3.0x</option>
+                                        <option value="5.0">5.0x</option>
+                                    </select>
+                                </div>
                                 <div class="technique-selector">
                                     <h5>Equalizer Type:</h5>
                                     <div class="technique-options">
@@ -857,11 +867,24 @@
                     tab.show();
                 }
                 
+                // Replace noiseAmplificationFactor with channelVariationFactor
                 const analysisElements = [
                     'analysisNumTxAntennas',
                     'analysisNumRxAntennas',
-                    'analysisModulation'
+                    'analysisModulation',
+                    'channelVariationFactor'  // Changed from noiseAmplificationFactor
                 ];
+
+                // Update the radio button event listener
+                document.querySelectorAll('input[name="analysisTechnique"]').forEach(radio => {
+                    radio.addEventListener('change', () => {
+                        updateChannelVariationVisibility(); // Changed function name
+                        if (savedCurves.length > 0) updateAnalysisChart();
+                    });
+                });
+
+                // Initial setup for the performance tab
+                updateChannelVariationVisibility(); // Changed function name
                 
                 analysisElements.forEach(id => {
                     const element = document.getElementById(id);
@@ -874,13 +897,26 @@
                 
                 document.querySelectorAll('input[name="analysisTechnique"]').forEach(radio => {
                     radio.addEventListener('change', () => {
+                        updateNoiseAmplificationVisibility();
                         if (savedCurves.length > 0) updateAnalysisChart();
                     });
                 });
+
+                // Initial setup for the performance tab
+                updateNoiseAmplificationVisibility();
             } catch (error) {
                 console.error('Initialization error:', error);
             }
         });
+
+        function updateChannelVariationVisibility() {
+            const selectedEqualizer = document.querySelector('input[name="analysisTechnique"]:checked').value;
+            const channelVarGroup = document.getElementById('channelVariationGroup');
+            if (channelVarGroup) {
+                channelVarGroup.style.display = (selectedEqualizer === 'ZF') ? 'flex' : 'none';
+            }
+        }
+
 
         function generateRandomSymbols() {
             currentModulation = document.getElementById('modulationScheme').value;
@@ -927,31 +963,38 @@
                 await new Promise(resolve => setTimeout(resolve, 1));
                 let zf_eq_data, mmse_eq_data;
 
+                // ZF Equalization
+                let W_zf = null;
+                const H_H_zf = transposeConjugateMatrix(H);
                 if (Nr >= Nt) {
-                    const H_H = transposeConjugateMatrix(H);
-                    const H_H_H = multiplyComplexMatrices(H_H, H);
-                    const H_inv = invertMatrix(H_H_H);
-                    const W_zf = H_inv ? multiplyComplexMatrices(H_inv, H_H) : null;
+                    const H_H_H_zf = multiplyComplexMatrices(H_H_zf, H);
+                    const H_inv_zf = invertMatrix(H_H_H_zf);
+                    if (H_inv_zf) W_zf = multiplyComplexMatrices(H_inv_zf, H_H_zf);
+                } else {
+                    const H_H_H_zf = multiplyComplexMatrices(H, H_H_zf);
+                    const H_inv_zf = invertMatrix(H_H_H_zf);
+                    if (H_inv_zf) W_zf = multiplyComplexMatrices(H_H_zf, H_inv_zf);
+                }
+                zf_eq_data = W_zf ? multiplyMatrixVector(W_zf, noisyReceivedSymbols) : [];
+
+                // MMSE Equalization
+                let W_mmse = null;
+                const H_H_mmse = transposeConjugateMatrix(H);
+                if (Nr >= Nt) {
+                    const H_H_H_mmse = multiplyComplexMatrices(H_H_mmse, H);
                     const I = identityMatrix(Nt);
                     const noiseTerm = multiplyMatrixScalar(I, noiseVariance / E_avg);
-                    const mmse_inv = invertMatrix(addMatrices(H_H_H, noiseTerm));
-                    const W_mmse = mmse_inv ? multiplyComplexMatrices(mmse_inv, H_H) : null;
-
-                    zf_eq_data = W_zf ? multiplyMatrixVector(W_zf, noisyReceivedSymbols) : [];
-                    mmse_eq_data = W_mmse ? multiplyMatrixVector(W_mmse, noisyReceivedSymbols) : [];
+                    const mmse_inv = invertMatrix(addMatrices(H_H_H_mmse, noiseTerm));
+                    if (mmse_inv) W_mmse = multiplyComplexMatrices(mmse_inv, H_H_mmse);
                 } else {
-                    const H_H = transposeConjugateMatrix(H);
-                    const H_H_H = multiplyComplexMatrices(H, H_H);
-                    const H_inv = invertMatrix(H_H_H);
-                    const W_zf = H_inv ? multiplyComplexMatrices(H_H, H_inv) : null;
+                    const H_H_H_mmse = multiplyComplexMatrices(H, H_H_mmse);
                     const I = identityMatrix(Nr);
                     const noiseTerm = multiplyMatrixScalar(I, noiseVariance / E_avg);
-                    const mmse_inv = invertMatrix(addMatrices(H_H_H, noiseTerm));
-                    const W_mmse = mmse_inv ? multiplyComplexMatrices(H_H, mmse_inv) : null;
-
-                    zf_eq_data = W_zf ? multiplyMatrixVector(W_zf, noisyReceivedSymbols) : [];
-                    mmse_eq_data = W_mmse ? multiplyMatrixVector(W_mmse, noisyReceivedSymbols) : [];
+                    const mmse_inv = invertMatrix(addMatrices(H_H_H_mmse, noiseTerm));
+                    if (mmse_inv) W_mmse = multiplyComplexMatrices(H_H_mmse, mmse_inv);
                 }
+                mmse_eq_data = W_mmse ? multiplyMatrixVector(W_mmse, noisyReceivedSymbols) : [];
+
 
                 await new Promise(resolve => setTimeout(resolve, 1));
                 const zf_demod = demodulate(zf_eq_data, currentModulation);
@@ -1027,7 +1070,6 @@
             updateConstellationPlots();
         }
         
-        // --- CORRECTED SIGNAL FLOW WITH REVERSED AWGN ARROW ---
         function updateSignalFlow(channelMatrix, noisyReceivedSymbols) {
             const Nt = currentNt;
             const Nr = currentNr;
@@ -1094,12 +1136,11 @@
             };
         }
 
-        // --- CORRECTED SER CALCULATION FOR SINGLE SIMULATION ---
         function calculateSER(originalIndices, demodulatedIndices) {
             if (!originalIndices || !demodulatedIndices || 
                 originalIndices.length === 0 || demodulatedIndices.length === 0 || 
                 originalIndices.length !== demodulatedIndices.length) {
-                return 1.0; // Return maximum error rate if arrays are invalid
+                return 1.0; 
             }
             
             let errorCount = 0;
@@ -1161,7 +1202,7 @@
             return I;
         }
 
-        // --- IMPROVED MATRIX INVERSION WITH BETTER NUMERICAL STABILITY ---
+        // --- IMPROVED MATRIX INVERSION WITH BETTER NUMERICAL STABILITY (Gaussian elimination) ---
         function invertMatrix(m) {
             const n = m.length;
             if (n === 0) return null;
@@ -1209,96 +1250,104 @@
             return A.map(r => r.slice(n));
         }
 
-        // --- CHARTING FUNCTIONS ---
-        // --- CORRECTED SER CALCULATION FUNCTION ---
-        async function calculateSERvsSNR(mod, Nt, Nr, equalizer) {
-            const T = 200; // Increased trials for more accurate results
-            const snr_dB = Array.from({ length: 11 }, (_, i) => i * 2);
-            const c = constellations[mod];
-            const E_avg = c.reduce((s, v) => s + v.magnitudeSq(), 0) / c.length;
-
-            let serData = [];
-            for (const db of snr_dB) {
-                const N0 = E_avg / (10 ** (db / 10));
-                let errorCount = 0, totalSymbols = 0;
-                
-                for (let t = 0; t < T; t++) {
-                    const H = generateComplexChannel(Nr, Nt);
-                    const o = Array.from({ length: Nt }, () => Math.floor(Math.random() * c.length));
-                    const m = o.map(i => c[i]);
-                    const r = multiplyMatrixVector(H, m);
-                    const noise = Array.from({ length: Nr }, () => generateComplexGaussian().multiply(Math.sqrt(N0)));
-                    const y = r.map((s, i) => s.add(noise[i]));
-
-                    let equalizedSymbols = [];
-                    
-                    try {
-                        if (equalizer === 'ZF') {
-                            if (Nr >= Nt) {
-                                const H_H = transposeConjugateMatrix(H);
-                                const H_H_H = multiplyComplexMatrices(H_H, H);
-                                const H_inv = invertMatrix(H_H_H);
-                                if (H_inv) {
-                                    const W_zf = multiplyComplexMatrices(H_inv, H_H);
-                                    equalizedSymbols = multiplyMatrixVector(W_zf, y);
-                                }
-                            } else {
-                                const H_H = transposeConjugateMatrix(H);
-                                const H_H_H = multiplyComplexMatrices(H, H_H);
-                                const H_inv = invertMatrix(H_H_H);
-                                if (H_inv) {
-                                    const W_zf = multiplyComplexMatrices(H_H, H_inv);
-                                    equalizedSymbols = multiplyMatrixVector(W_zf, y);
-                                }
-                            }
-                        } else if (equalizer === 'MMSE') {
-                            if (Nr >= Nt) {
-                                const H_H = transposeConjugateMatrix(H);
-                                const H_H_H = multiplyComplexMatrices(H_H, H);
-                                const I = identityMatrix(Nt);
-                                const noiseTerm = multiplyMatrixScalar(I, N0 / E_avg);
-                                const mmse_inv = invertMatrix(addMatrices(H_H_H, noiseTerm));
-                                if (mmse_inv) {
-                                    const W_mmse = multiplyComplexMatrices(mmse_inv, H_H);
-                                    equalizedSymbols = multiplyMatrixVector(W_mmse, y);
-                                }
-                            } else {
-                                const H_H = transposeConjugateMatrix(H);
-                                const H_H_H = multiplyComplexMatrices(H, H_H);
-                                const I = identityMatrix(Nr);
-                                const noiseTerm = multiplyMatrixScalar(I, N0 / E_avg);
-                                const mmse_inv = invertMatrix(addMatrices(H_H_H, noiseTerm));
-                                if (mmse_inv) {
-                                    const W_mmse = multiplyComplexMatrices(H_H, mmse_inv);
-                                    equalizedSymbols = multiplyMatrixVector(W_mmse, y);
-                                }
-                            }
-                        }
-                    } catch (error) {
-                        console.warn('Matrix inversion failed, skipping trial');
-                        continue; // Skip this trial if matrix operations fail
-                    }
-
-                    if (equalizedSymbols.length > 0) {
-                        const demodulatedIndices = demodulate(equalizedSymbols, mod).indices;
-                        
-                        // Count symbol errors directly (not SER as a ratio)
-                        for (let i = 0; i < Math.min(o.length, demodulatedIndices.length); i++) {
-                            if (o[i] !== demodulatedIndices[i]) {
-                                errorCount++;
-                            }
-                            totalSymbols++;
-                        }
-                    }
-                }
-                
-                // Calculate SER as ratio of errored symbols to total symbols
-                const ser = totalSymbols > 0 ? errorCount / totalSymbols : 1.0;
-                serData.push(Math.max(ser, 1e-6)); // Floor at 1e-6 for log scale
+        // --- PSEUDO-INVERSE FOR NON-SQUARE MATRICES ---
+        function pseudoInverse(H) {
+            const Nr = H.length;
+            const Nt = H[0].length;
+            const H_H = transposeConjugateMatrix(H);
+            
+            if (Nr >= Nt) { // Tall matrix, H^+ = (H^H H)^-1 H^H
+                const H_H_H = multiplyComplexMatrices(H_H, H);
+                const inv_term = invertMatrix(H_H_H);
+                if (!inv_term) return null;
+                return multiplyComplexMatrices(inv_term, H_H);
+            } else { // Wide matrix, H^+ = H^H (H H^H)^-1
+                const H_H_H = multiplyComplexMatrices(H, H_H);
+                const inv_term = invertMatrix(H_H_H);
+                if (!inv_term) return null;
+                return multiplyComplexMatrices(H_H, inv_term);
             }
-            return { labels: snr_dB, data: serData, label: `${mod} ${Nt}x${Nr} (${equalizer})` };
         }
         
+        // --- CHARTING FUNCTIONS ---
+        async function calculateSERvsSNR(mod, Nt, Nr, equalizer, channelVariationFactor = 1.0) {
+            const numSymbolsPerSNR = 10000; // Reduced for faster computation
+            const snr_dB = Array.from({ length: 21 }, (_, i) => -20 + i * 2); // -20 to 20 dB, step 2
+            
+            const c = constellations[mod];
+            const E_avg = c.reduce((s, v) => s + v.magnitudeSq(), 0) / c.length;
+            
+            const serData = [];
+            
+            for (const db of snr_dB) {
+                const snr_linear = 10 ** (db / 10);
+                const noiseVariance = 1 / snr_linear; // Based on your MATLAB code
+                
+                let errorCount = 0;
+                let totalSymbols = 0;
+
+                const numberOfTransmissions = Math.floor(numSymbolsPerSNR / Nt);
+
+                for (let t = 0; t < numberOfTransmissions; t++) {
+                    // Generate Rayleigh fading channel (as per MATLAB code)
+                    const H = generateRayleighChannel(Nr, Nt, channelVariationFactor);
+                    
+                    const originalIndices = Array.from({ length: Nt }, () => Math.floor(Math.random() * c.length));
+                    const modulated_symbols = originalIndices.map(i => c[i]);
+                    
+                    // Channel multiplication
+                    let y = multiplyMatrixVector(H, modulated_symbols);
+                    
+                    // Add AWGN noise (as per MATLAB code)
+                    const noise_vector = Array.from({ length: Nr }, () => 
+                        generateComplexGaussian().multiply(Math.sqrt(noiseVariance / 2))
+                    );
+                    
+                    const noisy_y = y.map((s, i) => s.add(noise_vector[i]));
+
+                    let W = null;
+                    let equalized_symbols = [];
+
+                    if (equalizer === 'ZF') {
+                        W = pseudoInverse(H);
+                    } else if (equalizer === 'MMSE') {
+                        const H_H = transposeConjugateMatrix(H);
+                        const H_H_H = multiplyComplexMatrices(H_H, H);
+                        const I_term = identityMatrix(Nt);
+                        const MMSE_term = multiplyMatrixScalar(I_term, noiseVariance);
+                        const MMSE_matrix = addMatrices(H_H_H, MMSE_term);
+                        const inv_MMSE = invertMatrix(MMSE_matrix);
+                        if (inv_MMSE) {
+                            W = multiplyComplexMatrices(inv_MMSE, H_H);
+                        }
+                    }
+                    
+                    if (W) {
+                        equalized_symbols = multiplyMatrixVector(W, noisy_y);
+                    }
+                    
+                    const demodulatedIndices = demodulate(equalized_symbols, mod).indices;
+
+                    for (let i = 0; i < Nt; i++) {
+                        if (originalIndices[i] !== demodulatedIndices[i]) {
+                            errorCount++;
+                        }
+                    }
+                    totalSymbols += Nt;
+                }
+                
+                const ser = totalSymbols > 0 ? errorCount / totalSymbols : 1.0;
+                serData.push(Math.max(ser, 1e-6));
+            }
+            
+            const channelLabel = (channelVariationFactor !== 1.0) ? ` (Channel Var: ${channelVariationFactor}x)` : '';
+            return { 
+                labels: snr_dB, 
+                data: serData, 
+                label: `${mod} ${Nt}x${Nr} (${equalizer}${channelLabel})` 
+            };
+        }
+
         async function addSERCurve() {
             if (savedCurves.length >= maxCurves) {
                 alert(`You can only plot up to ${maxCurves} configurations. Please reset the plots to add more.`);
@@ -1306,18 +1355,27 @@
             }
 
             document.getElementById('chartLoadingIndicator').style.display = 'flex';
-            await new Promise(r => setTimeout(r, 50));
+            document.getElementById('plotConfigBtn').disabled = true;
+            document.getElementById('resetPlotsBtn').disabled = true;
 
-            const mod = document.getElementById('analysisModulation').value;
-            const Nt = parseInt(document.getElementById('analysisNumTxAntennas').value);
-            const Nr = parseInt(document.getElementById('analysisNumRxAntennas').value);
-            const equalizer = document.querySelector('input[name="analysisTechnique"]:checked').value;
+            try {
+                const mod = document.getElementById('analysisModulation').value;
+                const Nt = parseInt(document.getElementById('analysisNumTxAntennas').value);
+                const Nr = parseInt(document.getElementById('analysisNumRxAntennas').value);
+                const equalizer = document.querySelector('input[name="analysisTechnique"]:checked').value;
+                const channelVariationFactor = (equalizer === 'ZF') ? parseFloat(document.getElementById('channelVariationFactor').value) : 1.0;
 
-            const newCurve = await calculateSERvsSNR(mod, Nt, Nr, equalizer);
-            savedCurves.push(newCurve);
-            updateAnalysisChart();
-
-            document.getElementById('chartLoadingIndicator').style.display = 'none';
+                const newCurve = await calculateSERvsSNR(mod, Nt, Nr, equalizer, channelVariationFactor);
+                savedCurves.push(newCurve);
+                updateAnalysisChart();
+            } catch (error) {
+                console.error('Error generating curve:', error);
+                alert('An error occurred while generating the curve. Please check the console for details.');
+            } finally {
+                document.getElementById('chartLoadingIndicator').style.display = 'none';
+                document.getElementById('plotConfigBtn').disabled = false;
+                document.getElementById('resetPlotsBtn').disabled = false;
+            }
         }
         
         function resetSERChart() {
@@ -1339,8 +1397,10 @@
                 borderColor: predefinedColors[index % predefinedColors.length],
                 backgroundColor: predefinedColors[index % predefinedColors.length],
                 fill: false,
-                tension: 0.1,
-                pointRadius: 5
+                tension: 0.2,
+                pointRadius: 2,
+                pointHoverRadius: 4,
+                borderWidth: 2
             }));
             
             serChart = new Chart(ctx, {
@@ -1361,47 +1421,68 @@
                             min: 1e-5,
                             max: 1,
                             ticks: { 
-                                callback: function(v) { 
+                                callback: function(v, i, ticks) {
                                     const value = Number(v);
-                                    if (value >= 1) return '1';
-                                    if (value === 0.1) return '1e-1';
-                                    if (value === 0.01) return '1e-2';
-                                    if (value === 0.001) return '1e-3';
-                                    if (value === 0.0001) return '1e-4';
-                                    if (value === 0.00001) return '1e-5';
-                                    return null;
-                                }, 
+                                    if (value === 1) return '1';
+                                    if (value === 0.1) return '0.1';
+                                    if (value === 0.01) return '0.01';
+                                    if (value === 0.001) return '0.001';
+                                    if (value === 0.0001) return '0.0001';
+                                    if (value === 0.00001) return '0.00001';
+                                    return '';
+                                },
                                 color: '#555',
-                                autoSkip: false,
-                                maxTicksLimit: 6,
+                                font: { size: 10 },
+                                maxTicksLimit: 6
                             },
-                            grid: { color: 'rgba(0,0,0,0.1)' },
-                            afterBuildTicks: function(axis) {
-                                axis.ticks = [
-                                    { value: 1e-5, label: '1e-5' },
-                                    { value: 1e-4, label: '1e-4' },
-                                    { value: 1e-3, label: '1e-3' },
-                                    { value: 1e-2, label: '1e-2' },
-                                    { value: 1e-1, label: '1e-1' },
-                                    { value: 1e0, label: '1e+0' }
-                                ];
+                            grid: { 
+                                color: function(context) {
+                                    const value = context.tick.value;
+                                    if ([1, 0.1, 0.01, 0.001, 0.0001, 0.00001].includes(value)) {
+                                        return 'rgba(0,0,0,0.3)';
+                                    }
+                                    return 'rgba(0,0,0,0.1)';
+                                },
+                                lineWidth: function(context) {
+                                    const value = context.tick.value;
+                                    if ([1, 0.1, 0.01, 0.001, 0.0001, 0.00001].includes(value)) {
+                                        return 1;
+                                    }
+                                    return 0.5;
+                                }
                             }
                         },
                         x: {
-                            title: { display: true, text: 'SNR (dB)' },
-                            grid: { color: 'rgba(0,0,0,0.1)' },
-                            ticks: { color: '#555' }
+                            title: { display: true, text: 'Average SNR (dB)' },
+                            min: -20,
+                            max: 20,
+                            ticks: {
+                                stepSize: 5,
+                                color: '#555',
+                                font: { size: 10 }
+                            },
+                            grid: { 
+                                color: 'rgba(0,0,0,0.2)',
+                                lineWidth: 0.5
+                            }
                         }
                     },
                     plugins: {
                         title: {
                             display: true,
-                            text: 'SER Performance Comparison',
-                            font: { size: 16 }
+                            text: 'Symbol Error Rate vs. SNR for MIMO Equalization',
+                            font: { size: 14, weight: 'normal' },
+                            color: '#333'
                         },
                         legend: {
                             display: true,
-                            position: 'top'
+                            position: 'top',
+                            align: 'end',
+                            labels: {
+                                usePointStyle: true,
+                                pointStyle: 'line',
+                                font: { size: 10 }
+                            }
                         }
                     }
                 }
@@ -1425,57 +1506,78 @@
                         y: {
                             type: 'logarithmic',
                             title: { display: true, text: 'Symbol Error Rate (SER)' },
-                            min: 1e-5,
+                            min: 1e-6,
                             max: 1,
                             ticks: { 
-                                callback: function(v) { 
+                                callback: function(v, i, ticks) {
                                     const value = Number(v);
-                                    if (value >= 1) return '1';
-                                    if (value === 0.1) return '1e-1';
-                                    if (value === 0.01) return '1e-2';
-                                    if (value === 0.001) return '1e-3';
-                                    if (value === 0.0001) return '1e-4';
-                                    if (value === 0.00001) return '1e-5';
-                                    return null;
-                                }, 
+                                    if (value === 1) return '1';
+                                    if (value === 0.1) return '0.1';
+                                    if (value === 0.01) return '0.01';
+                                    if (value === 0.001) return '0.001';
+                                    if (value === 0.0001) return '0.0001';
+                                    if (value === 0.00001) return '1e-005';
+                                    if (value === 0.000001) return '1e-006';
+                                    return '';
+                                },
                                 color: '#555',
-                                autoSkip: false,
-                                maxTicksLimit: 6
+                                font: { size: 10 },
+                                maxTicksLimit: 7
                             },
-                            grid: { color: 'rgba(0,0,0,0.1)' },
-                            afterBuildTicks: function(axis) {
-                                axis.ticks = [
-                                    { value: 1e-5, label: '1e-5' },
-                                    { value: 1e-4, label: '1e-4' },
-                                    { value: 1e-3, label: '1e-3' },
-                                    { value: 1e-2, label: '1e-2' },
-                                    { value: 1e-1, label: '1e-1' },
-                                    { value: 1e0, label: '1e+0' }
-                                ];
+                            grid: { 
+                                color: function(context) {
+                                    const value = context.tick.value;
+                                    if ([1, 0.1, 0.01, 0.001, 0.0001, 0.00001, 0.000001].includes(value)) {
+                                        return 'rgba(0,0,0,0.3)';
+                                    }
+                                    return 'rgba(0,0,0,0.1)';
+                                },
+                                lineWidth: function(context) {
+                                    const value = context.tick.value;
+                                    if ([1, 0.1, 0.01, 0.001, 0.0001, 0.00001, 0.000001].includes(value)) {
+                                        return 1;
+                                    }
+                                    return 0.5;
+                                }
                             }
                         },
                         x: {
-                            title: { display: true, text: 'SNR (dB)' },
-                            grid: { color: 'rgba(0,0,0,0.1)' },
-                            ticks: { color: '#555' }
+                            title: { display: true, text: 'Average SNR (dB)' },
+                            min: -20,
+                            max: 20,
+                            ticks: {
+                                stepSize: 5,
+                                color: '#555',
+                                font: { size: 10 }
+                            },
+                            grid: { 
+                                color: 'rgba(0,0,0,0.2)',
+                                lineWidth: 0.5
+                            }
                         }
                     },
                     plugins: {
                         title: {
                             display: true,
-                            text: 'SER Performance Comparison',
-                            font: { size: 16 }
+                            text: 'Symbol Error Rate vs. SNR for MIMO Equalization',
+                            font: { size: 14, weight: 'normal' },
+                            color: '#333'
                         },
                         legend: {
                             display: true,
-                            position: 'top'
+                            position: 'top',
+                            align: 'end',
+                            labels: {
+                                usePointStyle: true,
+                                pointStyle: 'line',
+                                font: { size: 10 }
+                            }
                         }
                     }
                 }
             });
         }
         
-        // This function orchestrates the constellation plotting
         function updateConstellationPlots() {
             try {
                 const p = constellations[currentModulation];
@@ -1493,7 +1595,6 @@
                     return;
                 }
                 
-                // Plot each constellation independently, letting the plot function determine its own scale
                 plotConstellation('originalConstellation', modulatedSymbols, p);
                 plotConstellation('distortedConstellation', distortedSymbols, p);
                 plotConstellation('equalizedConstellation', results.equalized, p, results.demodulatedIndices);
@@ -1511,6 +1612,18 @@
             });
         }
         
+        function generateRayleighChannel(Nr, Nt, variationFactor = 1.0) {
+            // Generate complex Rayleigh fading channel as per MATLAB code
+            // H = (randn + 1j*randn) / sqrt(2) * variationFactor
+            return Array.from({ length: Nr }, () => 
+                Array.from({ length: Nt }, () => {
+                    const real = Math.sqrt(-2 * Math.log(Math.random())) * Math.cos(2 * Math.PI * Math.random());
+                    const imag = Math.sqrt(-2 * Math.log(Math.random())) * Math.sin(2 * Math.PI * Math.random());
+                    return new Complex(real * variationFactor / Math.sqrt(2), imag * variationFactor / Math.sqrt(2));
+                })
+            );
+        }
+
         function plotConstellation(id, data, ideal, decodedIndices = null) {
             const canvas = document.getElementById(id);
             if (!canvas) {
