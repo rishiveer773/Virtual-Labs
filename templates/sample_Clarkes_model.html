@@ -1112,11 +1112,20 @@
                 }
             });
             
+            // Calculate frequency range for zooming
+            const allFreqs = [...realisticPSDResult.freqs, ...idealPSD.map(point => point.x)];
+            const minFreq = Math.min(...allFreqs);
+            const maxFreq = Math.max(...allFreqs);
+
+            // Round to nearest 200 multiples
+            const xAxisMin = Math.floor(minFreq / 200) * 200;
+            const xAxisMax = Math.ceil(maxFreq / 200) * 200;
+
             // Update PSD chart
             if (realisticPsdChart) {
                 realisticPsdChart.destroy();
             }
-            
+
             realisticPsdChart = new Chart(document.getElementById('realisticPsdChart'), {
                 type: 'line',
                 data: {
@@ -1127,7 +1136,7 @@
                             borderColor: '#e53e3e',
                             backgroundColor: 'rgba(229, 62, 62, 0.1)',
                             borderWidth: 2,
-                            fill: false, // Changed from true to false for better visibility
+                            fill: false,
                             tension: 0.1,
                             pointRadius: 0
                         },
@@ -1137,7 +1146,7 @@
                             borderColor: '#667eea',
                             backgroundColor: 'rgba(102, 126, 234, 0.1)',
                             borderWidth: 2,
-                            fill: false, // Changed from true to false for better visibility
+                            fill: false,
                             tension: 0.2,
                             pointRadius: 0,
                             borderDash: [5, 5]
@@ -1157,6 +1166,8 @@
                                 display: true,
                                 text: 'Frequency (Hz)'
                             },
+                            min: -400,
+                            max: 400,
                             grid: { color: 'rgba(0,0,0,0.1)' }
                         },
                         y: {

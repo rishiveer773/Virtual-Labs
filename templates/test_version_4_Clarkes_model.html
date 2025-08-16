@@ -158,12 +158,6 @@
             height: 300px;
             width: 100%;
         }
-        
-        .signal-chart-container {
-            position: relative;
-            height: 400px;
-            width: 100%;
-        }
 
         h2 {
             font-size: 1.5rem;
@@ -231,21 +225,12 @@
         .checkbox-group input[type="checkbox"] {
             margin-right: 5px;
         }
-        
-        .realistic-panels {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 20px;
-        }
 
         @media (max-width: 1000px) {
             .lab-grid {
                 grid-template-columns: 1fr;
             }
             .charts-grid {
-                grid-template-columns: 1fr;
-            }
-            .realistic-panels {
                 grid-template-columns: 1fr;
             }
             .input-group-container {
@@ -265,7 +250,7 @@
         </div>
 
         <div class="tabs">
-            <button class="tab-button active" onclick="switchTab('ideal', event)">Clarke's Model</button>
+            <button class="tab-button active" onclick="switchTab('ideal', event)">Ideal Model</button>
             <button class="tab-button" onclick="switchTab('realistic', event)">Realistic Model (Sum of Sinusoids)</button>
         </div>
 
@@ -391,7 +376,7 @@
                         </div>
                     </div>
                     
-                    <button class="simulate-button" onclick="startRealisticSimulation()">Simulate Realistic Model</button>
+                    <button class="simulate-button" onclick="simulateRealistic()">Simulate Realistic Model</button>
 
                     <div class="info-box">
                         <h4>Clarke's Realistic Model (Sum of Sinusoids)</h4>
@@ -404,19 +389,10 @@
                         </ul>
                     </div>
                 </div>
-                
-                <div class="realistic-panels">
-                    <div class="environment-panel">
-                        <h2>System Diagram</h2>
-                        <canvas id="realisticEnvironmentCanvas" class="environment-canvas"></canvas>
-                    </div>
-                    
-                    <div class="environment-panel">
-                        <h2>Received Signal Plot</h2>
-                        <div class="signal-chart-container">
-                            <canvas id="realisticSignalChart"></canvas>
-                        </div>
-                    </div>
+
+                <div class="environment-panel">
+                    <h2>Multipath Environment</h2>
+                    <canvas id="realisticEnvironmentCanvas" class="environment-canvas"></canvas>
                 </div>
             </div>
 
@@ -448,19 +424,7 @@
 
         // Current active tab
         let currentTab = 'ideal';
-        let realisticSimulationInterval = null;
-        let currentSampleIndex = 0;
-        let hI_realtime = [];
-        let hQ_realtime = [];
-        let envelope_realtime = [];
-        let Ts_realtime = 0;
-        let M_realtime = 0;
-        let N_realtime = 0;
-        let fD_realtime = 0;
-        let angles_realtime = [];
-        let alpha_realtime = [];
-        let beta_realtime = [];
-        
+
         // DOM elements - Ideal
         const velocity1Input = document.getElementById('velocity1');
         const velocity2Input = document.getElementById('velocity2');
@@ -477,7 +441,6 @@
         const samplesInput = document.getElementById('samples');
         const realisticEnvCanvas = document.getElementById('realisticEnvironmentCanvas');
         const realisticEnvCtx = realisticEnvCanvas.getContext('2d');
-        const simulateRealisticButton = document.querySelector('#realistic .simulate-button');
 
         // Checkboxes for plots
         const v1AutocorrCheck = document.getElementById('v1-autocorr-check');
@@ -492,17 +455,9 @@
         let psdChart = null;
         let realisticAutocorrelationChart = null;
         let realisticPsdChart = null;
-        let realisticSignalChart = null; // New chart instance
 
         // Switch between tabs
         function switchTab(tabName, event) {
-            // Stop any ongoing simulations when switching tabs
-            if (realisticSimulationInterval) {
-                clearInterval(realisticSimulationInterval);
-                realisticSimulationInterval = null;
-                simulateRealisticButton.textContent = 'Simulate Realistic Model';
-            }
-
             // Hide all tab contents
             document.querySelectorAll('.tab-content').forEach(content => {
                 content.classList.remove('active');
@@ -551,6 +506,7 @@
         }
 
         // Generate Rayleigh fading using sum of sinusoids (realistic model)
+        // Fix 2: Improved generateRayleighFading function
         function generateRayleighFading(velocity, frequency, M, N, Ts) {
             const wavelength = SPEED_OF_LIGHT / (frequency * 1e6); // Convert MHz to Hz
             const fD = velocity / wavelength; // Maximum Doppler frequency
@@ -558,8 +514,7 @@
             const hI = new Array(N).fill(0);
             const hQ = new Array(N).fill(0);
             
-            // Generate random phases and angles for a more realistic model
-            const angles = new Array(M).fill(0).map(() => Math.random() * 2 * Math.PI);
+            // Generate random phases
             const alpha = new Array(M).fill(0).map(() => Math.random() * 2 * Math.PI);
             const beta = new Array(M).fill(0).map(() => Math.random() * 2 * Math.PI);
 
@@ -567,12 +522,12 @@
                 const t = n * Ts;
                 
                 for (let m = 0; m < M; m++) {
-                    const angle = angles[m]; 
+                    const angle = (2 * Math.PI * m) / M; // Changed from (m-1) to m
                     const cosArg = 2 * Math.PI * fD * Math.cos(angle) * t + alpha[m];
                     const sinArg = 2 * Math.PI * fD * Math.cos(angle) * t + beta[m];
                     
-                    hI[n] += Math.sqrt(2/M) * Math.cos(cosArg);
-                    hQ[n] += Math.sqrt(2/M) * Math.sin(sinArg);
+                    hI[n] += Math.sqrt(2/M) * Math.cos(cosArg); // Added proper scaling
+                    hQ[n] += Math.sqrt(2/M) * Math.sin(sinArg); // Added proper scaling
                 }
             }
             
@@ -582,24 +537,6 @@
                 envelope[n] = Math.sqrt(hI[n] * hI[n] + hQ[n] * hQ[n]);
             }
             
-            return { hI, hQ, envelope };
-        }
-
-        // NEW: Generate single sample of Rayleigh fading signal
-        function generateSingleRayleighFadingSample(t, fD, M, angles, alpha, beta) {
-            let hI = 0;
-            let hQ = 0;
-
-            for (let m = 0; m < M; m++) {
-                const angle = angles[m]; 
-                const cosArg = 2 * Math.PI * fD * Math.cos(angle) * t + alpha[m];
-                const sinArg = 2 * Math.PI * fD * Math.cos(angle) * t + beta[m];
-                
-                hI += Math.sqrt(2/M) * Math.cos(cosArg);
-                hQ += Math.sqrt(2/M) * Math.sin(sinArg);
-            }
-
-            const envelope = Math.sqrt(hI * hI + hQ * hQ);
             return { hI, hQ, envelope };
         }
 
@@ -626,7 +563,7 @@
             return autocorr.map(val => val / R0);
         }
 
-        // Improved PSD calculation function
+        // Fix 3: Improved PSD calculation function
         function calculatePSDFromComplexSeries(hI, hQ, N, Ts) {
             const fs = 1 / Ts;
             
@@ -754,7 +691,7 @@
             }
         }
 
-        // Draw realistic environment with scatterers between the last two rings
+        // Draw realistic environment
         function drawRealisticEnvironment() {
             const width = realisticEnvCanvas.width = realisticEnvCanvas.offsetWidth;
             const height = realisticEnvCanvas.height = realisticEnvCanvas.offsetHeight;
@@ -763,27 +700,23 @@
             
             const centerX = width / 2;
             const centerY = height / 2;
-            const maxRadius = Math.min(width, height) * 0.4;
+            const radius = Math.min(width, height) * 0.35;
             const numMultipaths = parseInt(multipathsInput.value);
-            
-            // Draw three concentric circles
+
+            // Draw multiple concentric circles to show multipath
             for (let r = 1; r <= 3; r++) {
                 realisticEnvCtx.strokeStyle = `rgba(102, 126, 234, ${0.3 - r * 0.08})`;
                 realisticEnvCtx.lineWidth = 2;
                 realisticEnvCtx.beginPath();
-                realisticEnvCtx.arc(centerX, centerY, maxRadius * r / 3, 0, 2 * Math.PI);
+                realisticEnvCtx.arc(centerX, centerY, radius * r / 3, 0, 2 * Math.PI);
                 realisticEnvCtx.stroke();
             }
-            
-            // Define the radial bounds for the scatterers
-            const innerRadius = maxRadius * 2 / 3;
-            const outerRadius = maxRadius;
 
-            // Draw multipath components with random angles and radii within the specified bounds
+            // Draw multipath components
             realisticEnvCtx.fillStyle = '#48bb78';
             for (let i = 0; i < numMultipaths; i++) {
-                const angle = Math.random() * 2 * Math.PI; // Random angle [0, 2*pi]
-                const r = innerRadius + Math.random() * (outerRadius - innerRadius); // Random radius between the rings
+                const angle = (2 * Math.PI * i) / numMultipaths;
+                const r = radius * (0.6 + 0.4 * Math.random()); // Random radius for realism
                 const x = centerX + r * Math.cos(angle);
                 const y = centerY + r * Math.sin(angle);
                 
@@ -838,7 +771,7 @@
 
         // Calculate autocorrelation function for ideal model
         function calculateAutocorrelation(velocity, frequency, maxTau) {
-            const wavelength = SPEED_OF_LIGHT / (frequency * 1e6); // Convert MHz to Hz
+            const wavelength = SPEED_OF_LIGHT / frequency;
             const fD = velocity / wavelength;
             const numPoints = 100;
             const tauStep = maxTau / numPoints;
@@ -885,284 +818,10 @@
             drawEnvironment();
         }
 
-        // NEW: Starts the real-time simulation for the realistic model
-        function startRealisticSimulation() {
-            if (realisticSimulationInterval) {
-                // If a simulation is running, stop it and reset the button
-                clearInterval(realisticSimulationInterval);
-                realisticSimulationInterval = null;
-                simulateRealisticButton.textContent = 'Simulate Realistic Model';
-                updateStaticPlots();
-            } else {
-                // Otherwise, start a new simulation
-                simulateRealisticButton.textContent = 'Stop Simulation';
-                
-                // Get parameters from inputs
-                const velocity = parseFloat(velocityRealisticInput.value);
-                const frequency = parseFloat(frequencyRealisticInput.value); // Keep in MHz for now
-                M_realtime = parseInt(multipathsInput.value);
-                N_realtime = parseInt(samplesInput.value);
-
-                // Calculate Doppler frequency and sampling rate
-                const wavelength = SPEED_OF_LIGHT / (frequency * 1e6);
-                fD_realtime = velocity / wavelength;
-                Ts_realtime = 1 / (20 * Math.max(fD_realtime, 1));
-                
-                // Reset data and index
-                hI_realtime = [];
-                hQ_realtime = [];
-                envelope_realtime = [];
-                currentSampleIndex = 0;
-                
-                // Generate the static random phases and angles once
-                angles_realtime = new Array(M_realtime).fill(0).map(() => Math.random() * 2 * Math.PI);
-                alpha_realtime = new Array(M_realtime).fill(0).map(() => Math.random() * 2 * Math.PI);
-                beta_realtime = new Array(M_realtime).fill(0).map(() => Math.random() * 2 * Math.PI);
-                
-                // Initialise the chart for real-time plotting
-                initRealisticSignalChart();
-
-                // Start the interval
-                realisticSimulationInterval = setInterval(() => {
-                    if (currentSampleIndex < N_realtime) {
-                        const t = currentSampleIndex * Ts_realtime;
-                        const sample = generateSingleRayleighFadingSample(t, fD_realtime, M_realtime, angles_realtime, alpha_realtime, beta_realtime);
-                        
-                        // Push new data to arrays
-                        hI_realtime.push(sample.hI);
-                        hQ_realtime.push(sample.hQ);
-                        envelope_realtime.push(sample.envelope);
-
-                        // Add new data point to chart and update
-                        realisticSignalChart.data.labels.push((t * 1000).toFixed(2));
-                        realisticSignalChart.data.datasets[0].data.push(sample.envelope);
-                        realisticSignalChart.update('none'); // 'none' for smooth animation
-                        
-                        currentSampleIndex++;
-                    } else {
-                        // Stop simulation when all samples are generated
-                        clearInterval(realisticSimulationInterval);
-                        realisticSimulationInterval = null;
-                        simulateRealisticButton.textContent = 'Simulate Realistic Model';
-                        updateStaticPlots();
-                    }
-                }, 10); // Update every 10ms for a smooth animation
-            }
-        }
-        
-        // NEW: Function to initialize the real-time signal chart
-        function initRealisticSignalChart() {
-            if (realisticSignalChart) {
-                realisticSignalChart.destroy();
-            }
-            realisticSignalChart = new Chart(document.getElementById('realisticSignalChart'), {
-                type: 'line',
-                data: {
-                    labels: [],
-                    datasets: [{
-                        label: 'Received Signal Envelope |h(t)|',
-                        data: [],
-                        borderColor: '#667eea',
-                        backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                        borderWidth: 2,
-                        fill: false,
-                        tension: 0.4,
-                        pointRadius: 0
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: false }
-                    },
-                    scales: {
-                        x: {
-                            type: 'linear',
-                            title: {
-                                display: true,
-                                text: 'Time (ms)'
-                            },
-                            grid: { color: 'rgba(0,0,0,0.1)' }
-                        },
-                        y: {
-                            title: {
-                                display: true,
-                                text: 'Signal Envelope Magnitude'
-                            },
-                            min: 0,
-                            grid: { color: 'rgba(0,0,0,0.1)' }
-                        }
-                    },
-                    animation: false // Disable default animation
-                }
-            });
-            document.getElementById('realisticAutocorrelationPanel').style.display = 'none';
-            document.getElementById('realisticPsdPanel').style.display = 'none';
-        }
-
-        // NEW: This function calculates and plots the static graphs once the simulation is complete
-        function updateStaticPlots() {
-            if (envelope_realtime.length === 0) return;
-            
-            // Calculate autocorrelation
-            const maxLag = Math.min(Math.floor(N_realtime / 4), 50);
-            const realisticAutocorr = calculateAutocorrelationFromComplexSeries(hI_realtime, hQ_realtime, maxLag);
-            
-            // Calculate ideal autocorrelation for comparison
-            const idealAutocorr = [];
-            const autocorrTimeAxis = [];
-            
-            for (let i = 0; i <= maxLag; i++) {
-                const tau = i * Ts_realtime;
-                autocorrTimeAxis.push(tau * 1000); // Convert to ms
-                idealAutocorr.push(besselJ0(2 * Math.PI * fD_realtime * tau));
-            }
-            
-            // Prepare autocorrelation data
-            const realisticAutocorrData = realisticAutocorr.map((val, idx) => ({
-                x: autocorrTimeAxis[idx],
-                y: val
-            }));
-            
-            const idealAutocorrData = idealAutocorr.map((val, idx) => ({
-                x: autocorrTimeAxis[idx],
-                y: val
-            }));
-            
-            // Calculate PSD
-            const realisticPSDResult = calculatePSDFromComplexSeries(hI_realtime, hQ_realtime, N_realtime, Ts_realtime);
-            const idealPSD = calculatePSD(parseFloat(velocityRealisticInput.value), parseFloat(frequencyRealisticInput.value) * 1e6); // Convert to Hz
-            
-            // Prepare PSD data
-            const realisticPSDData = realisticPSDResult.psd.map((val, idx) => ({
-                x: realisticPSDResult.freqs[idx],
-                y: val
-            }));
-            
-            // Update autocorrelation chart
-            if (realisticAutocorrelationChart) {
-                realisticAutocorrelationChart.destroy();
-            }
-            
-            realisticAutocorrelationChart = new Chart(document.getElementById('realisticAutocorrelationChart'), {
-                type: 'line',
-                data: {
-                    datasets: [
-                        {
-                            label: 'Realistic (Sum of Sinusoids)',
-                            data: realisticAutocorrData,
-                            borderColor: '#e53e3e',
-                            backgroundColor: 'rgba(229, 62, 62, 0.1)',
-                            borderWidth: 2,
-                            fill: false,
-                            tension: 0.1,
-                            pointRadius: 0
-                        },
-                        {
-                            label: 'Ideal (Bessel J0)',
-                            data: idealAutocorrData,
-                            borderColor: '#667eea',
-                            backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                            borderWidth: 2,
-                            fill: false,
-                            tension: 0.4,
-                            pointRadius: 0,
-                            borderDash: [5, 5]
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: true }
-                    },
-                    scales: {
-                        x: {
-                            type: 'linear',
-                            title: {
-                                display: true,
-                                text: 'Time Lag τ (ms)'
-                            },
-                            grid: { color: 'rgba(0,0,0,0.1)' }
-                        },
-                        y: {
-                            title: {
-                                display: true,
-                                text: 'R(τ)'
-                            },
-                            min: -1,
-                            max: 1,
-                            grid: { color: 'rgba(0,0,0,0.1)' }
-                        }
-                    }
-                }
-            });
-            
-            // Update PSD chart
-            if (realisticPsdChart) {
-                realisticPsdChart.destroy();
-            }
-            
-            realisticPsdChart = new Chart(document.getElementById('realisticPsdChart'), {
-                type: 'line',
-                data: {
-                    datasets: [
-                        {
-                            label: 'Realistic (Sum of Sinusoids)',
-                            data: realisticPSDData,
-                            borderColor: '#e53e3e',
-                            backgroundColor: 'rgba(229, 62, 62, 0.1)',
-                            borderWidth: 2,
-                            fill: false,
-                            tension: 0.1,
-                            pointRadius: 0
-                        },
-                        {
-                            label: 'Ideal (Jakes Spectrum)',
-                            data: idealPSD,
-                            borderColor: '#667eea',
-                            backgroundColor: 'rgba(102, 126, 234, 0.1)',
-                            borderWidth: 2,
-                            fill: false,
-                            tension: 0.2,
-                            pointRadius: 0,
-                            borderDash: [5, 5]
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        legend: { display: true }
-                    },
-                    scales: {
-                        x: {
-                            type: 'linear',
-                            title: {
-                                display: true,
-                                text: 'Frequency (Hz)'
-                            },
-                            grid: { color: 'rgba(0,0,0,0.1)' }
-                        },
-                        y: {
-                            type: 'linear',
-                            title: {
-                                display: true,
-                                text: 'Power Spectral Density S(f)'
-                            },
-                            min: 0,
-                            grid: { color: 'rgba(0,0,0,0.1)' }
-                        }
-                    }
-                }
-            });
-
-            // Make plot sections visible
-            document.getElementById('realisticAutocorrelationPanel').style.display = 'block';
-            document.getElementById('realisticPsdPanel').style.display = 'block';
+        // Simulate realistic model
+        function simulateRealistic() {
+            updateRealisticPlots();
+            drawRealisticEnvironment();
         }
 
         // Updates ideal model plots
@@ -1339,6 +998,195 @@
             document.getElementById('autocorrelationPanel').style.display = 'block';
             document.getElementById('psdPanel').style.display = 'block';
         }
+
+        // Updates realistic model plots
+        // Fix 4: Corrected updateRealisticPlots function
+        function updateRealisticPlots() {
+            const velocity = parseFloat(velocityRealisticInput.value);
+            const frequency = parseFloat(frequencyRealisticInput.value); // Keep in MHz for now
+            const M = parseInt(multipathsInput.value);
+            const N = parseInt(samplesInput.value);
+
+            // Calculate Doppler frequency
+            const wavelength = SPEED_OF_LIGHT / (frequency * 1e6); // Convert MHz to Hz
+            const fD = velocity / wavelength;
+            
+            // Set sampling rate
+            const Ts = 1 / (20 * Math.max(fD, 1)); // Reduced multiplier for better resolution
+            
+            // Generate realistic fading signal
+            const fadingData = generateRayleighFading(velocity, frequency, M, N, Ts);
+            
+            // Calculate autocorrelation
+            const maxLag = Math.min(Math.floor(N / 4), 50);
+            const realisticAutocorr = calculateAutocorrelationFromComplexSeries(fadingData.hI, fadingData.hQ, maxLag);
+            
+            // Calculate ideal autocorrelation for comparison
+            const idealAutocorr = [];
+            const timeAxis = [];
+            
+            for (let i = 0; i <= maxLag; i++) {
+                const tau = i * Ts;
+                timeAxis.push(tau * 1000); // Convert to ms
+                idealAutocorr.push(besselJ0(2 * Math.PI * fD * tau));
+            }
+            
+            // Prepare autocorrelation data
+            const realisticAutocorrData = realisticAutocorr.map((val, idx) => ({
+                x: timeAxis[idx],
+                y: val
+            }));
+            
+            const idealAutocorrData = idealAutocorr.map((val, idx) => ({
+                x: timeAxis[idx],
+                y: val
+            }));
+            
+            // Calculate PSD
+            const realisticPSDResult = calculatePSDFromComplexSeries(fadingData.hI, fadingData.hQ, N, Ts);
+            const idealPSD = calculatePSD(velocity, frequency * 1e6); // Convert to Hz
+            
+            // Prepare PSD data
+            const realisticPSDData = realisticPSDResult.psd.map((val, idx) => ({
+                x: realisticPSDResult.freqs[idx],
+                y: val
+            }));
+            
+            // Update autocorrelation chart
+            if (realisticAutocorrelationChart) {
+                realisticAutocorrelationChart.destroy();
+            }
+            
+            realisticAutocorrelationChart = new Chart(document.getElementById('realisticAutocorrelationChart'), {
+                type: 'line',
+                data: {
+                    datasets: [
+                        {
+                            label: 'Realistic (Sum of Sinusoids)',
+                            data: realisticAutocorrData,
+                            borderColor: '#e53e3e',
+                            backgroundColor: 'rgba(229, 62, 62, 0.1)',
+                            borderWidth: 2,
+                            fill: false,
+                            tension: 0.1,
+                            pointRadius: 0
+                        },
+                        {
+                            label: 'Ideal (Bessel J0)',
+                            data: idealAutocorrData,
+                            borderColor: '#667eea',
+                            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                            borderWidth: 2,
+                            fill: false,
+                            tension: 0.4,
+                            pointRadius: 0,
+                            borderDash: [5, 5]
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: true }
+                    },
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            title: {
+                                display: true,
+                                text: 'Time Lag τ (ms)'
+                            },
+                            grid: { color: 'rgba(0,0,0,0.1)' }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'R(τ)'
+                            },
+                            min: -1,
+                            max: 1,
+                            grid: { color: 'rgba(0,0,0,0.1)' }
+                        }
+                    }
+                }
+            });
+            
+            // Calculate frequency range for zooming
+            const allFreqs = [...realisticPSDResult.freqs, ...idealPSD.map(point => point.x)];
+            const minFreq = Math.min(...allFreqs);
+            const maxFreq = Math.max(...allFreqs);
+
+            // Round to nearest 200 multiples
+            const xAxisMin = Math.floor(minFreq / 200) * 200;
+            const xAxisMax = Math.ceil(maxFreq / 200) * 200;
+
+            // Update PSD chart
+            if (realisticPsdChart) {
+                realisticPsdChart.destroy();
+            }
+
+            realisticPsdChart = new Chart(document.getElementById('realisticPsdChart'), {
+                type: 'line',
+                data: {
+                    datasets: [
+                        {
+                            label: 'Realistic (Sum of Sinusoids)',
+                            data: realisticPSDData,
+                            borderColor: '#e53e3e',
+                            backgroundColor: 'rgba(229, 62, 62, 0.1)',
+                            borderWidth: 2,
+                            fill: false,
+                            tension: 0.1,
+                            pointRadius: 0
+                        },
+                        {
+                            label: 'Ideal (Jakes Spectrum)',
+                            data: idealPSD,
+                            borderColor: '#667eea',
+                            backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                            borderWidth: 2,
+                            fill: false,
+                            tension: 0.2,
+                            pointRadius: 0,
+                            borderDash: [5, 5]
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: true }
+                    },
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            title: {
+                                display: true,
+                                text: 'Frequency (Hz)'
+                            },
+                            min: -400,
+                            max: 400,
+                            grid: { color: 'rgba(0,0,0,0.1)' }
+                        },
+                        y: {
+                            type: 'linear',
+                            title: {
+                                display: true,
+                                text: 'Power Spectral Density S(f)'
+                            },
+                            min: 0,
+                            grid: { color: 'rgba(0,0,0,0.1)' }
+                        }
+                    }
+                }
+            });
+            
+            // Make plot sections visible
+            document.getElementById('realisticAutocorrelationPanel').style.display = 'block';
+            document.getElementById('realisticPsdPanel').style.display = 'block';
+        }
         
         // Event listeners for ideal model
         velocity1Input.addEventListener('input', drawEnvironment);
@@ -1347,16 +1195,10 @@
         frequencyInput.addEventListener('input', drawEnvironment);
         scatterersInput.addEventListener('input', drawEnvironment);
 
-        // Event listeners for realistic model 
+        // Event listeners for realistic model  
         velocityRealisticInput.addEventListener('input', drawRealisticEnvironment);
         frequencyRealisticInput.addEventListener('input', drawRealisticEnvironment);
         multipathsInput.addEventListener('input', drawRealisticEnvironment);
-        samplesInput.addEventListener('input', () => {
-            // Stop and restart simulation if parameters change
-            if (realisticSimulationInterval) {
-                startRealisticSimulation(); 
-            }
-        });
 
         // Listeners for checkboxes to update ideal plots
         v1AutocorrCheck.addEventListener('change', updateIdealPlots);
@@ -1372,10 +1214,8 @@
                     updateIdealPlots();
                     drawEnvironment();
                 } else if (currentTab === 'realistic' && realisticAutocorrelationChart) {
+                    updateRealisticPlots();
                     drawRealisticEnvironment();
-                    if(!realisticSimulationInterval) {
-                        updateStaticPlots();
-                    }
                 }
             }, 100);
         });
