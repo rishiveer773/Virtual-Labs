@@ -716,7 +716,7 @@
                         <p>This tab allows you to compare the Symbol Error Rate (SER) for up to 5 different configurations. Select your parameters, click **Plot Configuration**, and the curve will be added to the chart. Click **Reset Plots** to start over.</p>
                     </div>
                     <div class="row">
-                        <div class="col-xl-4 col-lg-5 col-md-12">
+                        <div class="col-xl-6 col-lg-5 col-md-12">
                             <div class="analysis-control-panel">
                                 <h4>Plot Controls</h4>
                                 <div class="input-group horizontal">
@@ -772,7 +772,7 @@
                                 <button class="btn btn-secondary w-100 mt-3" id="resetPlotsBtn" onclick="resetSERChart()">Reset Plots</button>
                             </div>
                         </div>
-                        <div class="col-xl-8 col-lg-7 col-md-12">
+                        <div class="col-xl-6 col-lg-7 col-md-12">
                             <div class="chart-container" id="serChartContainer">
                                 <div id="chartLoadingIndicator" class="loading"><div class="spinner"></div><p>Generating SER curve...</p></div>
                                 <h4>Symbol Error Rate vs. SNR</h4>
@@ -1280,7 +1280,7 @@
         
         async function calculateSERvsSNR(mod, Nt, Nr, equalizer, channelConditionFactor = 1.0) {
             const numSymbolsPerSNR = 10000;
-            const snr_dB = Array.from({ length: 21 }, (_, i) => -20 + i * 2);
+            const snr_dB = Array.from({ length: 26 }, (_, i) => -5 + i * 1);
             
             const c = constellations[mod];
             const E_avg = c.reduce((s, v) => s + v.magnitudeSq(), 0) / c.length;
@@ -1426,8 +1426,8 @@
                 },
                 options: {
                     responsive: true,
-                    maintainAspectRatio: false,
-                    aspectRatio: 2,
+                    maintainAspectRatio: true,
+                    aspectRatio: 1,
                     layout: { padding: 10 },
                     scales: {
                         y: {
@@ -1466,7 +1466,7 @@
                         },
                         x: {
                             title: { display: true, text: 'Average SNR (dB)' },
-                            min: -20,
+                            min: -5,
                             max: 20,
                             ticks: {
                                 stepSize: 5,
@@ -1516,8 +1516,8 @@
                 },
                 options: {
                     responsive: true,
-                    maintainAspectRatio: false,
-                    aspectRatio: 2,
+                    maintainAspectRatio: true,
+                    aspectRatio: 1,
                     layout: { padding: 10 },
                     scales: {
                         y: {
@@ -1554,7 +1554,7 @@
                         },
                         x: {
                             title: { display: true, text: 'Average SNR (dB)' },
-                            min: -20,
+                            min: -5,
                             max: 20,
                             ticks: {
                                 stepSize: 5,

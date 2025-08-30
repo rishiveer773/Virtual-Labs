@@ -377,6 +377,12 @@
                         </div>
 
                         <div class="control-group">
+                            <label for="signal-frequency">Signal Frequency (Hz)</label>
+                            <input type="number" id="signal-frequency" value="1000" min="100" max="10000" step="100">
+                            <div class="help-text">Frequency of the transmitted sine signal.</div>
+                        </div>
+
+                        <div class="control-group">
                             <label for="frequency-realistic">Carrier Frequency (MHz)</label>
                             <input type="number" id="frequency-realistic" value="900" min="100" max="6000" step="100">
                             <div class="help-text">Affects wavelength and Doppler frequency.</div>
@@ -472,6 +478,7 @@ const frequencyInput = document.getElementById('frequency');
 const scatterersInput = document.getElementById('scatterers');
 const envCanvas = document.getElementById('environmentCanvas');
 const envCtx = envCanvas.getContext('2d');
+const signalFrequencyInput = document.getElementById('signal-frequency');
 
 // DOM elements - Realistic Model
 const velocityRealisticInput = document.getElementById('velocity-realistic');
@@ -779,10 +786,13 @@ function drawRealisticEnvironment() {
         realisticEnvCtx.stroke();
     }
 
-    // Draw multipath scatterers
+    // Generate random angles for multipath scatterers
+    const angles = Array.from({length: numMultipaths}, () => Math.random() * 2 * Math.PI);
+
+    // Draw multipath scatterers with random angles
     realisticEnvCtx.fillStyle = '#48bb78';
     for (let i = 0; i < numMultipaths; i++) {
-        const angle = (2 * Math.PI * i) / numMultipaths;
+        const angle = angles[i]; // Use random angle instead of uniform distribution
         const r = radius * (2/3 + (1/3) * Math.random());
         const x = centerX + r * Math.cos(angle);
         const y = centerY + r * Math.sin(angle);
@@ -844,7 +854,7 @@ function updateIdealPlots() {
         parseFloat(velocity3Input.value)
     ];
     const frequency = parseFloat(frequencyInput.value);
-    const maxTau = 0.1;
+    const maxTau = 0.02;
 
     const autocorrDatasets = [];
     const psdDatasets = [];
@@ -956,6 +966,8 @@ function simulateRealistic() {
     const frequency = parseFloat(frequencyRealisticInput.value);
     const N = parseInt(multipathsInput.value);
     const numSamples = parseInt(samplesInput.value);
+    const signalFreq = parseFloat(document.getElementById('signal-frequency').value);
+
 
     const wavelength = SPEED_OF_LIGHT / (frequency * 1e6);
     const fD = velocity / wavelength;
@@ -966,8 +978,17 @@ function simulateRealistic() {
     const hI = channelResponse.hI;
     const hQ = channelResponse.hQ;
 
+    // Generate transmitted sine signal
+    const transmittedSignal = Array.from({length: numSamples}, (_, n) => 
+        Math.sin(2 * Math.PI * signalFreq * n * Ts)
+    );
+
+    // Calculate received signal: r(t) = h(t) * s(t) (convolution simplified to multiplication for baseband)
+    const receivedI = hI.map((h, idx) => h * transmittedSignal[idx]);
+    const receivedQ = hQ.map((h, idx) => h * transmittedSignal[idx]);
+
     // Calculate envelope
-    const envelope = hI.map((real, idx) => Math.sqrt(real * real + hQ[idx] * hQ[idx]));
+    const envelope = receivedI.map((real, idx) => Math.sqrt(real * real + receivedQ[idx] * receivedQ[idx]));
     
     // Plot received signal envelope
     const plotSamples = Math.min(200, numSamples);
@@ -1163,10 +1184,11 @@ velocity1Input.addEventListener('input', () => {
  frequencyInput.addEventListener('input', updateIdealPlots);
  scatterersInput.addEventListener('input', drawEnvironment);
 
- // Event listeners for realistic model 
- velocityRealisticInput.addEventListener('input', drawRealisticEnvironment);
- frequencyRealisticInput.addEventListener('input', drawRealisticEnvironment);
- multipathsInput.addEventListener('input', drawRealisticEnvironment);
+// Event listeners for realistic model 
+velocityRealisticInput.addEventListener('input', drawRealisticEnvironment);
+frequencyRealisticInput.addEventListener('input', drawRealisticEnvironment);
+multipathsInput.addEventListener('input', drawRealisticEnvironment);
+signalFrequencyInput.addEventListener('input', drawRealisticEnvironment);
 
  // Listeners for checkboxes to update ideal plots
  v1AutocorrCheck.addEventListener('change', updateIdealPlots);

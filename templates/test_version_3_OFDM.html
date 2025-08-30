@@ -505,6 +505,67 @@
             line-height: 1.4;
         }
 
+        /* Add to existing styles */
+        .symbol-display {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2px;
+            justify-content: center;
+            align-items: center;
+            margin-top: 12px;
+            padding: 12px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border: 1px solid var(--border-gray);
+            max-height: 200px;
+            overflow-y: auto;
+            font-family: 'Monaco', 'Menlo', monospace;
+        }
+
+        .symbol-item {
+            min-width: 45px;
+            height: 28px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: 600;
+            border: 1.5px solid;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .symbol-item.data {
+            background: #dbeafe;
+            border-color: var(--primary-blue);
+            color: var(--text-primary);
+        }
+
+        .symbol-item.cp {
+            background: #fed7d7;
+            border-color: var(--error-red);
+            color: var(--error-red);
+            font-weight: 700;
+        }
+
+        .symbol-item.ellipsis {
+            background: #f1f5f9;
+            border-color: var(--secondary-gray);
+            color: var(--text-secondary);
+            border-style: dashed;
+            min-width: 30px;
+        }
+
+        .symbol-separator {
+            font-size: 14px;
+            color: var(--text-secondary);
+            margin: 0 4px;
+            font-weight: bold;
+        }
+
         /* Responsive Design */
         @media (max-width: 768px) {
             .section-header {
@@ -1227,14 +1288,53 @@
                     totalPower += originalSymbols[i].magnitudeSquared();
                 }
                 
-                const ber = bitErrors / this.transmittedBits.length;
-                const ser = symbolErrors / numSymbols;
-                const evm = Math.sqrt(totalError / totalPower);
-                const evmDb = DSPUtils.linearToDb(evm);
+                const ber = minLength > 0 ? bitErrors / minLength : 0;
+                const ser = numSymbols > 0 ? symbolErrors / numSymbols : 0;
+                const evm = totalPower > 0 ? Math.sqrt(totalError / totalPower) : 0;
+                const evmDb = evm > 0 ? DSPUtils.linearToDb(evm) : -100;
+                
+                // Store for BER curve if needed
+                this.metrics = { ber, ser, evm: evmDb, bitErrors, totalBits: minLength };
                 
                 return { ber, ser, evm: evmDb };
             }
-        }
+
+            // Add BER curve generation method to OFDMSystem class
+            generateBERCurve(snrRange = [-5, 0, 5, 10, 15, 20, 25, 30], numTrials = 100) {
+                const berResults = [];
+                const originalSNR = this.snrDb;
+                
+                for (const snr of snrRange) {
+                    this.snrDb = snr;
+                    let totalBitErrors = 0;
+                    let totalBits = 0;
+                    
+                    for (let trial = 0; trial < numTrials; trial++) {
+                        this.reset();
+                        this.generateBits();
+                        this.performModulation();
+                        this.performIFFT();
+                        this.addCyclicPrefix();
+                        this.passThroughChannel();
+                        this.removeCyclicPrefix();
+                        this.performFFT();
+                        this.performEqualization();
+                        this.performDemodulation();
+                        
+                        const metrics = this.calculateMetrics();
+                        totalBitErrors += metrics.bitErrors || 0;
+                        totalBits += metrics.totalBits || 0;
+                    }
+                    
+                    const ber = totalBits > 0 ? totalBitErrors / totalBits : 0;
+                    berResults.push({ snr, ber });
+                    console.log(`SNR: ${snr} dB, BER: ${ber.toExponential(3)}`);
+                }
+                
+                this.snrDb = originalSNR; // Restore original SNR
+                return berResults;
+            }
+
 
         class SimulationUI {
             constructor() {
@@ -1548,23 +1648,36 @@
                         content += `Generated ${this.ofdmSystem.transmittedBits.length} random bits\n`;
                         content += `Modulated to ${this.ofdmSystem.modulatedSymbols.length} ${this.ofdmSystem.modulation} symbols`;
                         showSymbols = true;
-                        symbolData = this.ofdmSystem.modulatedSymbols.map((_, i) => ({ type: 'data', label: `S${i}` }));
+                        symbolData = this.formatSymbolDisplay(
+                            this.ofdmSystem.modulatedSymbols.map((s, i) => ({ 
+                                value: s, 
+                                label: `X[${i}]`, 
+                                type: 'data' 
+                            }))
+                        );
                         break;
                         
                     case 1: // IFFT
                         content += `Transformed ${this.ofdmSystem.fftSize} frequency domain samples\n`;
                         content += `to ${this.ofdmSystem.ifftOutput.length} time domain samples`;
                         showSymbols = true;
-                        symbolData = this.ofdmSystem.ifftOutput.map((_, i) => ({ type: 'data', label: `T${i}` }));
+                        symbolData = this.formatSymbolDisplay(
+                            this.ofdmSystem.ifftOutput.map((s, i) => ({ 
+                                value: s, 
+                                label: `x[${i}]`, 
+                                type: 'data' 
+                            }))
+                        );
                         break;
                         
                     case 2: // Add CP
                         content += `Added cyclic prefix of length ${this.ofdmSystem.cpLength}\n`;
                         content += `Total signal length: ${this.ofdmSystem.cpAddedSignal.length}`;
                         showSymbols = true;
-                        const cpData = Array(this.ofdmSystem.cpLength).fill(0).map(() => ({ type: 'cp', label: 'CP' }));
-                        const dataData = this.ofdmSystem.ifftOutput.map((_, i) => ({ type: 'data', label: `T${i}` }));
-                        symbolData = [...cpData, ...dataData];
+                        const M = this.ofdmSystem.ifftOutput.length;
+                        const L = this.ofdmSystem.cpLength;
+                        // Format: | x[M-L] | ... | x[M-1] | x[0] | x[1] | ... | x[M-1] |
+                        symbolData = this.formatCPSymbolDisplay(this.ofdmSystem.cpAddedSignal, M, L);
                         break;
                         
                     case 3: // Channel
@@ -1573,8 +1686,14 @@
                         content += `Signal affected by multipath fading and AWGN\n`;
                         content += `Output signal length: ${this.ofdmSystem.channelOutput.length}`;
                         showSymbols = true;
-                        symbolData = this.ofdmSystem.channelOutput.slice(0, Math.min(50, this.ofdmSystem.channelOutput.length))
-                            .map((_, i) => ({ type: 'data', label: `N${i}` }));
+                        symbolData = this.formatSymbolDisplay(
+                            this.ofdmSystem.channelOutput.slice(0, Math.min(50, this.ofdmSystem.channelOutput.length))
+                                .map((s, i) => ({ 
+                                    value: s, 
+                                    label: `y[${i}]`, 
+                                    type: 'data' 
+                                }))
+                        );
                         break;
                         
                     case 4: // Remove CP
@@ -1582,7 +1701,13 @@
                         content += `Remaining signal length: ${this.ofdmSystem.cpRemovedSignal.length}\n`;
                         content += `Ready for FFT processing`;
                         showSymbols = true;
-                        symbolData = this.ofdmSystem.cpRemovedSignal.map((_, i) => ({ type: 'data', label: `R${i}` }));
+                        symbolData = this.formatSymbolDisplay(
+                            this.ofdmSystem.cpRemovedSignal.map((s, i) => ({ 
+                                value: s, 
+                                label: `r[${i}]`, 
+                                type: 'data' 
+                            }))
+                        );
                         break;
                         
                     case 5: // FFT
@@ -1590,21 +1715,32 @@
                         content += `back to ${this.ofdmSystem.fftOutput.length} frequency domain samples\n`;
                         content += `Extracted data from subcarriers`;
                         showSymbols = true;
-                        // Show only data subcarriers
                         const dataIndices = this.ofdmSystem.getDataSubcarrierIndices();
-                        symbolData = dataIndices.map(idx => ({ type: 'data', label: `F${idx}` }));
+                        symbolData = this.formatSymbolDisplay(
+                            dataIndices.map(idx => ({ 
+                                value: this.ofdmSystem.fftOutput[idx], 
+                                label: `R[${idx}]`, 
+                                type: 'data' 
+                            }))
+                        );
                         break;
                         
                     case 6: // Equalization
                         content += `Applied ${this.ofdmSystem.equalization} equalization\n`;
                         content += `Recovered ${this.ofdmSystem.equalizedSymbols.length} data symbols\n`;
-                        // Calculate preliminary metrics for this step
+                        // Calculate preliminary metrics
                         const tempDemodBits = ModulationSchemes.demodulate(this.ofdmSystem.equalizedSymbols, this.ofdmSystem.modulation);
                         const tempErrors = tempDemodBits.slice(0, this.ofdmSystem.transmittedBits.length)
                             .filter((bit, i) => bit !== this.ofdmSystem.transmittedBits[i]).length;
                         content += `Preliminary bit errors: ${tempErrors}`;
                         showSymbols = true;
-                        symbolData = this.ofdmSystem.equalizedSymbols.map((_, i) => ({ type: 'data', label: `E${i}` }));
+                        symbolData = this.formatSymbolDisplay(
+                            this.ofdmSystem.equalizedSymbols.map((s, i) => ({ 
+                                value: s, 
+                                label: `X̂[${i}]`, 
+                                type: 'data' 
+                            }))
+                        );
                         break;
                         
                     case 7: // Demapping
@@ -1615,15 +1751,19 @@
                         content += `Symbol Error Rate: ${metrics.ser.toExponential(2)}\n`;
                         content += `EVM: ${metrics.evm.toFixed(2)} dB`;
                         showSymbols = true;
-                        // Show comparison of transmitted vs received bits (first 50)
-                        const bitComparison = this.ofdmSystem.transmittedBits.slice(0, 50).map((txBit, i) => {
+                        // Show first few bits comparison
+                        const maxBits = 20;
+                        const bitComparison = [];
+                        for (let i = 0; i < Math.min(maxBits, this.ofdmSystem.transmittedBits.length); i++) {
+                            const txBit = this.ofdmSystem.transmittedBits[i];
                             const rxBit = this.ofdmSystem.demodulatedBits[i];
                             const isCorrect = txBit === rxBit;
-                            return { 
-                                type: isCorrect ? 'data' : 'cp', 
-                                label: `${txBit}→${rxBit || '?'}` 
-                            };
-                        });
+                            bitComparison.push({
+                                value: rxBit,
+                                label: `${txBit}→${rxBit}`,
+                                type: isCorrect ? 'data' : 'cp'
+                            });
+                        }
                         symbolData = bitComparison;
                         break;
                 }
@@ -1631,29 +1771,85 @@
                 document.getElementById('stepContent').textContent = content;
                 
                 // Update symbol display
+                this.updateSymbolDisplay(showSymbols, symbolData);
+            }
+
+            // Add new helper methods to SimulationUI class
+            formatSymbolDisplay(symbols) {
+                if (symbols.length <= 10) {
+                    return symbols;
+                }
+                
+                // Show first 3, ellipsis, and last 1
+                return [
+                    ...symbols.slice(0, 3),
+                    { label: '...', type: 'ellipsis' },
+                    symbols[symbols.length - 1]
+                ];
+            }
+
+            formatCPSymbolDisplay(cpAddedSignal, M, L) {
+                const result = [];
+                
+                // Add CP part: x[M-L] ... x[M-1]
+                if (L > 3) {
+                    result.push({ label: `x[${M-L}]`, type: 'cp', value: cpAddedSignal[0] });
+                    result.push({ label: '...', type: 'ellipsis' });
+                    result.push({ label: `x[${M-1}]`, type: 'cp', value: cpAddedSignal[L-1] });
+                } else {
+                    for (let i = 0; i < L; i++) {
+                        result.push({ label: `x[${M-L+i}]`, type: 'cp', value: cpAddedSignal[i] });
+                    }
+                }
+                
+                // Add separator
+                result.push({ label: '|', type: 'separator' });
+                
+                // Add data part: x[0] ... x[M-1]
+                if (M > 6) {
+                    result.push({ label: 'x[0]', type: 'data', value: cpAddedSignal[L] });
+                    result.push({ label: 'x[1]', type: 'data', value: cpAddedSignal[L+1] });
+                    result.push({ label: '...', type: 'ellipsis' });
+                    result.push({ label: `x[${M-1}]`, type: 'data', value: cpAddedSignal[cpAddedSignal.length-1] });
+                } else {
+                    for (let i = 0; i < M; i++) {
+                        result.push({ label: `x[${i}]`, type: 'data', value: cpAddedSignal[L+i] });
+                    }
+                }
+                
+                return result;
+            }
+
+            updateSymbolDisplay(showSymbols, symbolData) {
                 const symbolDisplay = document.getElementById('symbolDisplay');
+                
                 if (showSymbols && symbolData.length > 0) {
                     symbolDisplay.innerHTML = '';
                     symbolDisplay.classList.remove('hidden');
                     
-                    // Limit symbols for visual clarity and performance
-                    const maxSymbols = stepIndex === 7 ? 30 : 50; // Show fewer for bit comparison
-                    symbolData.slice(0, maxSymbols).forEach((symbol, i) => {
-                        const item = document.createElement('div');
-                        item.className = `symbol-item ${symbol.type}`;
-                        item.textContent = symbol.label;
-                        item.title = `Index: ${i}, Value: ${symbol.label}`; // Tooltip
-                        symbolDisplay.appendChild(item);
+                    symbolData.forEach((symbol, i) => {
+                        if (symbol.type === 'separator') {
+                            const separator = document.createElement('div');
+                            separator.className = 'symbol-separator';
+                            separator.textContent = symbol.label;
+                            symbolDisplay.appendChild(separator);
+                        } else {
+                            const item = document.createElement('div');
+                            item.className = `symbol-item ${symbol.type}`;
+                            item.textContent = symbol.label;
+                            
+                            // Add tooltip with value if available
+                            if (symbol.value) {
+                                if (typeof symbol.value === 'object' && symbol.value.toString) {
+                                    item.title = `${symbol.label}: ${symbol.value.toString()}`;
+                                } else {
+                                    item.title = `${symbol.label}: ${symbol.value}`;
+                                }
+                            }
+                            
+                            symbolDisplay.appendChild(item);
+                        }
                     });
-                    
-                    // Add indicator if more symbols exist
-                    if (symbolData.length > maxSymbols) {
-                        const moreItem = document.createElement('div');
-                        moreItem.className = 'symbol-item data';
-                        moreItem.textContent = '...';
-                        moreItem.title = `${symbolData.length - maxSymbols} more symbols`;
-                        symbolDisplay.appendChild(moreItem);
-                    }
                 } else {
                     symbolDisplay.classList.add('hidden');
                 }
