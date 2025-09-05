@@ -875,20 +875,32 @@
         }
 
         class DSPUtils {
+            // Fix 3: Ensure FFT handles edge cases properly
             static fft(signal) {
                 const N = signal.length;
-                if (N <= 1) return signal;
+                if (N <= 1) return signal.slice();
+                
+                // Ensure input is array of ComplexNumber objects
+                const input = signal.map(s => 
+                    s instanceof ComplexNumber ? s : new ComplexNumber(s.real || s, s.imag || 0)
+                );
                 
                 if (N & (N - 1)) {
-                    // Not a power of 2, use DFT as fallback
-                    return this.dft(signal);
+                    // Not a power of 2, pad to next power of 2
+                    const nextPow2 = Math.pow(2, Math.ceil(Math.log2(N)));
+                    const padded = [...input];
+                    while (padded.length < nextPow2) {
+                        padded.push(new ComplexNumber(0, 0));
+                    }
+                    const result = this.fft(padded);
+                    return result.slice(0, N); // Return original length
                 }
                 
                 const even = [];
                 const odd = [];
                 for (let i = 0; i < N / 2; i++) {
-                    even[i] = signal[i * 2];
-                    odd[i] = signal[i * 2 + 1];
+                    even[i] = input[i * 2];
+                    odd[i] = input[i * 2 + 1];
                 }
                 
                 const evenFFT = this.fft(even);
@@ -1062,14 +1074,14 @@
             static convolve(signal, channel) {
                 const N = signal.length;
                 const L = channel.length;
-                const output = new Array(N + L - 1).fill(0).map(() => new ComplexNumber(0, 0));
+                const output = new Array(N).fill(0).map(() => new ComplexNumber(0, 0));
                 
                 for (let i = 0; i < N; i++) {
-                    for (let j = 0; j < L; j++) {
-                        output[i + j] = output[i + j].add(signal[i].multiply(channel[j]));
+                    for (let j = 0; j < L && i - j >= 0; j++) {
+                        output[i] = output[i].add(signal[i - j].multiply(channel[j]));
                     }
                 }
-                return output.slice(0, N); // Return same length as input
+                return output;
             }
             
             static addAwgn(signal, snrDb) {
@@ -1334,7 +1346,7 @@
                 this.snrDb = originalSNR; // Restore original SNR
                 return berResults;
             }
-
+        }
 
         class SimulationUI {
             constructor() {
@@ -1498,53 +1510,44 @@
             
             // 3. Fix the runSimulation method to properly enable navigation
             async runSimulation() {
-                console.log('Starting simulation...');
-                
-                if (!this.validateParameters()) return;
-                
-                this.showLoading();
-                
-                try {
-                    const params = this.getSimulationParameters();
-                    console.log('Simulation parameters:', params);
-                    
-                    this.ofdmSystem = new OFDMSystem(params);
-                    
-                    // Run simulation steps
-                    console.log('Generating bits...');
-                    this.ofdmSystem.generateBits();
-                    console.log('Generated bits:', this.ofdmSystem.transmittedBits.length);
-                    
-                    console.log('Performing modulation...');
-                    this.ofdmSystem.performModulation();
-                    console.log('Modulated symbols:', this.ofdmSystem.modulatedSymbols.length);
-                    
-                    // Continue with other steps
-                    this.ofdmSystem.performIFFT();
-                    this.ofdmSystem.addCyclicPrefix();
-                    this.ofdmSystem.passThroughChannel();
-                    this.ofdmSystem.removeCyclicPrefix();
-                    this.ofdmSystem.performFFT();
-                    this.ofdmSystem.performEqualization();
-                    this.ofdmSystem.performDemodulation();
-                    
-                    // Update results
-                    const metrics = this.ofdmSystem.calculateMetrics();
-                    this.updateResults(metrics);
-                    this.updateResultsCharts();
-                    
-                    this.currentStep = -1;
-                    this.updateNavigationButtons();
-                    
-                    this.showSuccess('Simulation completed successfully. Use Next Step to begin visualization.');
-                    
-                } catch (error) {
-                    console.error('Simulation failed:', error);
-                    this.showError(`Simulation failed: ${error.message}`);
-                } finally {
-                    this.hideLoading();
-                }
-            }
+    console.log('Starting simulation...');
+    
+    if (!this.validateParameters()) return;
+    
+    this.showLoading();
+    this.hideAlerts();
+    
+    try {
+        const params = this.getSimulationParameters();
+        console.log('Simulation parameters:', params);
+        
+        // Validate parameters
+        if (params.dataSubcarriers >= params.fftSize) {
+            throw new Error('Data subcarriers must be less than FFT size');
+        }
+        
+        if (params.fftSize < 16 || (params.fftSize & (params.fftSize - 1)) !== 0) {
+            throw new Error('FFT size must be a power of 2 and at least 16');
+        }
+        
+        this.ofdmSystem = new OFDMSystem(params);
+        
+        // Run all simulation steps with error handling
+        await this.performCompleteSimulation();
+        
+        this.currentStep = -1;
+        this.updateNavigationButtons();
+        
+        this.showSuccess('Simulation completed successfully. Use Next Step to begin visualization.');
+        
+    } catch (error) {
+        console.error('Simulation failed:', error);
+        this.showError(`Simulation failed: ${error.message}`);
+        this.ofdmSystem = null;
+    } finally {
+        this.hideLoading();
+    }
+}
             
             async performCompleteSimulation() {
                 // Simulate processing delay for better UX
@@ -1580,6 +1583,11 @@
             
             // 4. Fix the nextStep method to handle initial state
             nextStep() {
+                if (!this.ofdmSystem) {
+                    this.showError('Please run simulation first');
+                    return;
+                }
+                
                 if (this.currentStep < this.steps.length - 1) {
                     this.currentStep++;
                     this.updateVisualization();
@@ -1855,69 +1863,266 @@
                 }
             }
             
-            // Enhanced updateMainChart method with receiver side visualizations
-            updateMainChart(stepIndex) {
-                console.log('updateMainChart called with step:', stepIndex);
-                
-                const chartContainer = document.getElementById('chartContainer');
-                const chartTitle = document.getElementById('chartTitle');
-                const data = this.ofdmSystem;
-                
-                if (!data) {
-                    console.log('No OFDM system data');
-                    return;
+            // Fix 1: Correct the updateMainChart method - it needs to handle all steps properly
+updateMainChart(stepIndex) {
+    console.log('updateMainChart called with step:', stepIndex);
+    
+    const chartContainer = document.getElementById('chartContainer');
+    const chartTitle = document.getElementById('chartTitle');
+    const data = this.ofdmSystem;
+    
+    if (!data) {
+        console.log('No OFDM system data');
+        chartContainer.classList.add('hidden');
+        return;
+    }
+    
+    let datasets = [];
+    let chartType = 'scatter';
+    let options = {
+        responsive: true,
+        maintainAspectRatio: false,
+        animation: { duration: 300 },
+        plugins: {
+            legend: { display: true, position: 'top' }
+        },
+        scales: {
+            x: { type: 'linear', title: { display: true, text: 'Sample Index' } },
+            y: { type: 'linear', title: { display: true, text: 'Amplitude' } }
+        }
+    };
+    
+    try {
+        switch (stepIndex) {
+            case 0: // Mapping - show constellation
+                if (data.modulatedSymbols && data.modulatedSymbols.length > 0) {
+                    const symbolData = data.modulatedSymbols.map(c => ({ x: c.real, y: c.imag }));
+                    datasets = [{
+                        label: 'Transmitted Symbols',
+                        data: symbolData,
+                        backgroundColor: '#3b82f6',
+                        borderColor: '#3b82f6',
+                        pointRadius: 8,
+                        pointHoverRadius: 10,
+                        showLine: false
+                    }];
+                    chartTitle.textContent = 'Transmitted Constellation';
+                    options.scales.x.title.text = 'In-Phase';
+                    options.scales.y.title.text = 'Quadrature';
                 }
+                break;
                 
-                console.log('OFDM data available:', Object.keys(data));
+            case 1: // IFFT - show time domain signal
+                if (data.ifftOutput && data.ifftOutput.length > 0) {
+                    chartType = 'line';
+                    const realData = data.ifftOutput.map((c, i) => ({ x: i, y: c.real }));
+                    const imagData = data.ifftOutput.map((c, i) => ({ x: i, y: c.imag }));
+                    datasets = [
+                        {
+                            label: 'Real Part',
+                            data: realData,
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            borderWidth: 2,
+                            pointRadius: 2,
+                            fill: false
+                        },
+                        {
+                            label: 'Imaginary Part',
+                            data: imagData,
+                            borderColor: '#ef4444',
+                            backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                            borderWidth: 2,
+                            pointRadius: 2,
+                            fill: false
+                        }
+                    ];
+                    chartTitle.textContent = 'IFFT Output (Time Domain)';
+                    options.scales.x.title.text = 'Sample Index';
+                    options.scales.y.title.text = 'Amplitude';
+                }
+                break;
                 
-                let datasets = [];
-                
-                try {
-                    switch (stepIndex) {
-                        case 0: // Mapping
-                            console.log('Processing mapping step');
-                            if (data.modulatedSymbols && data.modulatedSymbols.length > 0) {
-                                console.log('Modulated symbols count:', data.modulatedSymbols.length);
-                                console.log('First few symbols:', data.modulatedSymbols.slice(0, 3));
-                                
-                                const symbolData = data.modulatedSymbols.map((c, index) => {
-                                    console.log(`Symbol ${index}:`, c.real, c.imag);
-                                    return { x: c.real, y: c.imag };
-                                });
-                                
-                                datasets = [{
-                                    label: 'Transmitted Symbols',
-                                    data: symbolData,
-                                    backgroundColor: '#3b82f6',
-                                    borderColor: '#3b82f6',
-                                    pointRadius: 8,
-                                    pointHoverRadius: 10,
-                                    showLine: false
-                                }];
-                                
-                                chartTitle.textContent = 'Transmitted Constellation Diagram';
-                                chartContainer.classList.remove('hidden');
-                                console.log('Dataset created:', datasets);
-                            } else {
-                                console.log('No modulated symbols available');
+            case 2: // Add CP - show signal with CP
+                if (data.cpAddedSignal && data.cpAddedSignal.length > 0) {
+                    chartType = 'line';
+                    const realData = data.cpAddedSignal.map((c, i) => ({ x: i, y: c.real }));
+                    datasets = [{
+                        label: 'Signal with CP',
+                        data: realData,
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                        borderWidth: 2,
+                        pointRadius: 1,
+                        fill: false
+                    }];
+                    chartTitle.textContent = 'Signal with Cyclic Prefix';
+                    
+                    // Add vertical line to show CP boundary
+                    options.plugins.annotation = {
+                        annotations: {
+                            cpBoundary: {
+                                type: 'line',
+                                xMin: data.cpLength,
+                                xMax: data.cpLength,
+                                borderColor: '#ef4444',
+                                borderWidth: 2,
+                                borderDash: [5, 5],
+                                label: {
+                                    content: 'CP End',
+                                    enabled: true,
+                                    position: 'top'
+                                }
                             }
-                            break;
-                    }
-                    
-                    if (datasets.length > 0 && this.charts.main) {
-                        console.log('Updating chart with datasets:', datasets);
-                        this.charts.main.data.datasets = datasets;
-                        this.charts.main.update('active');
-                        console.log('Chart updated successfully');
-                    } else {
-                        console.log('No datasets to update or chart not available');
-                    }
-                    
-                } catch (error) {
-                    console.error('Chart update error:', error);
-                    console.error('Error stack:', error.stack);
+                        }
+                    };
                 }
+                break;
+                
+            case 3: // Channel - show received signal
+                if (data.channelOutput && data.channelOutput.length > 0) {
+                    chartType = 'line';
+                    const realData = data.channelOutput.map((c, i) => ({ x: i, y: c.real }));
+                    datasets = [{
+                        label: 'Received Signal',
+                        data: realData,
+                        borderColor: '#f59e0b',
+                        backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                        borderWidth: 2,
+                        pointRadius: 1,
+                        fill: false
+                    }];
+                    chartTitle.textContent = 'Signal After Channel (with Noise)';
+                }
+                break;
+                
+            case 4: // Remove CP - show signal after CP removal
+                if (data.cpRemovedSignal && data.cpRemovedSignal.length > 0) {
+                    chartType = 'line';
+                    const realData = data.cpRemovedSignal.map((c, i) => ({ x: i, y: c.real }));
+                    datasets = [{
+                        label: 'CP Removed Signal',
+                        data: realData,
+                        borderColor: '#8b5cf6',
+                        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                        borderWidth: 2,
+                        pointRadius: 2,
+                        fill: false
+                    }];
+                    chartTitle.textContent = 'Signal After CP Removal';
+                }
+                break;
+                
+            case 5: // FFT - show frequency domain
+                if (data.fftOutput && data.fftOutput.length > 0) {
+                    chartType = 'line';
+                    const magnitudeData = data.fftOutput.map((c, i) => ({ x: i, y: c.magnitude() }));
+                    datasets = [{
+                        label: 'FFT Magnitude',
+                        data: magnitudeData,
+                        borderColor: '#06b6d4',
+                        backgroundColor: 'rgba(6, 182, 212, 0.1)',
+                        borderWidth: 2,
+                        pointRadius: 3,
+                        fill: true
+                    }];
+                    chartTitle.textContent = 'FFT Output (Frequency Domain)';
+                    options.scales.x.title.text = 'Subcarrier Index';
+                    options.scales.y.title.text = 'Magnitude';
+                }
+                break;
+                
+            case 6: // Equalization - show constellation before/after
+                if (data.equalizedSymbols && data.equalizedSymbols.length > 0) {
+                    const equalizedData = data.equalizedSymbols.map(c => ({ x: c.real, y: c.imag }));
+                    datasets = [{
+                        label: 'Equalized Symbols',
+                        data: equalizedData,
+                        backgroundColor: '#10b981',
+                        borderColor: '#10b981',
+                        pointRadius: 6,
+                        pointHoverRadius: 8,
+                        showLine: false
+                    }];
+                    
+                    // Add ideal constellation points
+                    const idealPoints = ModulationSchemes.getConstellationPoints(data.modulation);
+                    datasets.push({
+                        label: 'Ideal Points',
+                        data: idealPoints.map(c => ({ x: c.real, y: c.imag })),
+                        backgroundColor: '#000000',
+                        pointStyle: 'rectRot',
+                        pointRadius: 4,
+                        showLine: false
+                    });
+                    
+                    chartTitle.textContent = 'Equalized Constellation';
+                    options.scales.x.title.text = 'In-Phase';
+                    options.scales.y.title.text = 'Quadrature';
+                }
+                break;
+                
+            case 7: // Demapping - show bit comparison
+                if (data.transmittedBits && data.demodulatedBits) {
+                    chartType = 'line';
+                    const maxBits = Math.min(50, data.transmittedBits.length);
+                    const txData = data.transmittedBits.slice(0, maxBits).map((bit, i) => ({ x: i, y: bit }));
+                    const rxData = data.demodulatedBits.slice(0, maxBits).map((bit, i) => ({ x: i, y: bit + 0.1 }));
+                    
+                    datasets = [
+                        {
+                            label: 'Transmitted Bits',
+                            data: txData,
+                            borderColor: '#3b82f6',
+                            backgroundColor: '#3b82f6',
+                            borderWidth: 3,
+                            pointRadius: 4,
+                            showLine: false,
+                            pointStyle: 'circle'
+                        },
+                        {
+                            label: 'Received Bits',
+                            data: rxData,
+                            borderColor: '#ef4444',
+                            backgroundColor: '#ef4444',
+                            borderWidth: 3,
+                            pointRadius: 4,
+                            showLine: false,
+                            pointStyle: 'triangle'
+                        }
+                    ];
+                    chartTitle.textContent = 'Bit Comparison (First 50 bits)';
+                    options.scales.x.title.text = 'Bit Index';
+                    options.scales.y.title.text = 'Bit Value';
+                }
+                break;
+        }
+        
+        if (datasets.length > 0 && this.charts.main) {
+            // Update chart type if needed
+            if (this.charts.main.config.type !== chartType) {
+                this.charts.main.destroy();
+                this.charts.main = new Chart(document.getElementById('mainChart').getContext('2d'), {
+                    type: chartType,
+                    data: { datasets: [] },
+                    options: options
+                });
+            } else {
+                this.charts.main.options = options;
             }
+            
+            this.charts.main.data.datasets = datasets;
+            this.charts.main.update('active');
+            chartContainer.classList.remove('hidden');
+        } else {
+            chartContainer.classList.add('hidden');
+        }
+        
+    } catch (error) {
+        console.error('Chart update error:', error);
+        chartContainer.classList.add('hidden');
+    }
+}
             
             updateResults(metrics) {
                 document.getElementById('berValue').textContent = metrics.ber.toExponential(2);
@@ -2044,7 +2249,7 @@ updateResultsCharts() {
                 });
                 document.querySelectorAll('.connection-arrow').forEach(arrow => arrow.classList.remove('active'));
                 
-                document.getElementById('stepTitle').textContent = 'Welcome to OFDM Simulator';
+                document.getElementById('stepTitle').textContent = 'OFDM Simulator';
                 document.getElementById('stepContent').textContent = 'Configure the simulation parameters and click "Run Simulation" to begin the step-by-step OFDM process demonstration.';
                 document.getElementById('symbolDisplay').classList.add('hidden');
                 document.getElementById('chartContainer').classList.add('hidden');
@@ -2099,4 +2304,4 @@ updateResultsCharts() {
         });
     </script>
 </body>
-</html>
+</html
