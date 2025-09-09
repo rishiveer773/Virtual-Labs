@@ -896,23 +896,40 @@
             }
             return modulatedSymbols;
         }
+        
         function mapToSubcarriers(symbols, nFFTSize, numSubcarriers) {
             const inputiFFT = Array.from({ length: nFFTSize }, () => new Complex(0));
             let symbolIdx = 0;
+            
             if (nFFTSize === 64 && numSubcarriers === 52) {
-                const subcarrierIndices80211a = [-26, -25, -24, -23, -22, -21, -20, -19, -18, -17, -16, -15, -14, -13, -12, -11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1,
-                                                 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26];
-                for (const scIdx of subcarrierIndices80211a) {
+                // 802.11a standard mapping
+                const subcarrierIndices = [
+                    -26,-25,-24,-23,-22,-21,-20,-19,-18,-17,-16,-15,-14,-13,-12,-11,
+                    -10,-9,-8,-7,-6,-5,-4,-3,-2,-1,
+                    1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26
+                ];
+                for (const scIdx of subcarrierIndices) {
                     let arrayIdx = scIdx > 0 ? scIdx : nFFTSize + scIdx;
                     if (symbolIdx < symbols.length) {
                         inputiFFT[arrayIdx] = symbols[symbolIdx++];
                     }
                 }
             } else {
+                // Generic symmetric mapping - must match extraction
                 const halfSubcarriers = Math.floor(numSubcarriers / 2);
-                for (let i = 1; i <= halfSubcarriers && symbolIdx < symbols.length; i++) { inputiFFT[i] = symbols[symbolIdx++]; }
-                for (let i = nFFTSize - halfSubcarriers; i < nFFTSize && symbolIdx < symbols.length; i++) { inputiFFT[i] = symbols[symbolIdx++]; }
+                const extraSubcarrier = numSubcarriers % 2;
+                
+                // Map to positive frequencies first
+                for (let i = 1; i <= halfSubcarriers + extraSubcarrier && symbolIdx < symbols.length; i++) {
+                    inputiFFT[i] = symbols[symbolIdx++];
+                }
+                
+                // Map to negative frequencies
+                for (let i = nFFTSize - halfSubcarriers; i < nFFTSize && symbolIdx < symbols.length; i++) {
+                    inputiFFT[i] = symbols[symbolIdx++];
+                }
             }
+            
             return inputiFFT;
         }
 
@@ -1020,14 +1037,20 @@
         }
 
         function calculateBer(originalBits, receivedBits) {
+            if (!originalBits || !receivedBits) return 1.0;
+            
             let errors = 0;
             const minLength = Math.min(originalBits.length, receivedBits.length);
+            
+            if (minLength === 0) return 1.0;
+            
             for (let i = 0; i < minLength; i++) {
                 if (originalBits[i] !== receivedBits[i]) {
                     errors++;
                 }
             }
-            return errors / originalBits.length;
+            
+            return errors / minLength;
         }
 
         // --- Utility Functions ---
@@ -1098,39 +1121,56 @@
                 globalChannelGainsFFT = fft(channelPadded);
                 globalReceivedSymbols = equalize(globalRxFFTOutput, globalChannelGainsFFT, equalizationMethod, snrDb);
 
-                // --- 6. PLOTTING LOGIC (All updates consolidated here) ---
+                // --- 6. PLOTTING LOGIC (with error color-coding) ---
 
-                // Update Transmitted Constellation chart
+                // Update standard charts first
                 updateTransmittedConstellationChart(globalModulatedSymbols, modulationScheme);
 
-                // Update Pre-Channel Spectrum chart
                 const preChannelPadded = [...globalTxWaveformPreChannel, ...Array(fftLengthForSpectrum - globalTxWaveformPreChannel.length).fill(new Complex(0))];
-                const preChannelSpectrumFFT = fft(preChannelPadded);
-                const preChannelPsd = fftshift(preChannelSpectrumFFT).map(c => linearToDb(c.magSq()));
-                updateSpectrumChart(preChannelSpectrumChart, frequencies, preChannelPsd);
+                updateSpectrumChart(preChannelSpectrumChart, frequencies, fftshift(fft(preChannelPadded)).map(c => linearToDb(c.magSq())));
 
-                // Update Post-Channel Spectrum chart
                 const postChannelPadded = [...globalRxWaveformPostChannel, ...Array(fftLengthForSpectrum - globalRxWaveformPostChannel.length).fill(new Complex(0))];
-                const postChannelSpectrumFFT = fft(postChannelPadded);
-                const postChannelPsd = fftshift(postChannelSpectrumFFT).map(c => linearToDb(c.magSq()));
-                updateSpectrumChart(postChannelSpectrumChart, frequencies, postChannelPsd);
+                updateSpectrumChart(postChannelSpectrumChart, frequencies, fftshift(fft(postChannelPadded)).map(c => linearToDb(c.magSq())));
                 
-                // Update Equalized Signal Spectrum chart
                 const equalizedTimeWaveform = ifft(globalReceivedSymbols);
                 const equalizedPadded = [...equalizedTimeWaveform, ...Array(fftLengthForSpectrum - equalizedTimeWaveform.length).fill(new Complex(0))];
-                const equalizedSpectrumFFT = fft(equalizedPadded);
-                const equalizedPsd = fftshift(equalizedSpectrumFFT).map(c => linearToDb(c.magSq()));
-                updateSpectrumChart(equalizedSpectrumChart, frequencies, equalizedPsd);
+                updateSpectrumChart(equalizedSpectrumChart, frequencies, fftshift(fft(equalizedPadded)).map(c => linearToDb(c.magSq())));
 
-                // Prepare data for the final decision plot
+                // **NEW**: Sort symbols into correct and incorrect arrays for plotting
                 const receivedDataSymbols = extractDataSubcarriers(globalReceivedSymbols, nFFTSize, numSubcarriers);
-                
-                // Demodulate the received symbols to get bits, then re-modulate to get the "decided" ideal points
                 const decidedBits = demodulate(receivedDataSymbols, modulationScheme);
-                const decidedIdealSymbols = modulate(decidedBits, modulationScheme, bitsPerSymbol);
+                const decidedIdealSymbols = modulate(decidedBits, modulationScheme);
+                
+                // --- Find this section in runStepByStepSimulation and REPLACE the 'for' loop ---
 
-                // Update the Received Constellation chart with both received and decided symbols
-                updateReceivedConstellationChart(receivedConstellationChart, receivedDataSymbols, decidedIdealSymbols);
+                const correctlyMappedSymbols = [];
+                const incorrectlyMappedSymbols = [];
+
+                // This loop now safely checks for undefined symbols and compares numbers correctly
+                for (let i = 0; i < receivedDataSymbols.length; i++) {
+                    const originalSymbol = globalModulatedSymbols[i];
+                    const receivedSymbol = receivedDataSymbols[i];
+
+                    if (originalSymbol && receivedSymbol) {
+                        // Use demodulation to determine if the symbol was decoded correctly
+                        const originalBits = demodulateSymbol(originalSymbol, modulationScheme);
+                        const receivedBits = demodulateSymbol(receivedSymbol, modulationScheme);
+                        
+                        // Compare the actual bit sequences
+                        const isCorrect = arraysEqual(originalBits, receivedBits);
+                        
+                        if (isCorrect) {
+                            correctlyMappedSymbols.push(receivedSymbol);
+                        } else {
+                            incorrectlyMappedSymbols.push(receivedSymbol);
+                        }
+                    } else {
+                        incorrectlyMappedSymbols.push(receivedSymbol);
+                    }
+                }
+                
+                // Update the Received Constellation chart with the color-coded symbols
+                updateReceivedConstellationChart(receivedConstellationChart, correctlyMappedSymbols, incorrectlyMappedSymbols, modulationScheme);
 
                 // --- 7. Final UI updates ---
                 currentBlockIndex = 0;
@@ -1150,25 +1190,45 @@
 
         function extractDataSubcarriers(allSymbols, nFFTSize, numSubcarriers) {
             const dataSymbols = [];
-            if (!allSymbols || allSymbols.length === 0) return dataSymbols;
+            if (!allSymbols || allSymbols.length !== nFFTSize) {
+                console.warn(`Invalid FFT output: expected ${nFFTSize} symbols, got ${allSymbols ? allSymbols.length : 0}`);
+                return dataSymbols;
+            }
 
             if (nFFTSize === 64 && numSubcarriers === 52) {
-                // Standard 802.11a/g subcarrier indices (skips DC and pilots)
-                const dataIndices = [
+                // 802.11a standard subcarrier mapping (matches the mapping function)
+                const subcarrierIndices = [
                     -26,-25,-24,-23,-22,-21,-20,-19,-18,-17,-16,-15,-14,-13,-12,-11,
-                    -10,-9,-8,-7,-6,-5,-4,-3,-2,-1,1,2,3,4,5,6,7,8,9,10,11,12,13,
-                    14,15,16,17,18,19,20,21,22,23,24,25,26
+                    -10,-9,-8,-7,-6,-5,-4,-3,-2,-1,
+                    1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26
                 ];
-                for (const scIdx of dataIndices) {
+                
+                for (const scIdx of subcarrierIndices) {
                     const arrayIdx = scIdx > 0 ? scIdx : nFFTSize + scIdx;
-                    dataSymbols.push(allSymbols[arrayIdx]);
+                    if (arrayIdx >= 0 && arrayIdx < nFFTSize) {
+                        dataSymbols.push(allSymbols[arrayIdx]);
+                    }
                 }
             } else {
-                // Generic case: extract symmetrically around DC
-                const half = Math.floor(numSubcarriers / 2);
-                for (let i = 1; i <= half; i++) dataSymbols.push(allSymbols[i]);
-                for (let i = nFFTSize - half; i < nFFTSize; i++) dataSymbols.push(allSymbols[i]);
+                // Generic symmetric extraction
+                const halfSubcarriers = Math.floor(numSubcarriers / 2);
+                const extraSubcarrier = numSubcarriers % 2;
+                
+                // Positive frequencies
+                for (let i = 1; i <= halfSubcarriers + extraSubcarrier && i < nFFTSize; i++) {
+                    dataSymbols.push(allSymbols[i]);
+                }
+                
+                // Negative frequencies
+                for (let i = nFFTSize - halfSubcarriers; i < nFFTSize; i++) {
+                    dataSymbols.push(allSymbols[i]);
+                }
             }
+            
+            if (dataSymbols.length !== numSubcarriers) {
+                console.warn(`Subcarrier extraction mismatch: expected ${numSubcarriers}, extracted ${dataSymbols.length}`);
+            }
+            
             return dataSymbols;
         }
 
@@ -1291,6 +1351,23 @@
             'Demapping & P/S Output'
         ];
         let currentBlockIndex = 0;
+
+        function demodulateSymbol(symbol, modulationScheme) {
+            switch (modulationScheme) {
+                case 'BPSK': return [bpskDemodulate(symbol)];
+                case 'QPSK': return qpskDemodulate(symbol);
+                case '16QAM': return qam16Demodulate(symbol);
+                default: return [];
+            }
+        }
+
+        function arraysEqual(arr1, arr2) {
+            if (!arr1 || !arr2 || arr1.length !== arr2.length) return false;
+            for (let i = 0; i < arr1.length; i++) {
+                if (arr1[i] !== arr2[i]) return false;
+            }
+            return true;
+        }
 
         function highlightBlock(index) {
             const nextBtn = document.getElementById('nextBlockBtn');
@@ -1514,19 +1591,42 @@
 
                 case 'block-rx':
                     if (globalReceivedSymbols.length) {
+                        const nFFTSize = parseInt(document.getElementById('nFFTSize').value);
+                        const numSubcarriers = parseInt(document.getElementById('numSubcarriers').value);
                         const modulationScheme = document.getElementById('modulationScheme').value;
-                        const demodulatedBits = demodulate(globalReceivedSymbols, modulationScheme);
-                        const ber = calculateBer(globalTransmittedBits, demodulatedBits).toExponential(2);
-                        description = `Equalized and demapped symbols back into a bitstream.\nCalculated Bit Error Rate (BER): ${ber}`;
+
+                        // Extract only the data symbols from the correct subcarrier positions
+                        const receivedDataSymbols = extractDataSubcarriers(globalReceivedSymbols, nFFTSize, numSubcarriers);
+                        
+                        // Demodulate the extracted data symbols
+                        const receivedBits = demodulate(receivedDataSymbols, modulationScheme);
+
+                        // Calculate BER correctly
+                        const ber = calculateBer(globalTransmittedBits, receivedBits);
+                        
+                        description = `Demapped symbols into a bitstream.\nFinal Bit Error Rate (BER): ${ber.toExponential(2)}`;
                         showSymbols = true;
-                        // Show a comparison of transmitted vs. received bits
-                        symbolData = formatSymbolDisplay(
-                            globalTransmittedBits.slice(0, 40).map((txBit, i) => ({
-                                value: `Tx: ${txBit}, Rx: ${demodulatedBits[i]}`,
-                                label: `${txBit}→${demodulatedBits[i]}`,
-                                type: txBit === demodulatedBits[i] ? 'data' : 'cp'
-                            }))
-                        );
+                        
+                        // Display first 20 bit comparisons correctly
+                        const displayCount = Math.min(20, globalTransmittedBits.length, receivedBits.length);
+                        symbolData = [];
+                        
+                        for (let i = 0; i < displayCount; i++) {
+                            const txBit = globalTransmittedBits[i];
+                            const rxBit = receivedBits[i] !== undefined ? receivedBits[i] : '?';
+                            const isError = txBit !== rxBit;
+                            
+                            symbolData.push({
+                                value: `Tx: ${txBit}, Rx: ${rxBit}`,
+                                label: `${txBit}→${rxBit}`,
+                                type: isError ? 'cp' : 'data' // 'cp' class shows red for errors
+                            });
+                        }
+                        
+                        // Add ellipsis if there are more bits
+                        if (globalTransmittedBits.length > displayCount) {
+                            symbolData.push({ label: '...', type: 'ellipsis' });
+                        }
                     }
                     break;
             }
@@ -1862,42 +1962,45 @@
 
         // --- REPLACE the old updateReceivedConstellationChart function with this ---
 
-        function updateReceivedConstellationChart(chart, receivedSymbols, idealSymbols) {
+        // --- REPLACE your existing updateReceivedConstellationChart function with this ---
+
+        function updateReceivedConstellationChart(chart, correctSymbols, incorrectSymbols, modulationScheme) {
             if (!chart) return;
 
-            const modulationScheme = document.getElementById('modulationScheme').value;
-            const idealPointsForAxis = getIdealConstellationPoints(modulationScheme);
-            const maxMag = Math.max(...idealPointsForAxis.map(p => Math.max(Math.abs(p.re), Math.abs(p.im))));
+            const idealPoints = getIdealConstellationPoints(modulationScheme);
+            const maxMag = Math.max(...idealPoints.map(p => Math.max(Math.abs(p.re), Math.abs(p.im))));
             const axisMax = Math.min(Math.max(maxMag * 1.5, 1.5), 10.0);
 
             chart.options.scales.x.min = -axisMax;
             chart.options.scales.x.max = axisMax;
             chart.options.scales.y.min = -axisMax;
             chart.options.scales.y.max = axisMax;
-            
-            // Dataset for the noisy, received symbols
-            const receivedData = receivedSymbols.map(s => ({ x: s.re, y: s.im }));
-
-            // Dataset for the "snapped" or "decided" ideal symbols
-            const idealData = idealSymbols.map(s => ({ x: s.re, y: s.im }));
+            chart.options.plugins.legend.display = true;
 
             chart.data.datasets = [
                 {
-                    label: 'Received',
-                    data: receivedData,
-                    backgroundColor: 'rgba(34, 197, 94, 0.6)', // Semi-transparent green
-                    pointRadius: 5,
-                    pointHoverRadius: 7,
-                    order: 2 // Render on top
+                    label: 'Ideal Points',
+                    data: idealPoints.map(s => ({ x: s.re, y: s.im })),
+                    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+                    pointStyle: 'crossRot',
+                    radius: 8,
+                    order: 1 // Render in the back
                 },
                 {
-                    label: 'Decided',
-                    data: idealData,
+                    label: 'Correctly Demapped',
+                    data: correctSymbols.map(s => ({ x: s.re, y: s.im })),
+                    backgroundColor: 'rgb(34, 197, 94)', // Green
+                    pointRadius: 5,
+                    pointHoverRadius: 7,
+                    order: 2
+                },
+                {
+                    label: 'Incorrectly Demapped',
+                    data: incorrectSymbols.map(s => ({ x: s.re, y: s.im })),
                     backgroundColor: 'rgb(239, 68, 68)', // Red
-                    pointStyle: 'crossRot', // Use a cross marker
-                    radius: 8,
-                    hoverRadius: 10,
-                    order: 1 // Render behind
+                    pointRadius: 5,
+                    pointHoverRadius: 7,
+                    order: 3
                 }
             ];
 
