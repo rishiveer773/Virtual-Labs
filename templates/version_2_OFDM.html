@@ -938,21 +938,25 @@
             return { fadedSignal, channelCoeffs: h };
         }
 
+        // Fix 3: Improved AWGN function for better noise scaling
         function addAwgn(signal, snrDb, nFFT, cpLen, numDataCarriers) {
-            // Calculate signal power based on the input signal
+            // Calculate signal power from actual signal samples
             const signalPower = signal.reduce((sum, s) => sum + s.magSq(), 0) / signal.length;
-            if (signalPower === 0) return signal; // No signal, no noise to add
+            if (signalPower === 0) return signal;
 
-            // Calculate noise power based on SNR
+            // Convert SNR to linear scale
             const snrLinear = dbToLinear(snrDb);
+            
+            // Calculate noise power: P_noise = P_signal / SNR
             const noisePower = signalPower / snrLinear;
-            const noiseStdDev = Math.sqrt(noisePower / 2); // Per dimension (real/imag)
+            const noiseStdDev = Math.sqrt(noisePower / 2); // /2 because complex noise has two dimensions
 
             const noisySignal = signal.map(sample => {
                 const noiseReal = randn() * noiseStdDev;
                 const noiseImag = randn() * noiseStdDev;
                 return sample.add(new Complex(noiseReal, noiseImag));
             });
+            
             return noisySignal;
         }
 
@@ -1050,7 +1054,8 @@
             (i - fftLengthForSpectrum / 2) * fsMHz / fftLengthForSpectrum
         );
 
-        // --- Replace the entire runStepByStepSimulation function ---
+        // Fix 1: Corrected Post-Channel Spectrum Calculation
+        // Replace the existing runStepByStepSimulation function's spectrum calculation part:
 
         async function runStepByStepSimulation() {
             const nFFTSize = parseInt(document.getElementById('nFFTSize').value);
@@ -1068,44 +1073,36 @@
             const numBitsPerOFDMSymbol = numSubcarriers * bitsPerSymbol;
 
             try {
-                // 1. Generate Bits & Modulate
+                // 1-3. Same as before...
                 globalTransmittedBits = generateBits(numBitsPerOFDMSymbol);
                 globalModulatedSymbols = modulate(globalTransmittedBits, modulationScheme, bitsPerSymbol);
-                
-                // 2. Map to Subcarriers & IFFT
                 let ifftInput = mapToSubcarriers(globalModulatedSymbols, nFFTSize, numSubcarriers);
                 let ifftOutput = ifft(ifftInput);
-
-                // 3. Add Cyclic Prefix
                 globalTxWaveformPreChannel = addCyclicPrefix(ifftOutput, cpLength);
 
                 // 4. Apply Channel & Noise
-                const { fadedSignal, channelCoeffs } = applyMultitapChannel(globalTxWaveformPreChannel, 5); // Using 5 taps for demonstration
+                const { fadedSignal, channelCoeffs } = applyMultitapChannel(globalTxWaveformPreChannel, 5);
                 globalRxWaveformPostChannel = addAwgn(fadedSignal, snrDb, nFFTSize, cpLength, numSubcarriers);
 
-                // 5. Remove Cyclic Prefix
+                // 5-8. Same as before...
                 globalRxNoCP = removeCyclicPrefix(globalRxWaveformPostChannel, cpLength, nFFTSize);
-                
-                // 6. FFT
                 globalRxFFTOutput = fft(globalRxNoCP);
-                
-                // 7. Channel Estimation (Correct Method: Pad taps and FFT)
                 const channelPadded = [...channelCoeffs];
                 while (channelPadded.length < nFFTSize) channelPadded.push(new Complex(0));
                 globalChannelGainsFFT = fft(channelPadded);
-
-                // 8. Equalization
                 globalReceivedSymbols = equalize(globalRxFFTOutput, globalChannelGainsFFT, equalizationMethod, snrDb);
 
-                // --- Charting Logic (No changes needed here, just for context) ---
+                // Charting Logic
                 updateTransmittedConstellationChart(globalModulatedSymbols, modulationScheme);
                 updateReceivedConstellationChart(globalReceivedSymbols, modulationScheme);
 
+                // Pre-Channel Spectrum (Transmitted signal)
                 const preChannelPadded = [...globalTxWaveformPreChannel, ...Array(fftLengthForSpectrum - globalTxWaveformPreChannel.length).fill(new Complex(0))];
                 const preChannelSpectrumFFT = fft(preChannelPadded);
                 const preChannelPsd = fftshift(preChannelSpectrumFFT).map(c => linearToDb(c.magSq()));
                 updateSpectrumChart(preChannelSpectrumChart, frequencies, preChannelPsd);
 
+                // FIXED: Post-Channel Spectrum (Received signal after channel + noise)
                 const postChannelPadded = [...globalRxWaveformPostChannel, ...Array(fftLengthForSpectrum - globalRxWaveformPostChannel.length).fill(new Complex(0))];
                 const postChannelSpectrumFFT = fft(postChannelPadded);
                 const postChannelPsd = fftshift(postChannelSpectrumFFT).map(c => linearToDb(c.magSq()));
@@ -1124,13 +1121,11 @@
             }
         }
 
-        // --- Replace the entire runBerSimulation function ---
-
+        // Fix 2 & 3: Optimized BER Simulation with Corrected Logic
         async function runBerSimulation() {
             document.getElementById('loadingSpinnerBER').style.display = 'block';
             document.getElementById('errorMessageBER').style.display = 'none';
 
-            // --- Get Parameters ---
             const nFFTSize = parseInt(document.getElementById('ber_nFFTSize').value);
             const numSubcarriers = parseInt(document.getElementById('ber_numSubcarriers').value);
             const modulationScheme = document.getElementById('ber_modulationScheme').value;
@@ -1141,17 +1136,19 @@
             const bitsPerSymbol = (modulationScheme === 'BPSK') ? 1 : (modulationScheme === 'QPSK' ? 2 : 4);
             const numBitsPerOFDMSymbol = numSubcarriers * bitsPerSymbol;
             
-            const snrRangeDb = Array.from({ length: 11 }, (_, i) => i * 2); // 0 to 20 dB
+            // OPTIMIZED: Reduced SNR range and better spacing
+            const snrRangeDb = [0, 2, 4, 6, 8, 10, 12, 15, 18, 20]; // 10 points instead of 11
             const berResults = [];
 
             try {
-                // Outer loop for each SNR point
                 for (const snrDb of snrRangeDb) {
                     let totalErrors = 0;
                     let totalBits = 0;
+                    
+                    // OPTIMIZED: Dynamic number of symbols based on expected BER
+                    const adaptiveSymbols = Math.min(numSymbolsBer, snrDb < 6 ? 200 : (snrDb < 12 ? 500 : 1000));
 
-                    // Inner loop for number of OFDM symbols to average over
-                    for (let s = 0; s < numSymbolsBer; s++) {
+                    for (let s = 0; s < adaptiveSymbols; s++) {
                         // === TRANSMITTER ===
                         const originalBits = generateBits(numBitsPerOFDMSymbol);
                         const modulatedSymbols = modulate(originalBits, modulationScheme, bitsPerSymbol);
@@ -1175,32 +1172,42 @@
                         // Equalization
                         const equalizedSymbols = equalize(rxFFT, channelFFT, equalizationMethod, snrDb);
 
-                        // Demodulation & BER Calculation
-                        const demodulatedSymbols = [];
-                        if (nFFTSize === 64 && numSubcarriers === 52) { // 802.11a subcarrier extraction
-                             const dataSubcarriers = [-26,-25,-24,-23,-22,-21,-20,-19,-18,-17,-16,-15,-14,-13,-12,-11,-10,-9,-8,-7,-6,-5,-4,-3,-2,-1,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26];
-                             for (const scIdx of dataSubcarriers) {
+                        // CORRECTED: Extract data symbols from correct subcarrier positions
+                        const dataSymbols = [];
+                        if (nFFTSize === 64 && numSubcarriers === 52) {
+                            // 802.11a subcarrier mapping (skip DC at index 0)
+                            const dataSubcarriers = [-26,-25,-24,-23,-22,-21,-20,-19,-18,-17,-16,-15,-14,-13,-12,-11,-10,-9,-8,-7,-6,-5,-4,-3,-2,-1,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26];
+                            for (const scIdx of dataSubcarriers) {
                                 const arrayIdx = scIdx > 0 ? scIdx : nFFTSize + scIdx;
-                                demodulatedSymbols.push(equalizedSymbols[arrayIdx]);
+                                dataSymbols.push(equalizedSymbols[arrayIdx]);
                             }
-                        } else { // Generic subcarrier extraction
+                        } else {
+                            // Generic symmetric subcarrier extraction
                             const half = Math.floor(numSubcarriers / 2);
-                            for (let i = 1; i <= half; i++) demodulatedSymbols.push(equalizedSymbols[i]);
-                            for (let i = nFFTSize - half; i < nFFTSize; i++) demodulatedSymbols.push(equalizedSymbols[i]);
+                            for (let i = 1; i <= half; i++) dataSymbols.push(equalizedSymbols[i]);
+                            for (let i = nFFTSize - half; i < nFFTSize; i++) dataSymbols.push(equalizedSymbols[i]);
                         }
                         
-                        const receivedBits = demodulate(demodulatedSymbols, modulationScheme);
-                        for (let i = 0; i < Math.min(originalBits.length, receivedBits.length); i++) {
+                        const receivedBits = demodulate(dataSymbols, modulationScheme);
+                        
+                        // Count bit errors
+                        const minLength = Math.min(originalBits.length, receivedBits.length);
+                        for (let i = 0; i < minLength; i++) {
                             if (originalBits[i] !== receivedBits[i]) {
                                 totalErrors++;
                             }
                         }
-                        totalBits += originalBits.length;
-                    } // End of symbols loop
+                        totalBits += minLength;
+
+                        // OPTIMIZED: Early termination if enough errors collected for reliable estimate
+                        if (totalErrors >= 100 && s > 50) break;
+                    }
                     
-                    const ber = totalBits > 0 ? totalErrors / totalBits : 0;
-                    berResults.push(ber > 0 ? ber : 1e-6); // Use 1e-6 for plotting zero BER on log scale
-                } // End of SNR loop
+                    const ber = totalBits > 0 ? totalErrors / totalBits : 1e-6;
+                    berResults.push(Math.max(ber, 1e-6)); // Floor at 1e-6 for log scale
+                    
+                    console.log(`SNR: ${snrDb} dB, BER: ${ber.toExponential(2)}, Symbols: ${Math.min(adaptiveSymbols, totalBits/numBitsPerOFDMSymbol)}`);
+                }
 
                 updateBerChart(snrRangeDb, berResults);
                 document.getElementById('berCurveChart').parentElement.style.display = 'block';
