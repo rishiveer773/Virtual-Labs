@@ -696,7 +696,7 @@
                 </div>
                 
                 <div class="w-full" style="grid-column: 2 / -1;">
-                    <div class="chart-container">
+                    <div class="chart-container" style="display: none;">
                         <h3 class="chart-title" id="berCurveChartTitle">BER vs. SNR Performance</h3>
                         <canvas id="berCurveChart"></canvas>
                     </div>
@@ -858,7 +858,12 @@
             evt.currentTarget.classList.add("active");
 
             // Reset charts and UI state when switching tabs
-            hideStepByStepCharts();
+            if (tabName === 'simulationTab') {
+                // Show the first chart when entering simulation tab
+                updateChartVisibility(0);
+            } else {
+                hideStepByStepCharts();
+            }
             hideOutputCharts();
             
             if (tabName === 'simulationTab') {
@@ -906,36 +911,55 @@
             }
             return inputiFFT;
         }
+
         function addCyclicPrefix(signal, cpLength) {
             const cyclicPrefix = signal.slice(signal.length - cpLength);
             return [...cyclicPrefix, ...signal];
         }
-        function applyRayleighFading(signal) {
-            const fadedSignal = [];
-            const channelGains = [];
-            for (let i = 0; i < signal.length; i++) {
-                const h_real = randn() / Math.sqrt(2);
-                const h_imag = randn() / Math.sqrt(2);
-                const h = new Complex(h_real, h_imag);
-                channelGains.push(h);
-                fadedSignal.push(signal[i].mul(h));
+
+        // --- Replace the existing applyMultitapChannel and addAwgn functions ---
+
+        function applyMultitapChannel(signal, numTaps) {
+            // Generate channel coefficients (normalized so E[||h||^2] = 1)
+            const h = Array.from({ length: numTaps }, () => {
+                const h_real = randn() / Math.sqrt(2 * numTaps);
+                const h_imag = randn() / Math.sqrt(2 * numTaps);
+                return new Complex(h_real, h_imag);
+            });
+            
+            // Apply convolution: y[n] = sum(h[l] * x[n-l])
+            const fadedSignal = new Array(signal.length).fill(new Complex(0));
+            for (let n = 0; n < signal.length; n++) {
+                for (let l = 0; l < numTaps && n - l >= 0; l++) {
+                    fadedSignal[n] = fadedSignal[n].add(signal[n - l].mul(h[l]));
+                }
             }
-            return { fadedSignal, channelGains };
+            
+            return { fadedSignal, channelCoeffs: h };
         }
-        function addAwgn(signal, snrDb) {
-            const signalPower = signal.reduce((sum, val) => sum + val.magSq(), 0) / signal.length;
+
+        function addAwgn(signal, snrDb, nFFT, cpLen, numDataCarriers) {
+            // Calculate signal power based on the input signal
+            const signalPower = signal.reduce((sum, s) => sum + s.magSq(), 0) / signal.length;
+            if (signalPower === 0) return signal; // No signal, no noise to add
+
+            // Calculate noise power based on SNR
             const snrLinear = dbToLinear(snrDb);
             const noisePower = signalPower / snrLinear;
-            const noiseStdDev = Math.sqrt(noisePower / 2);
-            return signal.map(sample => {
+            const noiseStdDev = Math.sqrt(noisePower / 2); // Per dimension (real/imag)
+
+            const noisySignal = signal.map(sample => {
                 const noiseReal = randn() * noiseStdDev;
                 const noiseImag = randn() * noiseStdDev;
                 return sample.add(new Complex(noiseReal, noiseImag));
             });
+            return noisySignal;
         }
+
         function removeCyclicPrefix(signalWithCP, cpLength, nFFTSize) {
             return signalWithCP.slice(cpLength, cpLength + nFFTSize);
         }
+
         // Replace your existing equalize function with this one
         function equalize(receivedSymbolsFFT, channelGainsFFT, method, snrDb) {
             const snrLinear = dbToLinear(snrDb);
@@ -966,6 +990,7 @@
                 return equalizedSymbol;
             });
         }
+
         function demodulate(symbols, modulationScheme) {
             const demodulatedBits = [];
             let demodulateFunc;
@@ -985,6 +1010,7 @@
             }
             return demodulatedBits;
         }
+
         function calculateBer(originalBits, receivedBits) {
             let errors = 0;
             const minLength = Math.min(originalBits.length, receivedBits.length);
@@ -1024,14 +1050,15 @@
             (i - fftLengthForSpectrum / 2) * fsMHz / fftLengthForSpectrum
         );
 
+        // --- Replace the entire runStepByStepSimulation function ---
+
         async function runStepByStepSimulation() {
             const nFFTSize = parseInt(document.getElementById('nFFTSize').value);
             const numSubcarriers = parseInt(document.getElementById('numSubcarriers').value);
             const modulationScheme = document.getElementById('modulationScheme').value;
             const cpLength = parseInt(document.getElementById('cpLength').value);
             const snrDb = parseFloat(document.getElementById('snrDb').value);
-            const equalizationMethod = document.getElementById('equalization').value; // <-- Add this line
-
+            const equalizationMethod = document.getElementById('equalization').value;
 
             document.getElementById('loadingSpinner').style.display = 'block';
             document.getElementById('errorMessage').style.display = 'none';
@@ -1041,52 +1068,48 @@
             const numBitsPerOFDMSymbol = numSubcarriers * bitsPerSymbol;
 
             try {
+                // 1. Generate Bits & Modulate
                 globalTransmittedBits = generateBits(numBitsPerOFDMSymbol);
                 globalModulatedSymbols = modulate(globalTransmittedBits, modulationScheme, bitsPerSymbol);
+                
+                // 2. Map to Subcarriers & IFFT
                 let ifftInput = mapToSubcarriers(globalModulatedSymbols, nFFTSize, numSubcarriers);
                 let ifftOutput = ifft(ifftInput);
+
+                // 3. Add Cyclic Prefix
                 globalTxWaveformPreChannel = addCyclicPrefix(ifftOutput, cpLength);
 
-                const { fadedSignal, channelGains } = applyRayleighFading(globalTxWaveformPreChannel);
-                globalRxWaveformPostChannel = addAwgn(fadedSignal, snrDb);
+                // 4. Apply Channel & Noise
+                const { fadedSignal, channelCoeffs } = applyMultitapChannel(globalTxWaveformPreChannel, 5); // Using 5 taps for demonstration
+                globalRxWaveformPostChannel = addAwgn(fadedSignal, snrDb, nFFTSize, cpLength, numSubcarriers);
 
+                // 5. Remove Cyclic Prefix
                 globalRxNoCP = removeCyclicPrefix(globalRxWaveformPostChannel, cpLength, nFFTSize);
+                
+                // 6. FFT
                 globalRxFFTOutput = fft(globalRxNoCP);
                 
-                const channelGainsNoCP = channelGains.slice(cpLength, cpLength + nFFTSize);
-                globalChannelGainsFFT = fft(channelGainsNoCP);
+                // 7. Channel Estimation (Correct Method: Pad taps and FFT)
+                const channelPadded = [...channelCoeffs];
+                while (channelPadded.length < nFFTSize) channelPadded.push(new Complex(0));
+                globalChannelGainsFFT = fft(channelPadded);
+
+                // 8. Equalization
                 globalReceivedSymbols = equalize(globalRxFFTOutput, globalChannelGainsFFT, equalizationMethod, snrDb);
 
+                // --- Charting Logic (No changes needed here, just for context) ---
                 updateTransmittedConstellationChart(globalModulatedSymbols, modulationScheme);
                 updateReceivedConstellationChart(globalReceivedSymbols, modulationScheme);
 
-                const preChannelPadded = [...globalTxWaveformPreChannel];
-                if (preChannelPadded.length < fftLengthForSpectrum) {
-                    preChannelPadded.push(...Array(fftLengthForSpectrum - preChannelPadded.length).fill(new Complex(0)));
-                } else if (preChannelPadded.length > fftLengthForSpectrum) {
-                    preChannelPadded.length = fftLengthForSpectrum;
-                }
+                const preChannelPadded = [...globalTxWaveformPreChannel, ...Array(fftLengthForSpectrum - globalTxWaveformPreChannel.length).fill(new Complex(0))];
                 const preChannelSpectrumFFT = fft(preChannelPadded);
-                const preChannelPsd = preChannelSpectrumFFT.map(c => Math.max(c.magSq(), 1e-12));
-                const preChannelPsd_db = fftshift(preChannelPsd).map(val => {
-                    const dbVal = linearToDb(val);
-                    return isFinite(dbVal) ? Math.max(dbVal, -100) : -100;
-                });
-                updateSpectrumChart(preChannelSpectrumChart, frequencies, preChannelPsd_db);
+                const preChannelPsd = fftshift(preChannelSpectrumFFT).map(c => linearToDb(c.magSq()));
+                updateSpectrumChart(preChannelSpectrumChart, frequencies, preChannelPsd);
 
-                const postChannelPadded = [...globalRxWaveformPostChannel];
-                if (postChannelPadded.length < fftLengthForSpectrum) {
-                    postChannelPadded.push(...Array(fftLengthForSpectrum - postChannelPadded.length).fill(new Complex(0)));
-                } else if (postChannelPadded.length > fftLengthForSpectrum) {
-                    postChannelPadded.length = fftLengthForSpectrum;
-                }
+                const postChannelPadded = [...globalRxWaveformPostChannel, ...Array(fftLengthForSpectrum - globalRxWaveformPostChannel.length).fill(new Complex(0))];
                 const postChannelSpectrumFFT = fft(postChannelPadded);
-                const postChannelPsd = postChannelSpectrumFFT.map(c => Math.max(c.magSq(), 1e-12));
-                const postChannelPsd_db = fftshift(postChannelPsd).map(val => {
-                    const dbVal = linearToDb(val);
-                    return isFinite(dbVal) ? Math.max(dbVal, -100) : -100;
-                });
-                updateSpectrumChart(postChannelSpectrumChart, frequencies, postChannelPsd_db);
+                const postChannelPsd = fftshift(postChannelSpectrumFFT).map(c => linearToDb(c.magSq()));
+                updateSpectrumChart(postChannelSpectrumChart, frequencies, postChannelPsd);
 
                 currentBlockIndex = 0;
                 highlightBlock(currentBlockIndex);
@@ -1101,91 +1124,86 @@
             }
         }
 
+        // --- Replace the entire runBerSimulation function ---
+
         async function runBerSimulation() {
             document.getElementById('loadingSpinnerBER').style.display = 'block';
             document.getElementById('errorMessageBER').style.display = 'none';
 
+            // --- Get Parameters ---
             const nFFTSize = parseInt(document.getElementById('ber_nFFTSize').value);
             const numSubcarriers = parseInt(document.getElementById('ber_numSubcarriers').value);
             const modulationScheme = document.getElementById('ber_modulationScheme').value;
             const cpLength = parseInt(document.getElementById('ber_cpLength').value);
             const numSymbolsBer = parseInt(document.getElementById('numSymbolsBer').value);
             const equalizationMethod = document.getElementById('ber_equalization').value;
-
-            let bitsPerSymbol;
-            switch (modulationScheme) {
-                case 'BPSK': bitsPerSymbol = 1; break;
-                case 'QPSK': bitsPerSymbol = 2; break;
-                case '16QAM': bitsPerSymbol = 4; break;
-                default: 
-                    displayErrorBER('Invalid modulation scheme selected.'); 
-                    document.getElementById('loadingSpinnerBER').style.display = 'none'; 
-                    return;
-            }
-            
+            const channelTaps = parseInt(document.getElementById('ber_channelTaps').value);
+            const bitsPerSymbol = (modulationScheme === 'BPSK') ? 1 : (modulationScheme === 'QPSK' ? 2 : 4);
             const numBitsPerOFDMSymbol = numSubcarriers * bitsPerSymbol;
-            const snrRangeDb = Array.from({ length: 26 }, (_, i) => i);
+            
+            const snrRangeDb = Array.from({ length: 11 }, (_, i) => i * 2); // 0 to 20 dB
             const berResults = [];
 
             try {
-                for (const snr of snrRangeDb) {
-                    let totalErrorsForThisSNR = 0;
-                    let totalBitsForThisSNR = 0;
+                // Outer loop for each SNR point
+                for (const snrDb of snrRangeDb) {
+                    let totalErrors = 0;
+                    let totalBits = 0;
 
+                    // Inner loop for number of OFDM symbols to average over
                     for (let s = 0; s < numSymbolsBer; s++) {
+                        // === TRANSMITTER ===
                         const originalBits = generateBits(numBitsPerOFDMSymbol);
                         const modulatedSymbols = modulate(originalBits, modulationScheme, bitsPerSymbol);
                         const ifftInput = mapToSubcarriers(modulatedSymbols, nFFTSize, numSubcarriers);
                         const ifftOutput = ifft(ifftInput);
-                        const txWaveform = addCyclicPrefix(ifftOutput, cpLength);
-                        
-                        const { fadedSignal, channelGains } = applyRayleighFading(txWaveform);
-                        const rxWaveform = addAwgn(fadedSignal, snr);
-                        
-                        const rxNoCP = removeCyclicPrefix(rxWaveform, cpLength, nFFTSize);
+                        const txWaveformWithCP = addCyclicPrefix(ifftOutput, cpLength);
+
+                        // === CHANNEL ===
+                        const { fadedSignal, channelCoeffs } = applyMultitapChannel(txWaveformWithCP, channelTaps);
+                        const noisySignal = addAwgn(fadedSignal, snrDb, nFFTSize, cpLength, numSubcarriers);
+
+                        // === RECEIVER ===
+                        const rxNoCP = removeCyclicPrefix(noisySignal, cpLength, nFFTSize);
                         const rxFFT = fft(rxNoCP);
 
-                        // Get channel gains for equalization
-                        const channelGainsNoCP = channelGains.slice(cpLength, cpLength + nFFTSize);
-                        const channelGainsFFT = fft(channelGainsNoCP);
+                        // Channel Estimation
+                        const channelPadded = [...channelCoeffs];
+                        while (channelPadded.length < nFFTSize) channelPadded.push(new Complex(0));
+                        const channelFFT = fft(channelPadded);
 
-                        // Extract data subcarriers and equalize
-                        const dataSubcarrierIndices = [];
-                        if (nFFTSize === 64 && numSubcarriers === 52) {
-                            const subcarrierIndices80211a = [-26, -25, -24, -23, -22, -21, -20, -19, -18, -17, -16, -15, -14, -13, -12, -11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1,
-                                                            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26];
-                            for (const scIdx of subcarrierIndices80211a) {
-                                let arrayIdx = scIdx > 0 ? scIdx : nFFTSize + scIdx;
-                                dataSubcarrierIndices.push(arrayIdx);
+                        // Equalization
+                        const equalizedSymbols = equalize(rxFFT, channelFFT, equalizationMethod, snrDb);
+
+                        // Demodulation & BER Calculation
+                        const demodulatedSymbols = [];
+                        if (nFFTSize === 64 && numSubcarriers === 52) { // 802.11a subcarrier extraction
+                             const dataSubcarriers = [-26,-25,-24,-23,-22,-21,-20,-19,-18,-17,-16,-15,-14,-13,-12,-11,-10,-9,-8,-7,-6,-5,-4,-3,-2,-1,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26];
+                             for (const scIdx of dataSubcarriers) {
+                                const arrayIdx = scIdx > 0 ? scIdx : nFFTSize + scIdx;
+                                demodulatedSymbols.push(equalizedSymbols[arrayIdx]);
                             }
-                        } else {
-                            const halfSubcarriers = Math.floor(numSubcarriers / 2);
-                            for (let i = 1; i <= halfSubcarriers; i++) { dataSubcarrierIndices.push(i); }
-                            for (let i = nFFTSize - halfSubcarriers; i < nFFTSize; i++) { dataSubcarrierIndices.push(i); }
+                        } else { // Generic subcarrier extraction
+                            const half = Math.floor(numSubcarriers / 2);
+                            for (let i = 1; i <= half; i++) demodulatedSymbols.push(equalizedSymbols[i]);
+                            for (let i = nFFTSize - half; i < nFFTSize; i++) demodulatedSymbols.push(equalizedSymbols[i]);
                         }
                         
-                        const receivedDataSymbols = dataSubcarrierIndices.map(idx => rxFFT[idx]);
-                        const channelGainsData = dataSubcarrierIndices.map(idx => channelGainsFFT[idx]);
-                        const equalizedSymbols = equalize(receivedDataSymbols, channelGainsData, equalizationMethod, snr);
-                        const receivedBits = demodulate(equalizedSymbols, modulationScheme);
-
-                        let bitErrorsForSymbol = 0;
-                        for (let i = 0; i < originalBits.length; i++) {
+                        const receivedBits = demodulate(demodulatedSymbols, modulationScheme);
+                        for (let i = 0; i < Math.min(originalBits.length, receivedBits.length); i++) {
                             if (originalBits[i] !== receivedBits[i]) {
-                                bitErrorsForSymbol++;
+                                totalErrors++;
                             }
                         }
-                        totalErrorsForThisSNR += bitErrorsForSymbol;
-                        totalBitsForThisSNR += originalBits.length;
-                    }
+                        totalBits += originalBits.length;
+                    } // End of symbols loop
                     
-                    const ber = totalBitsForThisSNR > 0 ? totalErrorsForThisSNR / totalBitsForThisSNR : 0;
-                    berResults.push(Math.max(ber, 1e-6));
-                }
+                    const ber = totalBits > 0 ? totalErrors / totalBits : 0;
+                    berResults.push(ber > 0 ? ber : 1e-6); // Use 1e-6 for plotting zero BER on log scale
+                } // End of SNR loop
 
                 updateBerChart(snrRangeDb, berResults);
-                hideStepByStepCharts();
-                showChart('berCurveChart');
+                document.getElementById('berCurveChart').parentElement.style.display = 'block';
 
             } catch (error) {
                 console.error("BER simulation error:", error);
@@ -1262,48 +1280,55 @@
         }
 
         function hideStepByStepCharts() {
-            document.getElementById('constellationChart').style.display = 'none';
-            document.getElementById('preChannelSpectrumChart').style.display = 'none';
-            document.getElementById('postChannelSpectrumChart').style.display = 'none';
-            document.getElementById('constellationChartTitle').style.display = 'none';
-            document.getElementById('preChannelSpectrumChartTitle').style.display = 'none';
-            document.getElementById('postChannelSpectrumChartTitle').style.display = 'none';
+            const stepByStepCharts = [
+                'constellationChart', 'preChannelSpectrumChart', 
+                'postChannelSpectrumChart', 'receivedConstellationChart'
+            ];
+            
+            stepByStepCharts.forEach(chartId => {
+                document.getElementById(chartId).parentElement.style.display = 'none';
+            });
         }
 
         function showOutputChart(chartId) {
             hideOutputCharts();
-            document.getElementById(chartId).style.display = 'block';
-            document.getElementById(`${chartId}Title`).style.display = 'block';
+            document.getElementById(chartId).parentElement.style.display = 'block';
         }
 
         function hideOutputCharts() {
-            document.getElementById('receivedConstellationChart').style.display = 'none';
-            document.getElementById('berCurveChart').style.display = 'none';
-            document.getElementById('receivedConstellationChartTitle').style.display = 'none';
-            document.getElementById('berCurveChartTitle').style.display = 'none';
+            document.getElementById('receivedConstellationChart').parentElement.style.display = 'none';
+            document.getElementById('berCurveChart').parentElement.style.display = 'none';
         }
 
         function updateChartVisibility(blockIndex) {
-            hideStepByStepCharts();
-            hideOutputCharts();
+            // Hide all charts first
+            const allChartContainers = [
+                'constellationChart', 'preChannelSpectrumChart', 
+                'postChannelSpectrumChart', 'receivedConstellationChart'
+            ];
+            
+            allChartContainers.forEach(chartId => {
+                document.getElementById(chartId).parentElement.style.display = 'none';
+            });
+            
+            // Show the relevant chart for current block
             switch (allOfdmBlockIds[blockIndex]) {
                 case 'block-tx':
-                    showChart('constellationChart');
+                    document.getElementById('constellationChart').parentElement.style.display = 'block';
                     break;
                 case 'block-addcp':
-                    showChart('preChannelSpectrumChart');
+                    document.getElementById('preChannelSpectrumChart').parentElement.style.display = 'block';
                     break;
                 case 'block-channel':
-                    showChart('postChannelSpectrumChart');
+                    document.getElementById('postChannelSpectrumChart').parentElement.style.display = 'block';
                     break;
                 case 'block-rx':
-                    showChart('receivedConstellationChart');
+                    document.getElementById('receivedConstellationChart').parentElement.style.display = 'block';
                     break;
             }
         }
         function showChart(chartId) {
-            document.getElementById(chartId).style.display = 'block';
-            document.getElementById(`${chartId}Title`).style.display = 'block';
+            document.getElementById(chartId).parentElement.style.display = 'block';
         }
 
         /**
@@ -1697,35 +1722,6 @@
             return result;
         }
 
-        // Fixed updateConstellationChart function
-        function updateConstellationChart(chart, symbols, modulationScheme) {
-            if (!chart) return;
-
-            let axisMax = 2.0; // Default axis range
-            
-            const idealPoints = getIdealConstellationPoints(modulationScheme);
-            if (idealPoints.length > 0) {
-                const maxMag = Math.max(...idealPoints.map(p => Math.max(Math.abs(p.re), Math.abs(p.im))));
-                axisMax = Math.max(maxMag * 1.5, 2.0);
-            }
-            
-            // Cap the range to reasonable limits
-            axisMax = Math.min(axisMax, 5.0);
-
-            const validData = symbols.filter(s => 
-                isFinite(s.re) && isFinite(s.im) &&
-                Math.abs(s.re) <= 10 && Math.abs(s.im) <= 10
-            ).map(s => ({ x: s.re, y: s.im }));
-
-            chart.options.scales.x.min = -axisMax;
-            chart.options.scales.x.max = axisMax;
-            chart.options.scales.y.min = -axisMax;
-            chart.options.scales.y.max = axisMax;
-
-            chart.data.datasets[0].data = validData;
-            chart.update();
-        }
-
         function updateSpectrumChart(chartInstance, labels, data) {
             if (chartInstance) {
                 const validLabels = [];
@@ -1788,10 +1784,13 @@
         }
 
         function updateBerChart(snrLabels, berData) {
-            if (berCurveChart) {
+            if (berCurveChart && berData.length > 0) {
                 berCurveChart.data.labels = snrLabels;
                 berCurveChart.data.datasets[0].data = berData;
                 berCurveChart.update();
+                console.log('BER chart updated with', berData.length, 'points');
+            } else {
+                console.log('BER chart update failed - chart or data invalid');
             }
         }
 
