@@ -643,6 +643,10 @@
                         <canvas id="postChannelSpectrumChart"></canvas>
                     </div>
                     <div class="chart-container" style="display: none;">
+                        <h3 class="chart-title" id="equalizedSpectrumChartTitle">Equalized Signal Spectrum</h3>
+                        <canvas id="equalizedSpectrumChart"></canvas>
+                    </div>
+                    <div class="chart-container" style="display: none;">
                         <h3 class="chart-title" id="receivedConstellationChartTitle">Received Constellation</h3>
                         <canvas id="receivedConstellationChart"></canvas>
                     </div>
@@ -1114,6 +1118,13 @@
                 const postChannelPsd = fftshift(postChannelSpectrumFFT).map(c => linearToDb(c.magSq()));
                 updateSpectrumChart(postChannelSpectrumChart, frequencies, postChannelPsd);
 
+                // **NEW**: Calculate the PSD of the equalized signal
+                const equalizedTimeWaveform = ifft(globalReceivedSymbols);
+                const equalizedPadded = [...equalizedTimeWaveform, ...Array(fftLengthForSpectrum - equalizedTimeWaveform.length).fill(new Complex(0))];
+                const equalizedSpectrumFFT = fft(equalizedPadded);
+                const equalizedPsd = fftshift(equalizedSpectrumFFT).map(c => linearToDb(c.magSq()));
+                updateSpectrumChart(equalizedSpectrumChart, frequencies, equalizedPsd);
+
                 currentBlockIndex = 0;
                 highlightBlock(currentBlockIndex);
                 document.getElementById('nextBlockBtn').disabled = false;
@@ -1361,6 +1372,9 @@
                 case 'block-channel':
                     document.getElementById('postChannelSpectrumChart').parentElement.style.display = 'block';
                     break;
+                case 'block-equalizer':
+                    document.getElementById('equalizedSpectrumChart').parentElement.style.display = 'block';
+                    break;
                 case 'block-rx':
                     document.getElementById('receivedConstellationChart').parentElement.style.display = 'block';
                     break;
@@ -1567,7 +1581,7 @@
             }
         }
 
-        let constellationChart, preChannelSpectrumChart, postChannelSpectrumChart, receivedConstellationChart, berCurveChart;
+        let constellationChart, preChannelSpectrumChart, postChannelSpectrumChart, equalizedSpectrumChart, receivedConstellationChart, berCurveChart;
 
         // Updated initializeCharts function for better responsiveness
         function initializeCharts() {
@@ -1587,39 +1601,49 @@
             const canvases = ['constellationChart', 'preChannelSpectrumChart', 'postChannelSpectrumChart', 'receivedConstellationChart', 'berCurveChart'];
             canvases.forEach(setCanvasDimensions);
 
-            const constellationConfig = {
-                type: 'scatter',
-                data: { datasets: [{ label: 'Constellation Diagram', data: [], backgroundColor: 'rgb(236, 72, 153)', pointRadius: 4, pointHoverRadius: 6 }] },
-                options: {
-                    responsive: true,  // Changed back to true for better responsiveness
-                    maintainAspectRatio: false,
-                    plugins: {
-                        title: { display: false },
-                        legend: { display: false },
-                        tooltip: { callbacks: { label: c => `(${c.parsed.x.toFixed(2)}, ${c.parsed.y.toFixed(2)}i)` } }
-                    },
-                    scales: {
-                        x: {
-                            type: 'linear',
-                            position: 'bottom',
-                            min: -2,
-                            max: 2,
-                            title: { display: true, text: 'In-phase (Real)', font: { size: 12, weight: 'bold' }, color: '#4b5563' },
-                            grid: { color: '#e5e7eb' },
-                            ticks: { color: '#6b7280', font: { size: 10 } }
+            // --- Find the initializeCharts function and REPLACE the constellationConfig object with this CORRECTED version ---
+
+        const constellationConfig = {
+            type: 'scatter',
+            data: { datasets: [{ label: 'Constellation Diagram', data: [], backgroundColor: 'rgb(34, 197, 94)', pointRadius: 5, pointHoverRadius: 7 }] },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: { display: false },
+                    legend: { display: false },
+                    tooltip: { callbacks: { label: c => `(${c.parsed.x.toFixed(2)}, ${c.parsed.y.toFixed(2)}i)` } }
+                },
+                scales: {
+                    x: {
+                        type: 'linear',
+                        position: 'bottom',
+                        min: -2,
+                        max: 2,
+                        title: { display: true, text: 'In-phase (Real)', font: { size: 12, weight: 'bold' }, color: '#4b5563' },
+                        grid: {
+                            // --- AXIS HIGHLIGHT (Chart.js v3+) ---
+                            color: context => (context.tick.value === 0 ? '#6b7280' : '#e5e7eb'),
+                            lineWidth: context => (context.tick.value === 0 ? 2 : 1)
                         },
-                        y: {
-                            type: 'linear',
-                            position: 'left',
-                            min: -2,
-                            max: 2,
-                            title: { display: true, text: 'Quadrature (Imaginary)', font: { size: 12, weight: 'bold' }, color: '#4b5563' },
-                            grid: { color: '#e5e7eb' },
-                            ticks: { color: '#6b7280', font: { size: 10 } }
-                        }
+                        ticks: { color: '#6b7280', font: { size: 10 } }
+                    },
+                    y: {
+                        type: 'linear',
+                        position: 'left',
+                        min: -2,
+                        max: 2,
+                        title: { display: true, text: 'Quadrature (Imaginary)', font: { size: 12, weight: 'bold' }, color: '#4b5563' },
+                        grid: {
+                            // --- AXIS HIGHLIGHT (Chart.js v3+) ---
+                            color: context => (context.tick.value === 0 ? '#6b7280' : '#e5e7eb'),
+                            lineWidth: context => (context.tick.value === 0 ? 2 : 1)
+                        },
+                        ticks: { color: '#6b7280', font: { size: 10 } }
                     }
                 }
-            };
+            }
+        };
 
             const spectrumConfig = {
                 type: 'line',
@@ -1672,6 +1696,7 @@
             constellationChart = new Chart(document.getElementById('constellationChart').getContext('2d'), constellationConfig);
             preChannelSpectrumChart = new Chart(document.getElementById('preChannelSpectrumChart').getContext('2d'), { ...spectrumConfig, data: { datasets: [{ ...spectrumConfig.data.datasets[0], borderColor: 'rgb(59, 130, 246)', backgroundColor: 'rgba(59, 130, 246, 0.2)' }] } });
             postChannelSpectrumChart = new Chart(document.getElementById('postChannelSpectrumChart').getContext('2d'), { ...spectrumConfig, data: { datasets: [{ ...spectrumConfig.data.datasets[0], borderColor: 'rgb(234, 88, 12)', backgroundColor: 'rgba(234, 88, 12, 0.2)' }] } });
+            equalizedSpectrumChart = new Chart(document.getElementById('equalizedSpectrumChart').getContext('2d'), { ...spectrumConfig, data: { datasets: [{ ...spectrumConfig.data.datasets[0], borderColor: 'rgb(132, 204, 22)', backgroundColor: 'rgba(132, 204, 22, 0.2)' }] } });
             receivedConstellationChart = new Chart(document.getElementById('receivedConstellationChart').getContext('2d'), { ...constellationConfig, data: { datasets: [{ ...constellationConfig.data.datasets[0], label: 'Received Constellation', backgroundColor: 'rgb(34, 197, 94)' }] } });
             berCurveChart = new Chart(document.getElementById('berCurveChart').getContext('2d'), berConfig);
 
