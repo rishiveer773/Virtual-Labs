@@ -1092,9 +1092,15 @@
                 globalChannelGainsFFT = fft(channelPadded);
                 globalReceivedSymbols = equalize(globalRxFFTOutput, globalChannelGainsFFT, equalizationMethod, snrDb);
 
-                // Charting Logic
+                // --- PLOTTING FIX ---
+                // **NEW**: Extract only the data symbols from the full equalized output
+                const receivedDataSymbols = extractDataSubcarriers(globalReceivedSymbols, nFFTSize, numSubcarriers);
+                
+                // --- Charting Logic ---
                 updateTransmittedConstellationChart(globalModulatedSymbols, modulationScheme);
-                updateReceivedConstellationChart(globalReceivedSymbols, modulationScheme);
+                
+                // **UPDATED**: Pass the filtered data symbols to the chart function
+                updateReceivedConstellationChart(receivedDataSymbols, modulationScheme);
 
                 // Pre-Channel Spectrum (Transmitted signal)
                 const preChannelPadded = [...globalTxWaveformPreChannel, ...Array(fftLengthForSpectrum - globalTxWaveformPreChannel.length).fill(new Complex(0))];
@@ -1119,6 +1125,32 @@
             } finally {
                 document.getElementById('loadingSpinner').style.display = 'none';
             }
+        }
+
+        // --- Add this new helper function to your main script ---
+
+        function extractDataSubcarriers(allSymbols, nFFTSize, numSubcarriers) {
+            const dataSymbols = [];
+            if (!allSymbols || allSymbols.length === 0) return dataSymbols;
+
+            if (nFFTSize === 64 && numSubcarriers === 52) {
+                // Standard 802.11a/g subcarrier indices (skips DC and pilots)
+                const dataIndices = [
+                    -26,-25,-24,-23,-22,-21,-20,-19,-18,-17,-16,-15,-14,-13,-12,-11,
+                    -10,-9,-8,-7,-6,-5,-4,-3,-2,-1,1,2,3,4,5,6,7,8,9,10,11,12,13,
+                    14,15,16,17,18,19,20,21,22,23,24,25,26
+                ];
+                for (const scIdx of dataIndices) {
+                    const arrayIdx = scIdx > 0 ? scIdx : nFFTSize + scIdx;
+                    dataSymbols.push(allSymbols[arrayIdx]);
+                }
+            } else {
+                // Generic case: extract symmetrically around DC
+                const half = Math.floor(numSubcarriers / 2);
+                for (let i = 1; i <= half; i++) dataSymbols.push(allSymbols[i]);
+                for (let i = nFFTSize - half; i < nFFTSize; i++) dataSymbols.push(allSymbols[i]);
+            }
+            return dataSymbols;
         }
 
         // Fix 2 & 3: Optimized BER Simulation with Corrected Logic
@@ -1437,10 +1469,16 @@
                 case 'block-equalizer':
                     if (globalReceivedSymbols.length) {
                         const method = document.getElementById('equalization').value;
-                        description = `Applied ${method} equalization to compensate for channel distortion and noise.`;
+                        const nFFTSize = parseInt(document.getElementById('nFFTSize').value);
+                        const numSubcarriers = parseInt(document.getElementById('numSubcarriers').value);
+                        
+                        // Extract only data symbols for display
+                        const dataSymbols = extractDataSubcarriers(globalReceivedSymbols, nFFTSize, numSubcarriers);
+                        
+                        description = `Applied ${method} equalization to compensate for channel distortion and noise. Extracted ${dataSymbols.length} data symbols.`;
                         showSymbols = true;
                         symbolData = formatSymbolDisplay(
-                            globalReceivedSymbols.map((s, i) => ({
+                            dataSymbols.map((s, i) => ({
                                 value: s,
                                 label: `X̂[${i}]`,
                                 type: 'data'
