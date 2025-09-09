@@ -27,9 +27,6 @@
             padding: 2rem;
             width: 100%;
             max-width: 1600px;
-            display: grid;
-            grid-template-columns: 280px 1fr 350px;
-            gap: 1.5rem;
             min-height: 600px;
         }
 
@@ -442,134 +439,268 @@
                 max-width: 450px;
             }
         }
+
+        .tab-nav {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 2rem;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .tab-link {
+            padding: 0.75rem 1.5rem;
+            background: none;
+            border: none;
+            font-size: 1rem;
+            font-weight: 600;
+            color: #64748b;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .tab-link:hover {
+            color: #3b82f6;
+        }
+
+        .tab-link.active {
+            color: #3b82f6;
+            border-bottom-color: #3b82f6;
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .main-content-grid {
+            display: grid;
+            grid-template-columns: 280px 1fr 350px;
+            gap: 1.5rem;
+            min-height: 600px;
+        }
+
+        @media (max-width: 1400px) {
+            .main-content-grid {
+                grid-template-columns: 260px 1fr 320px;
+                gap: 1rem;
+            }
+        }
+
+        @media (max-width: 1200px) {
+            .main-content-grid {
+                grid-template-columns: 1fr;
+                gap: 2rem;
+            }
+            
+            .input-section {
+                border-right: none;
+                border-bottom: 2px solid #e2e8f0;
+                padding-right: 0;
+                padding-bottom: 2rem;
+            }
+            
+            .output-area {
+                border-left: none;
+                border-top: 2px solid #e2e8f0;
+                padding-left: 0;
+                padding-top: 2rem;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="input-section">
-            <h2 class="text-2xl font-bold text-center text-gray-800 mb-4">Simulation Inputs</h2>
-            <div class="input-grid">
-                <div class="input-group">
-                    <label for="nFFTSize">FFT Size (N):</label>
-                    <input type="number" id="nFFTSize" value="64" min="16" step="16">
-                </div>
-                <div class="input-group">
-                    <label for="numSubcarriers">Number of Data Subcarriers:</label>
-                    <input type="number" id="numSubcarriers" value="52" min="12" step="4">
-                </div>
-                <div class="input-group">
-                    <label for="modulationScheme">Modulation Scheme:</label>
-                    <select id="modulationScheme">
-                        <option value="BPSK">BPSK</option>
-                        <option value="QPSK">QPSK</option>
-                        <option value="16QAM">16-QAM</option>
-                    </select>
-                </div>
-                <div class="input-group">
-                    <label for="cpLength">Cyclic Prefix Length:</label>
-                    <input type="number" id="cpLength" value="16" min="4" step="4">
-                </div>
-                <div class="input-group">
-                    <label for="snrDb">SNR (dB) for Plots:</label>
-                    <input type="number" id="snrDb" value="20" min="-10" max="50" step="1">
-                </div>
-                <div class="input-group">
-                    <label for="numSymbolsBer">Symbols for BER:</label>
-                    <input type="number" id="numSymbolsBer" value="1000" min="100" step="100">
-                </div>
-            </div>
-            <button id="runStepByStepBtn" class="button-primary w-full mt-4 bg-blue-500 hover:bg-blue-600">Run Step-by-Step Simulation</button>
-            <button id="runBerSimBtn" class="button-primary w-full mt-2 bg-emerald-500 hover:bg-emerald-600">Run BER Simulation</button>
-            <button id="resetBtn" class="button-primary w-full mt-2 bg-slate-500 hover:bg-slate-600">Reset Simulation</button>
-            <div id="loadingSpinner" class="loading-spinner"></div>
-            <div id="errorMessage" class="error-message"></div>
-        </div>
-
-        <div class="simulation-area">
-            <h2 class="text-2xl font-bold text-center text-gray-800 mb-4">OFDM Signal Flow</h2>
-            <div class="block-diagram-container">
-                <!-- Updated block diagram with better positioning and smaller size -->
-                <svg id="ofdmBlockDiagram" width="500" height="280" viewBox="0 0 500 280">
-                    <defs>
-                        <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
-                            <polygon points="0 0, 10 3.5, 0 7" class="arrowhead" />
-                        </marker>
-                    </defs>
-
-                    <!-- Transmitter side -->
-                    <rect id="block-tx" class="ofdm-block" x="10" y="15" width="100" height="50" rx="6" ry="6"></rect>
-                    <text class="ofdm-block-text" x="60" y="32">S/P</text>
-                    <text class="ofdm-block-text" x="60" y="48">+ Mapping</text>
-                    <line id="tx-to-idft" x1="60" y1="65" x2="60" y2="80" class="arrow" />
-
-                    <rect id="block-idft" class="ofdm-block" x="10" y="80" width="100" height="50" rx="6" ry="6"></rect>
-                    <text class="ofdm-block-text" x="60" y="105">IDFT</text>
-                    <line id="idft-to-addcp" x1="60" y1="130" x2="60" y2="145" class="arrow" />
-
-                    <rect id="block-addcp" class="ofdm-block" x="10" y="145" width="100" height="50" rx="6" ry="6"></rect>
-                    <text class="ofdm-block-text" x="60" y="170">Add CP</text>
-
-                    <!-- Horizontal connection to channel -->
-                    <line id="tx-to-channel" x1="110" y1="170" x2="190" y2="170" class="arrow" />
-
-                    <!-- Channel -->
-                    <rect id="block-channel" class="ofdm-block" x="190" y="145" width="80" height="50" rx="6" ry="6"></rect>
-                    <text class="ofdm-block-text" x="230" y="170">Channel</text>
-
-                    <!-- Horizontal connection to receiver -->
-                    <line id="channel-to-rx" x1="270" y1="170" x2="350" y2="170" class="arrow" />
-
-                    <!-- Receiver side -->
-                    <rect id="block-removecp" class="ofdm-block" x="350" y="145" width="100" height="50" rx="6" ry="6"></rect>
-                    <text class="ofdm-block-text" x="400" y="170">Remove CP</text>
-                    <line id="removecp-to-dft" x1="400" y1="145" x2="400" y2="130" class="arrow" />
-
-                    <rect id="block-fft" class="ofdm-block" x="350" y="80" width="100" height="50" rx="6" ry="6"></rect>
-                    <text class="ofdm-block-text" x="400" y="105">FFT</text>
-                    <line id="dft-to-demapping" x1="400" y1="80" x2="400" y2="65" class="arrow" />
-
-                    <rect id="block-rx" class="ofdm-block" x="350" y="15" width="100" height="50" rx="6" ry="6"></rect>
-                    <text class="ofdm-block-text" x="400" y="32">Demapping</text>
-                    <text class="ofdm-block-text" x="400" y="48">+ P/S</text>
-                </svg>
-            </div>
-
-            <div class="nav-buttons">
-                <button id="prevBlockBtn" class="button-primary w-40 disabled:opacity-50 disabled:cursor-not-allowed">Previous Step</button>
-                <button id="nextBlockBtn" class="button-primary w-40 disabled:opacity-50 disabled:cursor-not-allowed">Next Step</button>
-            </div>
+        <div class="w-full col-span-full">
+            <h2 class="text-3xl font-bold text-center text-gray-800 mb-6">OFDM Virtual Experiment</h2>
             
-            <div class="simulation-info">
-                <h3 id="blockOutputTitle">Simulation Step Output</h3>
-                
-                <div id="symbolDisplay" class="symbol-display" style="display: none;"></div>
-
-                <p id="blockOutputDisplay">Run a simulation to see the step-by-step output here.</p>
-            </div>
-
-            <div class="chart-container">
-                <h3 class="chart-title" id="constellationChartTitle">Transmitted Constellation Diagram</h3>
-                <canvas id="constellationChart" style="display: none;"></canvas>
-            </div>
-            <div class="chart-container">
-                <h3 class="chart-title" id="preChannelSpectrumChartTitle">Pre-Channel Spectrum</h3>
-                <canvas id="preChannelSpectrumChart" style="display: none;"></canvas>
-            </div>
-            <div class="chart-container">
-                <h3 class="chart-title" id="postChannelSpectrumChartTitle">Post-Channel Spectrum</h3>
-                <canvas id="postChannelSpectrumChart" style="display: none;"></canvas>
+            <div class="tab-nav">
+                <button class="tab-link active" onclick="openTab(event, 'simulationTab')">Signal Flow Simulation</button>
+                <button class="tab-link" onclick="openTab(event, 'berAnalysisTab')">BER Performance Analysis</button>
             </div>
         </div>
 
-        <div class="output-area">
-            <h2 class="text-2xl font-bold text-center text-gray-800 mb-4">Results</h2>
-            <div class="chart-container">
-                <h3 class="chart-title" id="receivedConstellationChartTitle">Received Constellation Diagram</h3>
-                <canvas id="receivedConstellationChart" style="display: none;"></canvas>
+        <!-- Signal Flow Simulation Tab -->
+        <div id="simulationTab" class="tab-content" style="display: block;">
+            <div class="main-content-grid">
+                <div class="input-section">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">Step-by-Step Controls</h3>
+                    <!-- Your existing input controls here -->
+                    <div class="input-group">
+                        <label for="nFFTSize">FFT Size (N):</label>
+                        <input type="number" id="nFFTSize" value="64" min="16" step="16">
+                    </div>
+                    <div class="input-group">
+                        <label for="numSubcarriers">Number of Data Subcarriers:</label>
+                        <input type="number" id="numSubcarriers" value="52" min="12" step="4">
+                    </div>
+                    <div class="input-group">
+                        <label for="modulationScheme">Modulation Scheme:</label>
+                        <select id="modulationScheme">
+                            <option value="BPSK">BPSK</option>
+                            <option value="QPSK">QPSK</option>
+                            <option value="16QAM">16-QAM</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label for="cpLength">Cyclic Prefix Length:</label>
+                        <input type="number" id="cpLength" value="16" min="4" step="4">
+                    </div>
+                    <div class="input-group">
+                        <label for="snrDb">SNR (dB) for Plots:</label>
+                        <input type="number" id="snrDb" value="20" min="-10" max="50" step="1">
+                    </div>
+                    <div class="input-group">
+                        <label for="equalization">Equalization Method:</label>
+                        <select id="equalization">
+                            <option value="ZF">Zero-Forcing (ZF)</option>
+                            <option value="MMSE">MMSE</option>
+                        </select>
+                    </div>
+                    <button id="runStepByStepBtn" class="button-primary">Run Simulation</button>
+                    <div id="loadingSpinner" class="loading-spinner"></div>
+                    <div id="errorMessage" class="error-message"></div>
+                </div>
+
+                <div class="simulation-area">
+                    <h3 class="text-xl font-bold text-center text-gray-800 mb-4">OFDM Signal Flow</h3>
+                    <div class="block-diagram-container">
+                        <svg id="ofdmBlockDiagram" viewBox="0 0 490 240">
+                            <defs>
+                                <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="10" refY="3.5" orient="auto">
+                                    <polygon points="0 0, 10 3.5, 0 7" class="arrowhead" />
+                                </marker>
+                            </defs>
+                            
+                            <!-- Transmitter blocks -->
+                            <rect id="block-tx" class="ofdm-block" x="10" y="10" width="90" height="45" rx="6"></rect>
+                            <text class="ofdm-block-text" x="55" y="27">S/P</text>
+                            <text class="ofdm-block-text" x="55" y="42">+ Mapping</text>
+                            
+                            <line id="mapping-to-idft" class="arrow" x1="100" y1="32.5" x2="120" y2="32.5" />
+                            
+                            <rect id="block-idft" class="ofdm-block" x="120" y="10" width="90" height="45" rx="6"></rect>
+                            <text class="ofdm-block-text" x="165" y="32.5">IDFT</text>
+                            
+                            <line id="idft-to-addcp" class="arrow" x1="210" y1="32.5" x2="230" y2="32.5" />
+                            
+                            <rect id="block-addcp" class="ofdm-block" x="230" y="10" width="90" height="45" rx="6"></rect>
+                            <text class="ofdm-block-text" x="275" y="32.5">Add CP</text>
+                            
+                            <!-- Channel block -->
+                            <rect id="block-channel" class="ofdm-block" x="390" y="95" width="90" height="45" rx="6"></rect>
+                            <text class="ofdm-block-text" x="435" y="117.5">Channel</text>
+                            
+                            <!-- Receiver blocks -->
+                            <rect id="block-rx" class="ofdm-block" x="10" y="180" width="90" height="45" rx="6"></rect>
+                            <text class="ofdm-block-text" x="55" y="197">Demapping</text>
+                            <text class="ofdm-block-text" x="55" y="212">+ P/S</text>
+                            
+                            <line id="equalizer-to-demapping" class="arrow" x1="120" y1="202.5" x2="100" y2="202.5" />
+                            
+                            <rect id="block-equalizer" class="ofdm-block" x="120" y="180" width="90" height="45" rx="6"></rect>
+                            <text class="ofdm-block-text" x="165" y="202.5">Equalizer</text>
+                            
+                            <line id="fft-to-equalizer" class="arrow" x1="230" y1="202.5" x2="210" y2="202.5" />
+                            
+                            <rect id="block-fft" class="ofdm-block" x="230" y="180" width="90" height="45" rx="6"></rect>
+                            <text class="ofdm-block-text" x="275" y="202.5">FFT</text>
+                            
+                            <line id="removecp-to-fft" class="arrow" x1="390" y1="202.5" x2="320" y2="202.5" />
+                            
+                            <rect id="block-removecp" class="ofdm-block" x="390" y="180" width="90" height="45" rx="6"></rect>
+                            <text class="ofdm-block-text" x="435" y="202.5">Remove CP</text>
+                            
+                            <!-- Arrows connecting transmitter to receiver through channel -->
+                            <line id="addcp-to-channel" class="arrow" x1="275" y1="55" x2="435" y2="95" />
+                            <line id="channel-to-removecp" class="arrow" x1="435" y1="140" x2="435" y2="180" />
+                        </svg>
+                        </svg>
+                    </div>
+                    <div class="nav-buttons">
+                        <button id="nextBlockBtn" class="button-primary" disabled>Next</button>
+                        <button id="prevBlockBtn" class="button-primary" disabled>Previous</button>
+                    </div>
+                    
+                    <div class="simulation-info">
+                        <h3 id="blockOutputTitle">Simulation Step Output</h3>
+                        <div id="symbolDisplay" class="symbol-display" style="display: none;"></div>
+                        <p id="blockOutputDisplay">Run a simulation to see the step-by-step output here.</p>
+                    </div>
+                </div>
+
+                <div class="output-area">
+                    <!-- Chart containers for simulation tab -->
+                    <div class="chart-container">
+                        <h3 class="chart-title" id="constellationChartTitle">Transmitted Constellation</h3>
+                        <canvas id="constellationChart"></canvas>
+                    </div>
+                    <div class="chart-container" style="display: none;">
+                        <h3 class="chart-title" id="preChannelSpectrumChartTitle">Pre-Channel Spectrum</h3>
+                        <canvas id="preChannelSpectrumChart"></canvas>
+                    </div>
+                    <div class="chart-container" style="display: none;">
+                        <h3 class="chart-title" id="postChannelSpectrumChartTitle">Post-Channel Spectrum</h3>
+                        <canvas id="postChannelSpectrumChart"></canvas>
+                    </div>
+                    <div class="chart-container" style="display: none;">
+                        <h3 class="chart-title" id="receivedConstellationChartTitle">Received Constellation</h3>
+                        <canvas id="receivedConstellationChart"></canvas>
+                    </div>
+                </div>
             </div>
-            <div class="chart-container">
-                <h3 class="chart-title" id="berCurveChartTitle">BER Curve</h3>
-                <canvas id="berCurveChart" style="display: none;"></canvas>
+        </div>
+
+        <!-- BER Analysis Tab -->
+        <div id="berAnalysisTab" class="tab-content" style="display: none;">
+            <div class="main-content-grid">
+                <div class="input-section">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">BER Simulation Controls</h3>
+                    <div class="input-group">
+                        <label for="ber_nFFTSize">FFT Size (N):</label>
+                        <input type="number" id="ber_nFFTSize" value="64" min="16" step="16">
+                    </div>
+                    <div class="input-group">
+                        <label for="ber_numSubcarriers">Data Subcarriers:</label>
+                        <input type="number" id="ber_numSubcarriers" value="52" min="12" step="4">
+                    </div>
+                    <div class="input-group">
+                        <label for="ber_modulationScheme">Modulation Scheme:</label>
+                        <select id="ber_modulationScheme">
+                            <option value="BPSK">BPSK</option>
+                            <option value="QPSK">QPSK</option>
+                            <option value="16QAM">16-QAM</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label for="ber_cpLength">Cyclic Prefix Length:</label>
+                        <input type="number" id="ber_cpLength" value="16" min="4" step="4">
+                    </div>
+                    <div class="input-group">
+                        <label for="ber_channelTaps">Channel Taps (Fading):</label>
+                        <input type="number" id="ber_channelTaps" value="1" min="1" max="10">
+                    </div>
+                    <div class="input-group">
+                        <label for="ber_equalization">Equalization Method:</label>
+                        <select id="ber_equalization">
+                            <option value="ZF">Zero-Forcing (ZF)</option>
+                            <option value="MMSE">MMSE</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label for="numSymbolsBer">Number of OFDM Symbols:</label>
+                        <input type="number" id="numSymbolsBer" value="500" min="100" max="5000" step="100">
+                    </div>
+                    <button id="runBerSimBtn" class="button-primary">Run BER Simulation</button>
+                    <div id="loadingSpinnerBER" class="loading-spinner"></div>
+                    <div id="errorMessageBER" class="error-message"></div>
+                </div>
+                
+                <div class="w-full" style="grid-column: 2 / -1;">
+                    <div class="chart-container">
+                        <h3 class="chart-title" id="berCurveChartTitle">BER vs. SNR Performance</h3>
+                        <canvas id="berCurveChart"></canvas>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -708,6 +839,35 @@
             return demodulatedBits.split('').map(Number);
         }
         function generateBits(numBits) { return Array.from({ length: numBits }, () => Math.random() > 0.5 ? 1 : 0); }
+
+        function openTab(evt, tabName) {
+            // Hide all tab contents
+            const tabContents = document.getElementsByClassName("tab-content");
+            for (let i = 0; i < tabContents.length; i++) {
+                tabContents[i].style.display = "none";
+            }
+
+            // Remove active class from all tab links
+            const tabLinks = document.getElementsByClassName("tab-link");
+            for (let i = 0; i < tabLinks.length; i++) {
+                tabLinks[i].classList.remove("active");
+            }
+
+            // Show the selected tab and mark button as active
+            document.getElementById(tabName).style.display = "block";
+            evt.currentTarget.classList.add("active");
+
+            // Reset charts and UI state when switching tabs
+            hideStepByStepCharts();
+            hideOutputCharts();
+            
+            if (tabName === 'simulationTab') {
+                // Reset to first block for step-by-step
+                currentBlockIndex = 0;
+                highlightBlock(currentBlockIndex);
+            }
+        }
+
         function modulate(bits, modulationScheme, bitsPerSymbol) {
             const modulatedSymbols = [];
             let modulateFunc;
@@ -776,18 +936,34 @@
         function removeCyclicPrefix(signalWithCP, cpLength, nFFTSize) {
             return signalWithCP.slice(cpLength, cpLength + nFFTSize);
         }
-        function equalize(receivedSymbolsFFT, channelGainsFFT) {
+        // Replace your existing equalize function with this one
+        function equalize(receivedSymbolsFFT, channelGainsFFT, method, snrDb) {
+            const snrLinear = dbToLinear(snrDb);
             return receivedSymbolsFFT.map((sym, i) => {
                 const channelGain = channelGainsFFT[i];
-                if (channelGain.magSq() < 1e-10) { 
-                    return new Complex(0, 0); 
+                if (channelGain.magSq() < 1e-10) {
+                    return new Complex(0, 0); // Avoid division by zero
                 }
-                const result = sym.div(channelGain);
-                if (!isFinite(result.re) || !isFinite(result.im) || 
-                    Math.abs(result.re) > 100 || Math.abs(result.im) > 100) {
+
+                let equalizedSymbol;
+                switch (method) {
+                    case 'MMSE':
+                        const channelMagSq = channelGain.magSq();
+                        const mmseWeight = channelGain.conj().div(new Complex(channelMagSq + 1 / snrLinear));
+                        equalizedSymbol = sym.mul(mmseWeight);
+                        break;
+                    
+                    case 'ZF':
+                    default:
+                        equalizedSymbol = sym.div(channelGain);
+                        break;
+                }
+
+                // Safety check for huge numbers after equalization
+                if (!isFinite(equalizedSymbol.re) || !isFinite(equalizedSymbol.im) || Math.abs(equalizedSymbol.re) > 100 || Math.abs(equalizedSymbol.im) > 100) {
                     return new Complex(0, 0);
                 }
-                return result;
+                return equalizedSymbol;
             });
         }
         function demodulate(symbols, modulationScheme) {
@@ -854,6 +1030,8 @@
             const modulationScheme = document.getElementById('modulationScheme').value;
             const cpLength = parseInt(document.getElementById('cpLength').value);
             const snrDb = parseFloat(document.getElementById('snrDb').value);
+            const equalizationMethod = document.getElementById('equalization').value; // <-- Add this line
+
 
             document.getElementById('loadingSpinner').style.display = 'block';
             document.getElementById('errorMessage').style.display = 'none';
@@ -877,7 +1055,7 @@
                 
                 const channelGainsNoCP = channelGains.slice(cpLength, cpLength + nFFTSize);
                 globalChannelGainsFFT = fft(channelGainsNoCP);
-                globalReceivedSymbols = equalize(globalRxFFTOutput, globalChannelGainsFFT);
+                globalReceivedSymbols = equalize(globalRxFFTOutput, globalChannelGainsFFT, equalizationMethod, snrDb);
 
                 updateTransmittedConstellationChart(globalModulatedSymbols, modulationScheme);
                 updateReceivedConstellationChart(globalReceivedSymbols, modulationScheme);
@@ -924,22 +1102,27 @@
         }
 
         async function runBerSimulation() {
-            document.getElementById('loadingSpinner').style.display = 'block';
-            document.getElementById('errorMessage').style.display = 'none';
+            document.getElementById('loadingSpinnerBER').style.display = 'block';
+            document.getElementById('errorMessageBER').style.display = 'none';
 
-            const nFFTSize = parseInt(document.getElementById('nFFTSize').value);
-            const numSubcarriers = parseInt(document.getElementById('numSubcarriers').value);
-            const modulationScheme = document.getElementById('modulationScheme').value;
-            const cpLength = parseInt(document.getElementById('cpLength').value);
+            const nFFTSize = parseInt(document.getElementById('ber_nFFTSize').value);
+            const numSubcarriers = parseInt(document.getElementById('ber_numSubcarriers').value);
+            const modulationScheme = document.getElementById('ber_modulationScheme').value;
+            const cpLength = parseInt(document.getElementById('ber_cpLength').value);
             const numSymbolsBer = parseInt(document.getElementById('numSymbolsBer').value);
+            const equalizationMethod = document.getElementById('ber_equalization').value;
 
             let bitsPerSymbol;
             switch (modulationScheme) {
                 case 'BPSK': bitsPerSymbol = 1; break;
                 case 'QPSK': bitsPerSymbol = 2; break;
                 case '16QAM': bitsPerSymbol = 4; break;
-                default: displayError('Invalid modulation scheme selected.'); document.getElementById('loadingSpinner').style.display = 'none'; return;
+                default: 
+                    displayErrorBER('Invalid modulation scheme selected.'); 
+                    document.getElementById('loadingSpinnerBER').style.display = 'none'; 
+                    return;
             }
+            
             const numBitsPerOFDMSymbol = numSubcarriers * bitsPerSymbol;
             const snrRangeDb = Array.from({ length: 26 }, (_, i) => i);
             const berResults = [];
@@ -956,15 +1139,21 @@
                         const ifftOutput = ifft(ifftInput);
                         const txWaveform = addCyclicPrefix(ifftOutput, cpLength);
                         
-                        const rxWaveform = addAwgn(txWaveform, snr);
+                        const { fadedSignal, channelGains } = applyRayleighFading(txWaveform);
+                        const rxWaveform = addAwgn(fadedSignal, snr);
                         
                         const rxNoCP = removeCyclicPrefix(rxWaveform, cpLength, nFFTSize);
                         const rxFFT = fft(rxNoCP);
 
+                        // Get channel gains for equalization
+                        const channelGainsNoCP = channelGains.slice(cpLength, cpLength + nFFTSize);
+                        const channelGainsFFT = fft(channelGainsNoCP);
+
+                        // Extract data subcarriers and equalize
                         const dataSubcarrierIndices = [];
                         if (nFFTSize === 64 && numSubcarriers === 52) {
-                             const subcarrierIndices80211a = [-26, -25, -24, -23, -22, -21, -20, -19, -18, -17, -16, -15, -14, -13, -12, -11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1,
-                                                              1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26];
+                            const subcarrierIndices80211a = [-26, -25, -24, -23, -22, -21, -20, -19, -18, -17, -16, -15, -14, -13, -12, -11, -10, -9, -8, -7, -6, -5, -4, -3, -2, -1,
+                                                            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26];
                             for (const scIdx of subcarrierIndices80211a) {
                                 let arrayIdx = scIdx > 0 ? scIdx : nFFTSize + scIdx;
                                 dataSubcarrierIndices.push(arrayIdx);
@@ -976,7 +1165,9 @@
                         }
                         
                         const receivedDataSymbols = dataSubcarrierIndices.map(idx => rxFFT[idx]);
-                        const receivedBits = demodulate(receivedDataSymbols, modulationScheme);
+                        const channelGainsData = dataSubcarrierIndices.map(idx => channelGainsFFT[idx]);
+                        const equalizedSymbols = equalize(receivedDataSymbols, channelGainsData, equalizationMethod, snr);
+                        const receivedBits = demodulate(equalizedSymbols, modulationScheme);
 
                         let bitErrorsForSymbol = 0;
                         for (let i = 0; i < originalBits.length; i++) {
@@ -994,21 +1185,25 @@
 
                 updateBerChart(snrRangeDb, berResults);
                 hideStepByStepCharts();
-                showOutputChart('berCurveChart');
-                document.getElementById('blockOutputTitle').textContent = "BER Simulation Result";
-                document.getElementById('blockOutputDisplay').innerHTML = `BER simulation completed. The BER curve shows the system's performance across different Signal-to-Noise Ratios (SNR). A lower BER indicates better performance.`;
-                document.getElementById('nextBlockBtn').disabled = true;
-                document.getElementById('prevBlockBtn').disabled = true;
+                showChart('berCurveChart');
 
             } catch (error) {
                 console.error("BER simulation error:", error);
-                displayError(`BER simulation failed: ${error.message}. Please check inputs.`);
+                displayErrorBER(`BER simulation failed: ${error.message}. Please check inputs.`);
             } finally {
-                document.getElementById('loadingSpinner').style.display = 'none';
+                document.getElementById('loadingSpinnerBER').style.display = 'none';
             }
         }
+
+        function displayErrorBER(message) {
+            const errorMessageDiv = document.getElementById('errorMessageBER');
+            errorMessageDiv.textContent = message;
+            errorMessageDiv.style.display = 'block';
+            document.getElementById('loadingSpinnerBER').style.display = 'none';
+        }
         
-        const allOfdmBlockIds = ['block-tx', 'block-idft', 'block-addcp', 'block-channel', 'block-removecp', 'block-fft', 'block-rx'];
+        // Find and modify these arrays
+        const allOfdmBlockIds = ['block-tx', 'block-idft', 'block-addcp', 'block-channel', 'block-removecp', 'block-fft', 'block-equalizer', 'block-rx'];
         const blockOutputTitles = [
             'S/P & Mapping Output',
             'IDFT Output',
@@ -1016,6 +1211,7 @@
             'Channel Output',
             'Remove CP Output',
             'FFT Output',
+            'Equalizer Output', // New title
             'Demapping & P/S Output'
         ];
         let currentBlockIndex = 0;
@@ -1051,14 +1247,18 @@
             updateBlockOutputDisplayContent(index);
         }
         
+        // Replace your getArrowId function with this one
         function getArrowId(fromIndex, toIndex) {
-            if (fromIndex === 0 && toIndex === 1) return 'tx-to-idft';
-            if (fromIndex === 1 && toIndex === 2) return 'idft-to-addcp';
-            if (fromIndex === 2 && toIndex === 3) return 'tx-to-channel';
-            if (fromIndex === 3 && toIndex === 4) return 'channel-to-rx';
-            if (fromIndex === 4 && toIndex === 5) return 'removecp-to-dft';
-            if (fromIndex === 5 && toIndex === 6) return 'dft-to-demapping';
-            return '';
+            const transitions = {
+                '0-1': 'mapping-to-idft',
+                '1-2': 'idft-to-addcp',
+                '2-3': 'addcp-to-channel',
+                '3-4': 'channel-to-removecp',
+                '4-5': 'removecp-to-fft',
+                '5-6': 'fft-to-equalizer',
+                '6-7': 'equalizer-to-demapping'
+            };
+            return transitions[`${fromIndex}-${toIndex}`] || '';
         }
 
         function hideStepByStepCharts() {
@@ -1201,6 +1401,22 @@
                     }
                     break;
 
+                // Add this new case for the equalizer
+                case 'block-equalizer':
+                    if (globalReceivedSymbols.length) {
+                        const method = document.getElementById('equalization').value;
+                        description = `Applied ${method} equalization to compensate for channel distortion and noise.`;
+                        showSymbols = true;
+                        symbolData = formatSymbolDisplay(
+                            globalReceivedSymbols.map((s, i) => ({
+                                value: s,
+                                label: `X̂[${i}]`,
+                                type: 'data'
+                            }))
+                        );
+                    }
+                    break;
+
                 case 'block-rx':
                     if (globalReceivedSymbols.length) {
                         const modulationScheme = document.getElementById('modulationScheme').value;
@@ -1283,7 +1499,6 @@
 
         let constellationChart, preChannelSpectrumChart, postChannelSpectrumChart, receivedConstellationChart, berCurveChart;
 
-        // Fixed initializeCharts function - add this to replace the original
         // Updated initializeCharts function for better responsiveness
         function initializeCharts() {
             // Set canvas dimensions based on container size
@@ -1591,7 +1806,7 @@
             initializeCharts();
             document.getElementById('runStepByStepBtn').addEventListener('click', runStepByStepSimulation);
             document.getElementById('runBerSimBtn').addEventListener('click', runBerSimulation);
-            document.getElementById('resetBtn').addEventListener('click', resetSimulation);
+            
             document.getElementById('nextBlockBtn').addEventListener('click', () => {
                 if (currentBlockIndex < allOfdmBlockIds.length - 1) {
                     currentBlockIndex++;
@@ -1604,6 +1819,9 @@
                     highlightBlock(currentBlockIndex);
                 }
             });
+            
+            // Show the simulation tab by default
+            document.getElementById('simulationTab').style.display = 'block';
             resetSimulation();
         };
     </script>
