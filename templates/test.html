@@ -976,16 +976,20 @@
 
         // Fix 3: Improved AWGN function for better noise scaling
         function addAwgn(signal, snrDb, nFFT, cpLen, numDataCarriers) {
-            // Calculate signal power from actual signal samples
+            // Calculate signal power from actual transmitted signal samples
             const signalPower = signal.reduce((sum, s) => sum + s.magSq(), 0) / signal.length;
+            
             if (signalPower === 0) return signal;
 
-            // Convert SNR to linear scale
-            const snrLinear = dbToLinear(snrDb);
+            // Convert SNR from dB to linear scale
+            const snrLinear = Math.pow(10, snrDb / 10);
             
             // Calculate noise power: P_noise = P_signal / SNR
             const noisePower = signalPower / snrLinear;
-            const noiseStdDev = Math.sqrt(noisePower / 2); // /2 because complex noise has two dimensions
+            
+            // For complex AWGN, each component (real/imag) has variance = noisePower/2
+            const noiseVariance = noisePower / 2;
+            const noiseStdDev = Math.sqrt(noiseVariance);
 
             const noisySignal = signal.map(sample => {
                 const noiseReal = randn() * noiseStdDev;
@@ -1002,31 +1006,38 @@
 
         // Replace your existing equalize function with this one
         function equalize(receivedSymbolsFFT, channelGainsFFT, method, snrDb) {
-            const snrLinear = dbToLinear(snrDb);
+            const snrLinear = Math.pow(10, snrDb / 10);
             return receivedSymbolsFFT.map((sym, i) => {
                 const channelGain = channelGainsFFT[i];
-                if (channelGain.magSq() < 1e-10) {
-                    return new Complex(0, 0); // Avoid division by zero
+                const channelMagSq = channelGain.magSq();
+                
+                // Avoid division by very small numbers
+                if (channelMagSq < 1e-12) {
+                    return new Complex(0, 0);
                 }
 
                 let equalizedSymbol;
                 switch (method) {
                     case 'MMSE':
-                        const channelMagSq = channelGain.magSq();
-                        const mmseWeight = channelGain.conj().div(new Complex(channelMagSq + 1 / snrLinear));
+                        // MMSE: W = H* / (|H|^2 + σ²/σ_s²)
+                        // where σ²/σ_s² = 1/SNR
+                        const mmseWeight = channelGain.conj().div(new Complex(channelMagSq + 1 / snrLinear, 0));
                         equalizedSymbol = sym.mul(mmseWeight);
                         break;
                     
                     case 'ZF':
                     default:
+                        // Zero Forcing: W = 1/H
                         equalizedSymbol = sym.div(channelGain);
                         break;
                 }
 
-                // Safety check for huge numbers after equalization
-                if (!isFinite(equalizedSymbol.re) || !isFinite(equalizedSymbol.im) || Math.abs(equalizedSymbol.re) > 100 || Math.abs(equalizedSymbol.im) > 100) {
+                // Sanity check for numerical stability
+                if (!isFinite(equalizedSymbol.re) || !isFinite(equalizedSymbol.im) || 
+                    Math.abs(equalizedSymbol.re) > 1000 || Math.abs(equalizedSymbol.im) > 1000) {
                     return new Complex(0, 0);
                 }
+                
                 return equalizedSymbol;
             });
         }
@@ -1262,8 +1273,8 @@
             const bitsPerSymbol = (modulationScheme === 'BPSK') ? 1 : (modulationScheme === 'QPSK' ? 2 : 4);
             const numBitsPerOFDMSymbol = numSubcarriers * bitsPerSymbol;
             
-            // OPTIMIZED: Reduced SNR range and better spacing
-            const snrRangeDb = [0, 2, 4, 6, 8, 10, 12, 15, 18, 20]; // 10 points instead of 11
+            // Extended SNR range for better characterization
+            const snrRangeDb = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 25, 28, 30];
             const berResults = [];
 
             try {
@@ -1271,10 +1282,15 @@
                     let totalErrors = 0;
                     let totalBits = 0;
                     
-                    // OPTIMIZED: Dynamic number of symbols based on expected BER
-                    const adaptiveSymbols = Math.min(numSymbolsBer, snrDb < 6 ? 200 : (snrDb < 12 ? 500 : 1000));
+                    // Adaptive simulation length based on SNR for statistical reliability
+                    let maxSymbols = numSymbolsBer;
+                    if (snrDb >= 15) maxSymbols = Math.max(numSymbolsBer, 2000); // More symbols at high SNR
+                    if (snrDb >= 20) maxSymbols = Math.max(numSymbolsBer, 5000); // Even more at very high SNR
 
-                    for (let s = 0; s < adaptiveSymbols; s++) {
+                    let symbolCount = 0;
+                    const minErrorsRequired = Math.max(50, Math.min(200, numSymbolsBer / 10)); // At least 50 errors for reliability
+                    
+                    while (symbolCount < maxSymbols) {
                         // === TRANSMITTER ===
                         const originalBits = generateBits(numBitsPerOFDMSymbol);
                         const modulatedSymbols = modulate(originalBits, modulationScheme, bitsPerSymbol);
@@ -1290,7 +1306,7 @@
                         const rxNoCP = removeCyclicPrefix(noisySignal, cpLength, nFFTSize);
                         const rxFFT = fft(rxNoCP);
 
-                        // Channel Estimation
+                        // Channel Estimation (pad to FFT size)
                         const channelPadded = [...channelCoeffs];
                         while (channelPadded.length < nFFTSize) channelPadded.push(new Complex(0));
                         const channelFFT = fft(channelPadded);
@@ -1298,22 +1314,10 @@
                         // Equalization
                         const equalizedSymbols = equalize(rxFFT, channelFFT, equalizationMethod, snrDb);
 
-                        // CORRECTED: Extract data symbols from correct subcarrier positions
-                        const dataSymbols = [];
-                        if (nFFTSize === 64 && numSubcarriers === 52) {
-                            // 802.11a subcarrier mapping (skip DC at index 0)
-                            const dataSubcarriers = [-26,-25,-24,-23,-22,-21,-20,-19,-18,-17,-16,-15,-14,-13,-12,-11,-10,-9,-8,-7,-6,-5,-4,-3,-2,-1,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26];
-                            for (const scIdx of dataSubcarriers) {
-                                const arrayIdx = scIdx > 0 ? scIdx : nFFTSize + scIdx;
-                                dataSymbols.push(equalizedSymbols[arrayIdx]);
-                            }
-                        } else {
-                            // Generic symmetric subcarrier extraction
-                            const half = Math.floor(numSubcarriers / 2);
-                            for (let i = 1; i <= half; i++) dataSymbols.push(equalizedSymbols[i]);
-                            for (let i = nFFTSize - half; i < nFFTSize; i++) dataSymbols.push(equalizedSymbols[i]);
-                        }
+                        // CRITICAL: Use the SAME extraction logic as the mapping function
+                        const dataSymbols = extractDataSubcarriers(equalizedSymbols, nFFTSize, numSubcarriers);
                         
+                        // Demodulation
                         const receivedBits = demodulate(dataSymbols, modulationScheme);
                         
                         // Count bit errors
@@ -1324,15 +1328,41 @@
                             }
                         }
                         totalBits += minLength;
+                        symbolCount++;
 
-                        // OPTIMIZED: Early termination if enough errors collected for reliable estimate
-                        if (totalErrors >= 100 && s > 50) break;
+                        // Early termination criteria:
+                        // - Low SNR: stop after enough errors for reasonable estimate
+                        // - High SNR: ensure minimum simulation length for detecting low BERs
+                        if (snrDb <= 10) {
+                            // Low SNR: stop early if we have enough errors
+                            if (totalErrors >= minErrorsRequired && symbolCount >= 100) break;
+                        } else {
+                            // High SNR: require longer simulation to detect low error rates
+                            if (symbolCount >= 200 && totalErrors >= 20) break;
+                            if (symbolCount >= 1000 && totalErrors >= 5) break;
+                            // Continue to maxSymbols even if no errors to get true BER estimate
+                        }
                     }
                     
-                    const ber = totalBits > 0 ? totalErrors / totalBits : 1e-6;
-                    berResults.push(Math.max(ber, 1e-6)); // Floor at 1e-6 for log scale
+                    // Calculate BER - REMOVED the artificial 1e-6 floor
+                    let ber;
+                    if (totalBits === 0) {
+                        ber = 1.0; // No bits processed
+                    } else if (totalErrors === 0) {
+                        // No errors detected - estimate upper bound based on simulation length
+                        ber = 1.0 / totalBits; // Wilson confidence interval upper bound approximation
+                    } else {
+                        ber = totalErrors / totalBits;
+                    }
                     
-                    console.log(`SNR: ${snrDb} dB, BER: ${ber.toExponential(2)}, Symbols: ${Math.min(adaptiveSymbols, totalBits/numBitsPerOFDMSymbol)}`);
+                    berResults.push(ber);
+                    
+                    console.log(`SNR: ${snrDb} dB, BER: ${ber.toExponential(3)}, Errors: ${totalErrors}/${totalBits}, Symbols: ${symbolCount}`);
+                    
+                    // Allow UI to update during long simulations
+                    if (snrDb % 4 === 0) {
+                        await new Promise(resolve => setTimeout(resolve, 10));
+                    }
                 }
 
                 updateBerChart(snrRangeDb, berResults);
@@ -2026,10 +2056,16 @@
             if (berCurveChart && berData.length > 0) {
                 berCurveChart.data.labels = snrLabels;
                 berCurveChart.data.datasets[0].data = berData;
+                
+                // Adjust y-axis range based on actual BER values
+                const minBer = Math.min(...berData.filter(b => b > 0));
+                const maxBer = Math.max(...berData);
+                
+                berCurveChart.options.scales.y.min = Math.max(minBer / 10, 1e-8); // Lower floor
+                berCurveChart.options.scales.y.max = Math.min(maxBer * 2, 1);
+                
                 berCurveChart.update();
-                console.log('BER chart updated with', berData.length, 'points');
-            } else {
-                console.log('BER chart update failed - chart or data invalid');
+                console.log(`BER chart updated: min BER = ${minBer.toExponential(2)}, max BER = ${maxBer.toExponential(2)}`);
             }
         }
 
