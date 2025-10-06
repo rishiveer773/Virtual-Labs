@@ -1280,6 +1280,7 @@
         }
 
         // Fix 2 & 3: Optimized BER Simulation with Corrected Logic
+        // === Corrected BER Simulation Function ===
         async function runBerSimulation() {
             document.getElementById('loadingSpinnerBER').style.display = 'block';
             document.getElementById('errorMessageBER').style.display = 'none';
@@ -1299,10 +1300,7 @@
 
             const bitsPerSymbol = (modulationScheme === 'BPSK') ? 1 : (modulationScheme === 'QPSK' ? 2 : 4);
             const maxSymbolValue = Math.pow(2, bitsPerSymbol) - 1;
-            
-            // **KEY FIX**: Number of OFDM symbols to transmit per SNR point
-            const numOfdmSymbols = 100; // Transmit 100 OFDM symbols instead of just 1
-            
+            const numOfdmSymbols = 100; // Transmit multiple OFDM frames per SNR
             const snrRange = [];
             const berResults = [];
 
@@ -1317,11 +1315,8 @@
                     let totalErrors = 0;
                     let totalBits = 0;
 
-                    // **TRANSMIT MULTIPLE OFDM SYMBOLS**
                     for (let symIdx = 0; symIdx < numOfdmSymbols; symIdx++) {
                         // === TRANSMITTER ===
-                        
-                        // Generate random data: L rows × Ncp columns
                         const Tx_data = [];
                         for (let i = 0; i < L; i++) {
                             const row = [];
@@ -1331,18 +1326,18 @@
                             Tx_data.push(row);
                         }
 
-                        // Modulate each symbol
-                        const mod_data = Tx_data.map(row => 
+                        // Modulate symbols
+                        const mod_data = Tx_data.map(row =>
                             row.map(symbolInt => modulateBER(symbolInt, modulationScheme))
                         );
 
-                        // Serial to Parallel (transpose)
+                        // Serial-to-Parallel
                         const s2p = transposeBER(mod_data);
 
-                        // IFFT on each column
+                        // IFFT per column
                         const ifftOutput = s2p.map(col => ifftBER(col));
 
-                        // Parallel to Serial (transpose back)
+                        // Parallel-to-Serial
                         const p2s = transposeBER(ifftOutput);
 
                         // Add Cyclic Prefix
@@ -1351,9 +1346,10 @@
                             return [...cpPart, ...row];
                         });
 
-                        // === CHANNEL: AWGN ===
-                        
-                        // Calculate signal power
+                        // === CHANNEL: AWGN (Fixed scaling) ===
+                        const snrLinear = Math.pow(10, snr / 10);
+
+                        // Compute signal power across all samples
                         let signalPower = 0;
                         let sampleCount = 0;
                         for (const row of txSignal) {
@@ -1364,12 +1360,11 @@
                         }
                         signalPower /= sampleCount;
 
-                        // Calculate noise power from SNR
-                        const snrLinear = Math.pow(10, snr / 10);
-                        const noisePower = signalPower / snrLinear;
-                        const noiseStd = Math.sqrt(noisePower / 2);
+                        // Noise variance per complex dimension
+                        const noiseVar = signalPower / (2 * snrLinear);
+                        const noiseStd = Math.sqrt(noiseVar);
 
-                        // Add noise
+                        // Add AWGN
                         const rxSignal = txSignal.map(row =>
                             row.map(sample => {
                                 const noiseRe = randnBER() * noiseStd;
@@ -1379,31 +1374,21 @@
                         );
 
                         // === RECEIVER ===
-                        
-                        // Remove Cyclic Prefix
-                        const rxNoCp = rxSignal.map(row => row.slice(Ncp));
-
-                        // Serial to Parallel
-                        const rxS2P = transposeBER(rxNoCp);
-
-                        // FFT on each column
-                        const fftOutput = rxS2P.map(col => fftBER(col));
-
-                        // Parallel to Serial
-                        const rxP2S = transposeBER(fftOutput);
+                        const rxNoCp = rxSignal.map(row => row.slice(Ncp)); // Remove CP
+                        const rxS2P = transposeBER(rxNoCp);                  // Serial-to-Parallel
+                        const fftOutput = rxS2P.map(col => fftBER(col));     // FFT
+                        const rxP2S = transposeBER(fftOutput);               // Parallel-to-Serial
 
                         // Demodulate
                         const Rx_data = rxP2S.map(row =>
                             row.map(symbol => demodulateBER(symbol, modulationScheme))
                         );
 
-                        // === BER CALCULATION (accumulate across all symbols) ===
+                        // === BER CALCULATION ===
                         for (let i = 0; i < L; i++) {
                             for (let j = 0; j < Ncp; j++) {
                                 const txSym = Tx_data[i][j];
                                 const rxSym = Rx_data[i][j];
-                                
-                                // Count bit errors using XOR
                                 let diff = txSym ^ rxSym;
                                 while (diff > 0) {
                                     totalErrors += (diff & 1);
@@ -1412,15 +1397,15 @@
                                 totalBits += bitsPerSymbol;
                             }
                         }
-                    } // End of symbol loop
+                    }
 
                     const ber = totalBits > 0 ? totalErrors / totalBits : 1.0;
                     berResults.push(Math.max(ber, 1e-6));
-                    
+
                     console.log(`SNR: ${snr} dB | BER: ${ber.toExponential(2)} | Errors: ${totalErrors}/${totalBits}`);
                 }
 
-                // Update chart
+                // Plot the BER curve
                 updateBerChart(snrRange, berResults);
                 document.getElementById('berCurveChart').parentElement.style.display = 'block';
 
@@ -1431,6 +1416,7 @@
                 document.getElementById('loadingSpinnerBER').style.display = 'none';
             }
         }
+
 
         // ============================================
         // BER ANALYSIS SECTION - INDEPENDENT FUNCTIONS
