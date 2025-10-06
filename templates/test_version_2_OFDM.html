@@ -691,14 +691,6 @@
                         </select>
                     </div>
                     <div class="input-group">
-                        <label for="ber_snrStart">SNR Start (dB):</label>
-                        <input type="number" id="ber_snrStart" value="0" min="-10" max="20">
-                    </div>
-                    <div class="input-group">
-                        <label for="ber_snrEnd">SNR End (dB):</label>
-                        <input type="number" id="ber_snrEnd" value="25" min="5" max="50">
-                    </div>
-                    <div class="input-group">
                         <label for="ber_snrIncrement">SNR Increment (dB):</label>
                         <input type="number" id="ber_snrIncrement" value="1" min="0.5" max="5" step="0.5">
                     </div>
@@ -1288,8 +1280,6 @@
             const L = parseInt(document.getElementById('ber_ofdmLength').value);
             const Ncp = parseInt(document.getElementById('ber_cpLength').value);
             const modulationScheme = document.getElementById('ber_modulationScheme').value;
-            const SNRstart = parseFloat(document.getElementById('ber_snrStart').value);
-            const SNRend = parseFloat(document.getElementById('ber_snrEnd').value);
             const SNRincrement = parseFloat(document.getElementById('ber_snrIncrement').value);
 
             if (Ncp >= L) {
@@ -1300,18 +1290,21 @@
 
             const bitsPerSymbol = (modulationScheme === 'BPSK') ? 1 : (modulationScheme === 'QPSK' ? 2 : 4);
             const maxSymbolValue = Math.pow(2, bitsPerSymbol) - 1;
-            const numOfdmSymbols = 100; // Transmit multiple OFDM frames per SNR
+            const numOfdmSymbols = 100;
             const snrRange = [];
             const berResults = [];
+            
+            const BER_SATURATION_THRESHOLD = 1e-6; // BER threshold for saturation
+            const SATURATION_COUNT = 3; // Number of consecutive saturated points needed
 
             try {
-                for (let snr = SNRstart; snr <= SNRend; snr += SNRincrement) {
-                    snrRange.push(snr);
-                }
-
+                let consecutiveSaturatedPoints = 0;
+                let snr = 0;
+                
                 console.log(`BER Simulation: L=${L}, Ncp=${Ncp}, Symbols=${numOfdmSymbols}, Modulation=${modulationScheme}`);
 
-                for (const snr of snrRange) {
+                while (consecutiveSaturatedPoints < SATURATION_COUNT) {
+                    snrRange.push(snr);
                     let totalErrors = 0;
                     let totalBits = 0;
 
@@ -1326,30 +1319,20 @@
                             Tx_data.push(row);
                         }
 
-                        // Modulate symbols
                         const mod_data = Tx_data.map(row =>
                             row.map(symbolInt => modulateBER(symbolInt, modulationScheme))
                         );
 
-                        // Serial-to-Parallel
                         const s2p = transposeBER(mod_data);
-
-                        // IFFT per column
                         const ifftOutput = s2p.map(col => ifftBER(col));
-
-                        // Parallel-to-Serial
                         const p2s = transposeBER(ifftOutput);
-
-                        // Add Cyclic Prefix
                         const txSignal = p2s.map(row => {
                             const cpPart = row.slice(row.length - Ncp);
                             return [...cpPart, ...row];
                         });
 
-                        // === CHANNEL: AWGN (Fixed scaling) ===
+                        // === CHANNEL: AWGN ===
                         const snrLinear = Math.pow(10, snr / 10);
-
-                        // Compute signal power across all samples
                         let signalPower = 0;
                         let sampleCount = 0;
                         for (const row of txSignal) {
@@ -1360,11 +1343,9 @@
                         }
                         signalPower /= sampleCount;
 
-                        // Noise variance per complex dimension
                         const noiseVar = signalPower / (2 * snrLinear);
                         const noiseStd = Math.sqrt(noiseVar);
 
-                        // Add AWGN
                         const rxSignal = txSignal.map(row =>
                             row.map(sample => {
                                 const noiseRe = randnBER() * noiseStd;
@@ -1374,12 +1355,11 @@
                         );
 
                         // === RECEIVER ===
-                        const rxNoCp = rxSignal.map(row => row.slice(Ncp)); // Remove CP
-                        const rxS2P = transposeBER(rxNoCp);                  // Serial-to-Parallel
-                        const fftOutput = rxS2P.map(col => fftBER(col));     // FFT
-                        const rxP2S = transposeBER(fftOutput);               // Parallel-to-Serial
+                        const rxNoCp = rxSignal.map(row => row.slice(Ncp));
+                        const rxS2P = transposeBER(rxNoCp);
+                        const fftOutput = rxS2P.map(col => fftBER(col));
+                        const rxP2S = transposeBER(fftOutput);
 
-                        // Demodulate
                         const Rx_data = rxP2S.map(row =>
                             row.map(symbol => demodulateBER(symbol, modulationScheme))
                         );
@@ -1400,13 +1380,32 @@
                     }
 
                     const ber = totalBits > 0 ? totalErrors / totalBits : 1.0;
-                    berResults.push(Math.max(ber, 1e-6));
+                    const clampedBER = Math.max(ber, 1e-6);
+                    berResults.push(clampedBER);
 
                     console.log(`SNR: ${snr} dB | BER: ${ber.toExponential(2)} | Errors: ${totalErrors}/${totalBits}`);
+
+                    // Check for saturation
+                    if (ber <= BER_SATURATION_THRESHOLD) {
+                        consecutiveSaturatedPoints++;
+                    } else {
+                        consecutiveSaturatedPoints = 0;
+                    }
+
+                    snr += SNRincrement;
+                    
+                    // Safety limit to prevent infinite loops
+                    if (snr > 50) {
+                        console.log('Reached maximum SNR limit of 50 dB');
+                        break;
+                    }
                 }
 
-                // Plot the BER curve
-                updateBerChart(snrRange, berResults);
+                // Plot only up to the saturation point
+                const plotSnrRange = snrRange.slice(0, -SATURATION_COUNT + 1);
+                const plotBerResults = berResults.slice(0, -SATURATION_COUNT + 1);
+
+                updateBerChart(plotSnrRange, plotBerResults);
                 document.getElementById('berCurveChart').parentElement.style.display = 'block';
 
             } catch (error) {
@@ -2248,10 +2247,17 @@
 
         function updateBerChart(snrLabels, berData) {
             if (berCurveChart && berData.length > 0) {
+                const maxSNR = Math.max(...snrLabels);
+                
                 berCurveChart.data.labels = snrLabels;
                 berCurveChart.data.datasets[0].data = berData;
+                
+                // Update x-axis to show only the relevant range
+                berCurveChart.options.scales.x.min = 0;
+                berCurveChart.options.scales.x.max = maxSNR;
+                
                 berCurveChart.update();
-                console.log('BER chart updated with', berData.length, 'points');
+                console.log(`BER chart updated with ${berData.length} points (0 to ${maxSNR} dB)`);
             } else {
                 console.log('BER chart update failed - chart or data invalid');
             }
