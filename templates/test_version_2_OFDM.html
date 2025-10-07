@@ -310,23 +310,6 @@
             max-height: 280px;
         }
 
-        /* Add to existing styles */
-        .symbol-display {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 2px;
-            justify-content: center;
-            align-items: center;
-            margin-top: 12px;
-            padding: 12px;
-            background: #f8fafc;
-            border-radius: 8px;
-            border: 1px solid var(--border-gray);
-            max-height: 200px;
-            overflow-y: auto;
-            font-family: 'Monaco', 'Menlo', monospace;
-        }
-
         .symbol-item {
             min-width: 45px;
             height: 28px;
@@ -377,13 +360,13 @@
             flex-wrap: wrap;
             gap: 3px;
             justify-content: center;
-            align-items: center;
+            align-items: flex-start; /* Changed from center */
             margin-top: 12px;
-            padding: 12px;
-            background-color: #f1f5f9; /* Light gray background */
+            padding: 20px 12px; /* Increased padding */
+            background-color: #f1f5f9;
             border-radius: 8px;
             border: 1px solid #e2e8f0;
-            max-height: 180px;
+            max-height: 250px; /* Increased height */
             overflow-y: auto;
             font-family: 'Menlo', 'Monaco', monospace;
         }
@@ -477,6 +460,67 @@
             grid-template-columns: 280px 1fr 350px;
             gap: 1.5rem;
             min-height: 600px;
+        }
+
+        .symbol-item.with-bracket {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0;
+            min-width: auto;
+            padding: 0;
+            border: none;
+            background: transparent;
+            position: relative;
+            margin-bottom: 8px; /* Add space for bracket and label */
+        }
+
+        .symbol-bits-box {
+            min-width: 50px;
+            height: 30px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 600;
+            border: 1.5px solid;
+            letter-spacing: 3px;
+            padding: 0 8px;
+        }
+
+        .symbol-bits-box.data {
+            background: #dbeafe;
+            border-color: #60a5fa;
+            color: #1e3a8a;
+        }
+
+        .symbol-bits-box.cp {
+            background: #fee2e2;
+            border-color: #fca5a5;
+            color: #991b1b;
+        }
+
+        .symbol-bracket-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 2px; /* Slight spacing from box */
+            min-height: 30px; /* Ensure space for bracket and label */
+        }
+
+        .symbol-bracket {
+            font-size: 20px;
+            line-height: 10px;
+            color: #64748b;
+            font-weight: 400;
+        }
+
+        .symbol-label {
+            font-size: 11px;
+            font-weight: 700;
+            margin-top: 2px;
+            color: #475569;
         }
 
         @media (max-width: 1400px) {
@@ -1832,6 +1876,7 @@
                         const nFFTSize = parseInt(document.getElementById('nFFTSize').value);
                         const numSubcarriers = parseInt(document.getElementById('numSubcarriers').value);
                         const modulationScheme = document.getElementById('modulationScheme').value;
+                        const bitsPerSymbol = (modulationScheme === 'BPSK') ? 1 : (modulationScheme === 'QPSK' ? 2 : 4);
 
                         // Extract only the data symbols from the correct subcarrier positions
                         const receivedDataSymbols = extractDataSubcarriers(globalReceivedSymbols, nFFTSize, numSubcarriers);
@@ -1845,24 +1890,51 @@
                         description = `Demapped symbols into a bitstream.\nFinal Bit Error Rate (BER): ${ber.toExponential(2)}`;
                         showSymbols = true;
                         
-                        // Display first 20 bit comparisons correctly
-                        const displayCount = Math.min(20, globalTransmittedBits.length, receivedBits.length);
+                        // Display bit-to-symbol mapping with brackets
+                        const maxSymbolsToShow = 8; // Show first 8 symbols
+                        const displayBitCount = Math.min(maxSymbolsToShow * bitsPerSymbol, receivedBits.length);
                         symbolData = [];
                         
-                        for (let i = 0; i < displayCount; i++) {
-                            const txBit = globalTransmittedBits[i];
-                            const rxBit = receivedBits[i] !== undefined ? receivedBits[i] : '?';
-                            const isError = txBit !== rxBit;
+                        for (let i = 0; i < displayBitCount; i += bitsPerSymbol) {
+                            const bitGroup = receivedBits.slice(i, i + bitsPerSymbol);
+                            const txBitGroup = globalTransmittedBits.slice(i, i + bitsPerSymbol);
                             
+                            // Check if this bit group has errors
+                            const hasError = bitGroup.some((bit, idx) => bit !== txBitGroup[idx]);
+                            
+                            // Create the constellation symbol label
+                            let symbolLabel;
+                            if (modulationScheme === 'BPSK') {
+                                symbolLabel = bitGroup[0] === 1 ? '+1' : '-1';
+                            } else if (modulationScheme === 'QPSK') {
+                                const qpskMap = { 
+                                    '00': 'A₁', 
+                                    '01': 'A₂', 
+                                    '10': 'A₃', 
+                                    '11': 'A₄' 
+                                };
+                                symbolLabel = qpskMap[bitGroup.join('')] || '?';
+                            } else { // 16-QAM
+                                const bitString = bitGroup.join('');
+                                const decimalValue = parseInt(bitString, 2);
+                                symbolLabel = `S${decimalValue}`;
+                            }
+                            
+                            // Add bit group with bracket and symbol
                             symbolData.push({
-                                value: `Tx: ${txBit}, Rx: ${rxBit}`,
-                                label: `${txBit}→${rxBit}`,
-                                type: isError ? 'cp' : 'data' // 'cp' class shows red for errors
+                                label: bitGroup.join(' '), // Space-separated bits
+                                symbolLabel: symbolLabel,  // THIS is the key property
+                                type: hasError ? 'cp' : 'data'
                             });
+                            
+                            // Add separator between symbol groups (except after last)
+                            if (i + bitsPerSymbol < displayBitCount) {
+                                symbolData.push({ label: '|', type: 'separator' });
+                            }
                         }
                         
                         // Add ellipsis if there are more bits
-                        if (globalTransmittedBits.length > displayCount) {
+                        if (receivedBits.length > displayBitCount) {
                             symbolData.push({ label: '...', type: 'ellipsis' });
                         }
                     }
@@ -2077,6 +2149,34 @@
                         separator.className = 'symbol-separator';
                         separator.textContent = symbol.label;
                         symbolDisplay.appendChild(separator);
+                    } else if (symbol.symbolLabel) {
+                        // Special rendering for bit-to-symbol mapping with bracket
+                        const container = document.createElement('div');
+                        container.className = 'symbol-item with-bracket';
+                        
+                        // Bits in colored box
+                        const bitsBox = document.createElement('div');
+                        bitsBox.className = `symbol-bits-box ${symbol.type}`;
+                        bitsBox.textContent = symbol.label;
+                        
+                        // Bracket and label below
+                        const bracketContainer = document.createElement('div');
+                        bracketContainer.className = 'symbol-bracket-container';
+                        
+                        const bracketDiv = document.createElement('div');
+                        bracketDiv.className = 'symbol-bracket';
+                        bracketDiv.textContent = '⎵';
+                        
+                        const labelDiv = document.createElement('div');
+                        labelDiv.className = 'symbol-label';
+                        labelDiv.textContent = symbol.symbolLabel;
+                        
+                        bracketContainer.appendChild(bracketDiv);
+                        bracketContainer.appendChild(labelDiv);
+                        
+                        container.appendChild(bitsBox);
+                        container.appendChild(bracketContainer);
+                        symbolDisplay.appendChild(container);
                     } else {
                         const item = document.createElement('div');
                         item.className = `symbol-item ${symbol.type}`;
