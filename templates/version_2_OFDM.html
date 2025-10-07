@@ -675,39 +675,24 @@
                 <div class="input-section">
                     <h3 class="text-xl font-bold text-gray-800 mb-4">BER Simulation Controls</h3>
                     <div class="input-group">
-                        <label for="ber_nFFTSize">FFT Size (N):</label>
-                        <input type="number" id="ber_nFFTSize" value="64" min="16" step="16">
+                        <label for="ber_ofdmLength">Length of OFDM Data (L):</label>
+                        <input type="number" id="ber_ofdmLength" value="64" min="16" step="16">
                     </div>
                     <div class="input-group">
-                        <label for="ber_numSubcarriers">Data Subcarriers:</label>
-                        <input type="number" id="ber_numSubcarriers" value="52" min="12" step="4">
+                        <label for="ber_cpLength">Cyclic Prefix Length (Ncp):</label>
+                        <input type="number" id="ber_cpLength" value="4" min="1" max="16">
                     </div>
                     <div class="input-group">
                         <label for="ber_modulationScheme">Modulation Scheme:</label>
                         <select id="ber_modulationScheme">
-                            <option value="BPSK">BPSK</option>
+                            <option value="16QAM" selected>16-QAM</option>
                             <option value="QPSK">QPSK</option>
-                            <option value="16QAM">16-QAM</option>
+                            <option value="BPSK">BPSK</option>
                         </select>
                     </div>
                     <div class="input-group">
-                        <label for="ber_cpLength">Cyclic Prefix Length:</label>
-                        <input type="number" id="ber_cpLength" value="16" min="4" step="4">
-                    </div>
-                    <div class="input-group">
-                        <label for="ber_channelTaps">Channel Taps (Fading):</label>
-                        <input type="number" id="ber_channelTaps" value="1" min="1" max="10">
-                    </div>
-                    <div class="input-group">
-                        <label for="ber_equalization">Equalization Method:</label>
-                        <select id="ber_equalization">
-                            <option value="ZF">Zero-Forcing (ZF)</option>
-                            <option value="MMSE">MMSE</option>
-                        </select>
-                    </div>
-                    <div class="input-group">
-                        <label for="numSymbolsBer">Number of OFDM Symbols:</label>
-                        <input type="number" id="numSymbolsBer" value="500" min="100" max="5000" step="100">
+                        <label for="ber_snrIncrement">SNR Increment (dB):</label>
+                        <input type="number" id="ber_snrIncrement" value="1" min="0.5" max="5" step="0.5">
                     </div>
                     <button id="runBerSimBtn" class="button-primary">Run BER Simulation</button>
                     <div id="loadingSpinnerBER" class="loading-spinner"></div>
@@ -1247,102 +1232,340 @@
             return dataSymbols;
         }
 
+        // Matrix transpose function
+        function transpose(matrix) {
+            if (!matrix || matrix.length === 0) return [];
+            const rows = matrix.length;
+            const cols = matrix[0].length;
+            const result = [];
+            
+            for (let j = 0; j < cols; j++) {
+                const newRow = [];
+                for (let i = 0; i < rows; i++) {
+                    newRow.push(matrix[i][j]);
+                }
+                result.push(newRow);
+            }
+            return result;
+        }
+
+        // AWGN function matching MATLAB's awgn with 'measured' mode
+        function addAwgnMatlab(signal, snrDb) {
+            return signal.map(row => {
+                // Calculate signal power
+                const signalPower = row.reduce((sum, s) => sum + s.magSq(), 0) / row.length;
+                if (signalPower === 0) return row;
+
+                // Convert SNR to linear scale
+                const snrLinear = dbToLinear(snrDb);
+                
+                // Calculate noise power
+                const noisePower = signalPower / snrLinear;
+                const noiseStdDev = Math.sqrt(noisePower / 2);
+
+                return row.map(sample => {
+                    const noiseReal = randn() * noiseStdDev;
+                    const noiseImag = randn() * noiseStdDev;
+                    return sample.add(new Complex(noiseReal, noiseImag));
+                });
+            });
+        }
+
         // Fix 2 & 3: Optimized BER Simulation with Corrected Logic
+        // === Corrected BER Simulation Function ===
         async function runBerSimulation() {
             document.getElementById('loadingSpinnerBER').style.display = 'block';
             document.getElementById('errorMessageBER').style.display = 'none';
 
-            const nFFTSize = parseInt(document.getElementById('ber_nFFTSize').value);
-            const numSubcarriers = parseInt(document.getElementById('ber_numSubcarriers').value);
+            const L = parseInt(document.getElementById('ber_ofdmLength').value);
+            const Ncp = parseInt(document.getElementById('ber_cpLength').value);
             const modulationScheme = document.getElementById('ber_modulationScheme').value;
-            const cpLength = parseInt(document.getElementById('ber_cpLength').value);
-            const numSymbolsBer = parseInt(document.getElementById('numSymbolsBer').value);
-            const equalizationMethod = document.getElementById('ber_equalization').value;
-            const channelTaps = parseInt(document.getElementById('ber_channelTaps').value);
+            const SNRincrement = parseFloat(document.getElementById('ber_snrIncrement').value);
+
+            if (Ncp >= L) {
+                displayErrorBER('Cyclic Prefix length must be less than OFDM data length');
+                document.getElementById('loadingSpinnerBER').style.display = 'none';
+                return;
+            }
+
             const bitsPerSymbol = (modulationScheme === 'BPSK') ? 1 : (modulationScheme === 'QPSK' ? 2 : 4);
-            const numBitsPerOFDMSymbol = numSubcarriers * bitsPerSymbol;
-            
-            // OPTIMIZED: Reduced SNR range and better spacing
-            const snrRangeDb = [0, 2, 4, 6, 8, 10, 12, 15, 18, 20]; // 10 points instead of 11
+            const maxSymbolValue = Math.pow(2, bitsPerSymbol) - 1;
+            const numOfdmSymbols = 100;
+            const snrRange = [];
             const berResults = [];
+            
+            const BER_SATURATION_THRESHOLD = 1e-6; // BER threshold for saturation
+            const SATURATION_COUNT = 3; // Number of consecutive saturated points needed
 
             try {
-                for (const snrDb of snrRangeDb) {
+                let consecutiveSaturatedPoints = 0;
+                let snr = 0;
+                
+                console.log(`BER Simulation: L=${L}, Ncp=${Ncp}, Symbols=${numOfdmSymbols}, Modulation=${modulationScheme}`);
+
+                while (consecutiveSaturatedPoints < SATURATION_COUNT) {
+                    snrRange.push(snr);
                     let totalErrors = 0;
                     let totalBits = 0;
-                    
-                    // OPTIMIZED: Dynamic number of symbols based on expected BER
-                    const adaptiveSymbols = Math.min(numSymbolsBer, snrDb < 6 ? 200 : (snrDb < 12 ? 500 : 1000));
 
-                    for (let s = 0; s < adaptiveSymbols; s++) {
+                    for (let symIdx = 0; symIdx < numOfdmSymbols; symIdx++) {
                         // === TRANSMITTER ===
-                        const originalBits = generateBits(numBitsPerOFDMSymbol);
-                        const modulatedSymbols = modulate(originalBits, modulationScheme, bitsPerSymbol);
-                        const ifftInput = mapToSubcarriers(modulatedSymbols, nFFTSize, numSubcarriers);
-                        const ifftOutput = ifft(ifftInput);
-                        const txWaveformWithCP = addCyclicPrefix(ifftOutput, cpLength);
+                        const Tx_data = [];
+                        for (let i = 0; i < L; i++) {
+                            const row = [];
+                            for (let j = 0; j < Ncp; j++) {
+                                row.push(Math.floor(Math.random() * (maxSymbolValue + 1)));
+                            }
+                            Tx_data.push(row);
+                        }
 
-                        // === CHANNEL ===
-                        const { fadedSignal, channelCoeffs } = applyMultitapChannel(txWaveformWithCP, channelTaps);
-                        const noisySignal = addAwgn(fadedSignal, snrDb, nFFTSize, cpLength, numSubcarriers);
+                        const mod_data = Tx_data.map(row =>
+                            row.map(symbolInt => modulateBER(symbolInt, modulationScheme))
+                        );
+
+                        const s2p = transposeBER(mod_data);
+                        const ifftOutput = s2p.map(col => ifftBER(col));
+                        const p2s = transposeBER(ifftOutput);
+                        const txSignal = p2s.map(row => {
+                            const cpPart = row.slice(row.length - Ncp);
+                            return [...cpPart, ...row];
+                        });
+
+                        // === CHANNEL: AWGN ===
+                        const snrLinear = Math.pow(10, snr / 10);
+                        let signalPower = 0;
+                        let sampleCount = 0;
+                        for (const row of txSignal) {
+                            for (const sample of row) {
+                                signalPower += sample.magSq();
+                                sampleCount++;
+                            }
+                        }
+                        signalPower /= sampleCount;
+
+                        const noiseVar = signalPower / (2 * snrLinear);
+                        const noiseStd = Math.sqrt(noiseVar);
+
+                        const rxSignal = txSignal.map(row =>
+                            row.map(sample => {
+                                const noiseRe = randnBER() * noiseStd;
+                                const noiseIm = randnBER() * noiseStd;
+                                return sample.add(new ComplexBER(noiseRe, noiseIm));
+                            })
+                        );
 
                         // === RECEIVER ===
-                        const rxNoCP = removeCyclicPrefix(noisySignal, cpLength, nFFTSize);
-                        const rxFFT = fft(rxNoCP);
+                        const rxNoCp = rxSignal.map(row => row.slice(Ncp));
+                        const rxS2P = transposeBER(rxNoCp);
+                        const fftOutput = rxS2P.map(col => fftBER(col));
+                        const rxP2S = transposeBER(fftOutput);
 
-                        // Channel Estimation
-                        const channelPadded = [...channelCoeffs];
-                        while (channelPadded.length < nFFTSize) channelPadded.push(new Complex(0));
-                        const channelFFT = fft(channelPadded);
+                        const Rx_data = rxP2S.map(row =>
+                            row.map(symbol => demodulateBER(symbol, modulationScheme))
+                        );
 
-                        // Equalization
-                        const equalizedSymbols = equalize(rxFFT, channelFFT, equalizationMethod, snrDb);
-
-                        // CORRECTED: Extract data symbols from correct subcarrier positions
-                        const dataSymbols = [];
-                        if (nFFTSize === 64 && numSubcarriers === 52) {
-                            // 802.11a subcarrier mapping (skip DC at index 0)
-                            const dataSubcarriers = [-26,-25,-24,-23,-22,-21,-20,-19,-18,-17,-16,-15,-14,-13,-12,-11,-10,-9,-8,-7,-6,-5,-4,-3,-2,-1,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26];
-                            for (const scIdx of dataSubcarriers) {
-                                const arrayIdx = scIdx > 0 ? scIdx : nFFTSize + scIdx;
-                                dataSymbols.push(equalizedSymbols[arrayIdx]);
-                            }
-                        } else {
-                            // Generic symmetric subcarrier extraction
-                            const half = Math.floor(numSubcarriers / 2);
-                            for (let i = 1; i <= half; i++) dataSymbols.push(equalizedSymbols[i]);
-                            for (let i = nFFTSize - half; i < nFFTSize; i++) dataSymbols.push(equalizedSymbols[i]);
-                        }
-                        
-                        const receivedBits = demodulate(dataSymbols, modulationScheme);
-                        
-                        // Count bit errors
-                        const minLength = Math.min(originalBits.length, receivedBits.length);
-                        for (let i = 0; i < minLength; i++) {
-                            if (originalBits[i] !== receivedBits[i]) {
-                                totalErrors++;
+                        // === BER CALCULATION ===
+                        for (let i = 0; i < L; i++) {
+                            for (let j = 0; j < Ncp; j++) {
+                                const txSym = Tx_data[i][j];
+                                const rxSym = Rx_data[i][j];
+                                let diff = txSym ^ rxSym;
+                                while (diff > 0) {
+                                    totalErrors += (diff & 1);
+                                    diff >>= 1;
+                                }
+                                totalBits += bitsPerSymbol;
                             }
                         }
-                        totalBits += minLength;
-
-                        // OPTIMIZED: Early termination if enough errors collected for reliable estimate
-                        if (totalErrors >= 100 && s > 50) break;
                     }
+
+                    const ber = totalBits > 0 ? totalErrors / totalBits : 1.0;
+                    const clampedBER = Math.max(ber, 1e-6);
+                    berResults.push(clampedBER);
+
+                    console.log(`SNR: ${snr} dB | BER: ${ber.toExponential(2)} | Errors: ${totalErrors}/${totalBits}`);
+
+                    // Check for saturation
+                    if (ber <= BER_SATURATION_THRESHOLD) {
+                        consecutiveSaturatedPoints++;
+                    } else {
+                        consecutiveSaturatedPoints = 0;
+                    }
+
+                    snr += SNRincrement;
                     
-                    const ber = totalBits > 0 ? totalErrors / totalBits : 1e-6;
-                    berResults.push(Math.max(ber, 1e-6)); // Floor at 1e-6 for log scale
-                    
-                    console.log(`SNR: ${snrDb} dB, BER: ${ber.toExponential(2)}, Symbols: ${Math.min(adaptiveSymbols, totalBits/numBitsPerOFDMSymbol)}`);
+                    // Safety limit to prevent infinite loops
+                    if (snr > 50) {
+                        console.log('Reached maximum SNR limit of 50 dB');
+                        break;
+                    }
                 }
 
-                updateBerChart(snrRangeDb, berResults);
+                // Plot only up to the saturation point
+                const plotSnrRange = snrRange.slice(0, -SATURATION_COUNT + 1);
+                const plotBerResults = berResults.slice(0, -SATURATION_COUNT + 1);
+
+                updateBerChart(plotSnrRange, plotBerResults);
                 document.getElementById('berCurveChart').parentElement.style.display = 'block';
 
             } catch (error) {
                 console.error("BER simulation error:", error);
-                displayErrorBER(`BER simulation failed: ${error.message}. Please check inputs.`);
+                displayErrorBER(`BER simulation failed: ${error.message}`);
             } finally {
                 document.getElementById('loadingSpinnerBER').style.display = 'none';
+            }
+        }
+
+
+        // ============================================
+        // BER ANALYSIS SECTION - INDEPENDENT FUNCTIONS
+        // ============================================
+
+        // Complex number operations for BER section
+        class ComplexBER {
+            constructor(re, im = 0) {
+                this.re = re;
+                this.im = im;
+            }
+            add(other) {
+                return new ComplexBER(this.re + other.re, this.im + other.im);
+            }
+            mul(other) {
+                return new ComplexBER(
+                    this.re * other.re - this.im * other.im,
+                    this.re * other.im + this.im * other.re
+                );
+            }
+            magSq() {
+                return this.re * this.re + this.im * this.im;
+            }
+        }
+
+        // Gaussian random number generator for BER
+        function randnBER() {
+            let u = 0, v = 0;
+            while (u === 0) u = Math.random();
+            while (v === 0) v = Math.random();
+            return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+        }
+
+        // Matrix transpose for BER
+        function transposeBER(matrix) {
+            if (!matrix || matrix.length === 0) return [];
+            const rows = matrix.length;
+            const cols = matrix[0].length;
+            const result = [];
+            
+            for (let j = 0; j < cols; j++) {
+                const newRow = [];
+                for (let i = 0; i < rows; i++) {
+                    newRow.push(matrix[i][j]);
+                }
+                result.push(newRow);
+            }
+            return result;
+        }
+
+        // FFT implementation for BER
+        function fftBER(x) {
+            const N = x.length;
+            if (N <= 1) return x;
+            
+            const even = [];
+            const odd = [];
+            for (let i = 0; i < N / 2; i++) {
+                even[i] = x[i * 2];
+                odd[i] = x[i * 2 + 1];
+            }
+            
+            const Y_even = fftBER(even);
+            const Y_odd = fftBER(odd);
+            const Y = new Array(N);
+            
+            for (let k = 0; k < N / 2; k++) {
+                const angle = -2 * Math.PI * k / N;
+                const twiddle = new ComplexBER(Math.cos(angle), Math.sin(angle));
+                const t = twiddle.mul(Y_odd[k]);
+                Y[k] = Y_even[k].add(t);
+                Y[k + N / 2] = Y_even[k].add(new ComplexBER(-t.re, -t.im));
+            }
+            return Y;
+        }
+
+        // IFFT implementation for BER
+        function ifftBER(X) {
+            const N = X.length;
+            if (N <= 1) return X;
+            
+            // Conjugate input
+            const X_conj = X.map(c => new ComplexBER(c.re, -c.im));
+            
+            // Apply FFT
+            const y_conj = fftBER(X_conj);
+            
+            // Conjugate output and scale
+            return y_conj.map(c => new ComplexBER(c.re / N, -c.im / N));
+        }
+
+        // QAM modulation for BER (supporting BPSK, QPSK, 16QAM)
+        function modulateBER(symbolInt, modulationScheme) {
+            const bitsPerSymbol = (modulationScheme === 'BPSK') ? 1 : (modulationScheme === 'QPSK' ? 2 : 4);
+            
+            // Convert integer to bits
+            const bits = [];
+            let val = symbolInt;
+            for (let b = 0; b < bitsPerSymbol; b++) {
+                bits.unshift(val % 2);
+                val = Math.floor(val / 2);
+            }
+            
+            if (modulationScheme === 'BPSK') {
+                return new ComplexBER(2 * bits[0] - 1, 0);
+            } else if (modulationScheme === 'QPSK') {
+                const scale = 1 / Math.sqrt(2);
+                return new ComplexBER((2 * bits[0] - 1) * scale, (2 * bits[1] - 1) * scale);
+            } else { // 16QAM
+                const qamMap = {
+                    0: [-3, -3], 1: [-3, -1], 2: [-3, 3], 3: [-3, 1],
+                    4: [-1, -3], 5: [-1, -1], 6: [-1, 3], 7: [-1, 1],
+                    8: [3, -3], 9: [3, -1], 10: [3, 3], 11: [3, 1],
+                    12: [1, -3], 13: [1, -1], 14: [1, 3], 15: [1, 1]
+                };
+                const scale = 1 / Math.sqrt(10);
+                const [re, im] = qamMap[symbolInt];
+                return new ComplexBER(re * scale, im * scale);
+            }
+        }
+
+        // QAM demodulation for BER
+        function demodulateBER(symbol, modulationScheme) {
+            if (modulationScheme === 'BPSK') {
+                return symbol.re > 0 ? 1 : 0;
+            } else if (modulationScheme === 'QPSK') {
+                const bit0 = symbol.re > 0 ? 1 : 0;
+                const bit1 = symbol.im > 0 ? 1 : 0;
+                return bit0 * 2 + bit1;
+            } else { // 16QAM
+                const qamPoints = [
+                    [-3, -3], [-3, -1], [-3, 3], [-3, 1],
+                    [-1, -3], [-1, -1], [-1, 3], [-1, 1],
+                    [3, -3], [3, -1], [3, 3], [3, 1],
+                    [1, -3], [1, -1], [1, 3], [1, 1]
+                ];
+                const scale = 1 / Math.sqrt(10);
+                
+                let minDist = Infinity;
+                let symbolInt = 0;
+                
+                for (let i = 0; i < 16; i++) {
+                    const [re, im] = qamPoints[i];
+                    const dist = Math.pow(symbol.re - re * scale, 2) + Math.pow(symbol.im - im * scale, 2);
+                    if (dist < minDist) {
+                        minDist = dist;
+                        symbolInt = i;
+                    }
+                }
+                return symbolInt;
             }
         }
 
@@ -2024,10 +2247,17 @@
 
         function updateBerChart(snrLabels, berData) {
             if (berCurveChart && berData.length > 0) {
+                const maxSNR = Math.max(...snrLabels);
+                
                 berCurveChart.data.labels = snrLabels;
                 berCurveChart.data.datasets[0].data = berData;
+                
+                // Update x-axis to show only the relevant range
+                berCurveChart.options.scales.x.min = 0;
+                berCurveChart.options.scales.x.max = maxSNR;
+                
                 berCurveChart.update();
-                console.log('BER chart updated with', berData.length, 'points');
+                console.log(`BER chart updated with ${berData.length} points (0 to ${maxSNR} dB)`);
             } else {
                 console.log('BER chart update failed - chart or data invalid');
             }
