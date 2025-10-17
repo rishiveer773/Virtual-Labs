@@ -1092,6 +1092,7 @@
             const cpLength = parseInt(document.getElementById('cpLength').value);
             const snrDb = parseFloat(document.getElementById('snrDb').value);
             const equalizationMethod = document.getElementById('equalization').value;
+            const numTaps = 5;
 
             // --- 2. Setup UI ---
             document.getElementById('loadingSpinner').style.display = 'block';
@@ -1100,6 +1101,10 @@
 
             const bitsPerSymbol = (modulationScheme === 'BPSK') ? 1 : (modulationScheme === 'QPSK' ? 2 : 4);
             const numBitsPerOFDMSymbol = numSubcarriers * bitsPerSymbol;
+
+            if (cpLength < numTaps - 1) {
+                displayError(`Warning: CP length (${cpLength}) is shorter than channel length (${numTaps} - 1). ISI/ICI will occur.`);
+            }
 
             try {
                 // --- 3. Transmitter Chain ---
