@@ -688,8 +688,8 @@
                     </div>
 
                     <div class="nav-buttons">
-                        <button id="nextBlockBtn" class="button-primary" disabled>Next</button>
                         <button id="prevBlockBtn" class="button-primary" disabled>Previous</button>
+                        <button id="nextBlockBtn" class="button-primary" disabled>Next</button>
                     </div>
                 </div>
 
@@ -1693,30 +1693,42 @@
             return true;
         }
 
+        // Also update the highlightBlock function where it highlights arrows:
         function highlightBlock(index) {
             const nextBtn = document.getElementById('nextBlockBtn');
             const prevBtn = document.getElementById('prevBlockBtn');
-            nextBtn.disabled = (index === allOfdmBlockIds.length - 1);
-            prevBtn.disabled = (index === 0);
+            
+            // Enable/disable buttons based on index
+            nextBtn.disabled = (index >= allOfdmBlockIds.length - 1);
+            prevBtn.disabled = (index <= 0);
 
+            // Remove all highlights
             allOfdmBlockIds.forEach(id => {
                 const block = document.getElementById(id);
-                if (block) block.classList.remove('highlighted');
-                const text = block.querySelector('.ofdm-block-text');
-                if (text) text.classList.remove('highlighted');
+                if (block) {
+                    block.classList.remove('highlighted');
+                    const texts = block.querySelectorAll('.ofdm-block-text');
+                    texts.forEach(t => t.classList.remove('highlighted'));
+                }
             });
             
             document.querySelectorAll('.arrow').forEach(arrow => arrow.classList.remove('highlighted'));
 
+            // Add highlight to current block
             if (index >= 0 && index < allOfdmBlockIds.length) {
                 const currentBlockElement = document.getElementById(allOfdmBlockIds[index]);
                 if (currentBlockElement) {
                     currentBlockElement.classList.add('highlighted');
                     currentBlockElement.querySelectorAll('.ofdm-block-text').forEach(t => t.classList.add('highlighted'));
                 }
+                
+                // Highlight the arrow leading to this block
                 if (index > 0) {
-                    const prevArrowId = getArrowId(index - 1, index);
-                    document.getElementById(prevArrowId)?.classList.add('highlighted');
+                    const prevArrowIds = getArrowId(index - 1, index);
+                    prevArrowIds.forEach(arrowId => {
+                        const arrowElement = document.getElementById(arrowId);
+                        if (arrowElement) arrowElement.classList.add('highlighted');
+                    });
                 }
             }
 
@@ -1724,18 +1736,18 @@
             updateBlockOutputDisplayContent(index);
         }
         
-        // Replace your getArrowId function with this one
+        // Replace your getArrowId function with this improved version that handles multiple arrows:
         function getArrowId(fromIndex, toIndex) {
             const transitions = {
-                '0-1': 'mapping-to-idft',
-                '1-2': 'idft-to-addcp',
-                '2-3': 'addcp-to-channel',
-                '3-4': 'channel-to-removecp',
-                '4-5': 'removecp-to-fft',
-                '5-6': 'fft-to-equalizer',
-                '6-7': 'equalizer-to-demapping'
+                '0-1': ['mapping-to-idft'],
+                '1-2': ['idft-to-addcp'],
+                '2-3': ['addcp-to-channel'],
+                '3-4': ['channel-to-awgn', 'awgn-to-removecp'],
+                '4-5': ['removecp-to-fft'],
+                '5-6': ['fft-to-equalizer'],
+                '6-7': ['equalizer-to-demapping']
             };
-            return transitions[`${fromIndex}-${toIndex}`] || '';
+            return transitions[`${fromIndex}-${toIndex}`] || [];
         }
 
         function hideStepByStepCharts() {
@@ -1932,52 +1944,41 @@
                         description = `Demapped symbols into a bitstream.\nFinal Bit Error Rate (BER): ${ber.toExponential(2)}`;
                         showSymbols = true;
                         
-                        // Display bit-to-symbol mapping with brackets
-                        const maxSymbolsToShow = 8; // Show first 8 symbols
-                        const displayBitCount = Math.min(maxSymbolsToShow * bitsPerSymbol, receivedBits.length);
+                        // Display symbol-wise demapping (groups of bits per symbol)
+                        const numSymbolsToDisplay = Math.min(10, globalModulatedSymbols.length); // Show first 10 symbols
                         symbolData = [];
                         
-                        for (let i = 0; i < displayBitCount; i += bitsPerSymbol) {
-                            const bitGroup = receivedBits.slice(i, i + bitsPerSymbol);
-                            const txBitGroup = globalTransmittedBits.slice(i, i + bitsPerSymbol);
+                        for (let i = 0; i < numSymbolsToDisplay; i++) {
+                            const startBitIdx = i * bitsPerSymbol;
+                            const endBitIdx = startBitIdx + bitsPerSymbol;
                             
-                            // Check if this bit group has errors
-                            const hasError = bitGroup.some((bit, idx) => bit !== txBitGroup[idx]);
+                            // Get transmitted bits for this symbol
+                            const txBits = globalTransmittedBits.slice(startBitIdx, endBitIdx);
+                            // Get received bits for this symbol
+                            const rxBits = receivedBits.slice(startBitIdx, endBitIdx);
                             
-                            // Create the constellation symbol label
-                            let symbolLabel;
-                            if (modulationScheme === 'BPSK') {
-                                symbolLabel = bitGroup[0] === 1 ? '+1' : '-1';
-                            } else if (modulationScheme === 'QPSK') {
-                                const qpskMap = { 
-                                    '00': 'A₁', 
-                                    '01': 'A₂', 
-                                    '10': 'A₃', 
-                                    '11': 'A₄' 
-                                };
-                                symbolLabel = qpskMap[bitGroup.join('')] || '?';
-                            } else { // 16-QAM
-                                const bitString = bitGroup.join('');
-                                const decimalValue = parseInt(bitString, 2);
-                                symbolLabel = `S${decimalValue}`;
-                            }
+                            // Check if all bits in the symbol match
+                            const isSymbolCorrect = txBits.every((bit, idx) => bit === rxBits[idx]);
                             
-                            // Add bit group with bracket and symbol
+                            // Format bit strings
+                            const txBitString = txBits.join('');
+                            const rxBitString = rxBits.map(b => b !== undefined ? b : '?').join('');
+                            
                             symbolData.push({
-                                label: bitGroup.join(' '), // Space-separated bits
-                                symbolLabel: symbolLabel,  // THIS is the key property
-                                type: hasError ? 'cp' : 'data'
+                                value: `Symbol ${i}: Tx[${txBitString}] → Rx[${rxBitString}]`,
+                                label: `${txBitString}→${rxBitString}`,
+                                type: isSymbolCorrect ? 'data' : 'cp' // 'data' for correct (green), 'cp' for error (red)
                             });
-                            
-                            // Add separator between symbol groups (except after last)
-                            if (i + bitsPerSymbol < displayBitCount) {
-                                symbolData.push({ label: '|', type: 'separator' });
-                            }
                         }
                         
-                        // Add ellipsis if there are more bits
-                        if (receivedBits.length > displayBitCount) {
+                        // Add ellipsis if there are more symbols
+                        if (globalModulatedSymbols.length > numSymbolsToDisplay) {
                             symbolData.push({ label: '...', type: 'ellipsis' });
+                            symbolData.push({
+                                value: `Total: ${globalModulatedSymbols.length} symbols`,
+                                label: `(${globalModulatedSymbols.length} total)`,
+                                type: 'ellipsis'
+                            });
                         }
                     }
                     break;
@@ -2451,29 +2452,32 @@
             document.getElementById('loadingSpinner').style.display = 'none';
         }
 
+        // Replace your window.onload section with this version that includes debugging:
         window.onload = function() {
             initializeCharts();
             document.getElementById('runStepByStepBtn').addEventListener('click', runStepByStepSimulation);
             document.getElementById('runBerSimBtn').addEventListener('click', runBerSimulation);
             
-            // New Handler for clearing BER plots
-            document.getElementById('clearBerPlotsBtn').addEventListener('click', () => {
-                berChartDatasets = [];
-                updateBerChart();
-                document.getElementById('berCurveChart').parentElement.style.display = 'none';
-                document.getElementById('errorMessageBER').style.display = 'none';
-            });
-            
+            // Debug: Log when Next button is clicked
             document.getElementById('nextBlockBtn').addEventListener('click', () => {
+                console.log('Next button clicked! Current index:', currentBlockIndex, 'Max index:', allOfdmBlockIds.length - 1);
                 if (currentBlockIndex < allOfdmBlockIds.length - 1) {
                     currentBlockIndex++;
+                    console.log('Moving to index:', currentBlockIndex);
                     highlightBlock(currentBlockIndex);
+                } else {
+                    console.log('Already at last block');
                 }
             });
+            
             document.getElementById('prevBlockBtn').addEventListener('click', () => {
+                console.log('Previous button clicked! Current index:', currentBlockIndex);
                 if (currentBlockIndex > 0) {
                     currentBlockIndex--;
+                    console.log('Moving to index:', currentBlockIndex);
                     highlightBlock(currentBlockIndex);
+                } else {
+                    console.log('Already at first block');
                 }
             });
             
