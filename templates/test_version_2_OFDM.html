@@ -247,6 +247,7 @@
             }
         }
 
+        /* Find the .nav-buttons style (around line 247) and replace with: */
         .nav-buttons {
             display: flex;
             justify-content: center;
@@ -257,7 +258,8 @@
 
         .nav-buttons button {
             min-width: 120px;
-            flex: 0 1 auto;
+            flex: 1 1 auto;
+            max-width: 200px; /* Prevents buttons from getting too wide */
         }
 
         .output-area {
@@ -678,15 +680,16 @@
                         <line id="awgn-to-removecp" class="arrow" x1="385" y1="152" x2="385" y2="180" />
                     </svg>
                     </div>
-                    <div class="nav-buttons">
-                        <button id="nextBlockBtn" class="button-primary" disabled>Next</button>
-                        <button id="prevBlockBtn" class="button-primary" disabled>Previous</button>
-                    </div>
-                    
+
                     <div class="simulation-info">
                         <h3 id="blockOutputTitle">Simulation Step Output</h3>
                         <div id="symbolDisplay" class="symbol-display" style="display: none;"></div>
                         <p id="blockOutputDisplay">Run a simulation to see the step-by-step output here.</p>
+                    </div>
+
+                    <div class="nav-buttons">
+                        <button id="nextBlockBtn" class="button-primary" disabled>Next</button>
+                        <button id="prevBlockBtn" class="button-primary" disabled>Previous</button>
                     </div>
                 </div>
 
@@ -889,6 +892,7 @@
             }
             return demodulatedBits.split('').map(Number);
         }
+
         function generateBits(numBits) { return Array.from({ length: numBits }, () => Math.random() > 0.5 ? 1 : 0); }
 
         function openTab(evt, tabName) {
@@ -1122,6 +1126,18 @@
         let globalReceivedSymbols = [];
         let globalChannelGainsFFT = [];
 
+        // --- BER Plotting Globals for Multi-Curve Support (New) ---
+        let berChartDatasets = [];
+        const MAX_BER_PLOTS = 6;
+        const BER_COLORS = [
+            'rgb(59, 130, 246)',    // Blue
+            'rgb(239, 68, 68)',     // Red
+            'rgb(34, 197, 94)',     // Green
+            'rgb(234, 179, 8)',     // Yellow
+            'rgb(168, 85, 247)',    // Purple
+            'rgb(14, 165, 233)'     // Cyan
+        ];
+
         const fsMHz = 20;
         const fftLengthForSpectrum = 4096;
         const frequencies = Array.from({ length: fftLengthForSpectrum }, (_, i) =>
@@ -1328,6 +1344,22 @@
             const Ncp = parseInt(document.getElementById('ber_cpLength').value);
             const modulationScheme = document.getElementById('ber_modulationScheme').value;
             const SNRincrement = parseFloat(document.getElementById('ber_snrIncrement').value);
+            
+            const configLabel = `${modulationScheme} (L=${L}, Ncp=${Ncp})`;
+
+            if (berChartDatasets.length >= MAX_BER_PLOTS) {
+                displayErrorBER(`Maximum of ${MAX_BER_PLOTS} plots reached. Please clear existing plots before running a new simulation.`);
+                document.getElementById('loadingSpinnerBER').style.display = 'none';
+                return;
+            }
+
+            // Check if this configuration already exists (optional, but good practice)
+            if (berChartDatasets.some(d => d.label === configLabel)) {
+                displayErrorBER(`Configuration '${configLabel}' already plotted. Clear or change parameters.`);
+                document.getElementById('loadingSpinnerBER').style.display = 'none';
+                return;
+            }
+
 
             if (Ncp >= L) {
                 displayErrorBER('Cyclic Prefix length must be less than OFDM data length');
@@ -1452,7 +1484,14 @@
                 const plotSnrRange = snrRange.slice(0, -SATURATION_COUNT + 1);
                 const plotBerResults = berResults.slice(0, -SATURATION_COUNT + 1);
 
-                updateBerChart(plotSnrRange, plotBerResults);
+                // --- NEW PLOTTING LOGIC FOR MULTIPLE CURVES ---
+                berChartDatasets.push({
+                    label: configLabel,
+                    data: plotBerResults.map((ber, index) => ({ x: plotSnrRange[index], y: ber })),
+                    color: BER_COLORS[(berChartDatasets.length) % BER_COLORS.length]
+                });
+                
+                updateBerChart(); // Call without arguments
                 document.getElementById('berCurveChart').parentElement.style.display = 'block';
 
             } catch (error) {
@@ -2091,25 +2130,47 @@
                 }
             };
 
+            // Also, in initializeCharts(), replace the berConfig with this:
             const berConfig = {
-                type: 'line',
-                data: { labels: [], datasets: [{ label: 'BER', data: [], borderColor: 'rgb(34, 197, 94)', backgroundColor: 'rgba(34, 197, 94, 0.2)', borderWidth: 2, pointRadius: 3, pointBackgroundColor: 'rgb(34, 197, 94)', fill: false, tension: 0.1 }] },
+                type: 'scatter', // Changed from 'line' to 'scatter' to support {x,y} data format
+                data: { datasets: [] },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
+                    plugins: { 
+                        legend: { 
+                            display: true,
+                            position: 'top'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: SNR=${context.parsed.x}dB, BER=${context.parsed.y.toExponential(2)}`;
+                                }
+                            }
+                        }
+                    },
                     scales: {
                         x: { 
-                            min: 0, max: 25, 
+                            type: 'linear', // Explicitly set to linear
+                            min: 0, 
+                            max: 25,
                             title: { display: true, text: 'SNR (dB)', font: { size: 12, weight: 'bold' }, color: '#4b5563' },
                             ticks: { font: { size: 10 } }
                         },
                         y: { 
-                            type: 'logarithmic', 
+                            type: 'logarithmic',
                             title: { display: true, text: 'BER', font: { size: 12, weight: 'bold' }, color: '#4b5563' }, 
-                            min: 1e-6, max: 1,
+                            min: 1e-6, 
+                            max: 1,
                             ticks: { 
-                                callback: v => (v === 1e-1 || v === 1e-2 || v === 1e-3 || v === 1e-4 || v === 1e-5 || v === 1e-6) ? v.toExponential() : null,
+                                callback: v => {
+                                    const exp = Math.log10(v);
+                                    if (Number.isInteger(exp) && exp >= -6 && exp <= 0) {
+                                        return v.toExponential(0);
+                                    }
+                                    return null;
+                                },
                                 font: { size: 10 }
                             }
                         }
@@ -2348,22 +2409,39 @@
             chart.update();
         }
 
-        function updateBerChart(snrLabels, berData) {
-            if (berCurveChart && berData.length > 0) {
-                const maxSNR = Math.max(...snrLabels);
-                
-                berCurveChart.data.labels = snrLabels;
-                berCurveChart.data.datasets[0].data = berData;
-                
-                // Update x-axis to show only the relevant range
-                berCurveChart.options.scales.x.min = 0;
-                berCurveChart.options.scales.x.max = maxSNR;
-                
-                berCurveChart.update();
-                console.log(`BER chart updated with ${berData.length} points (0 to ${maxSNR} dB)`);
-            } else {
-                console.log('BER chart update failed - chart or data invalid');
+        // Replace the updateBerChart function with this corrected version:
+        function updateBerChart() {
+            if (!berCurveChart) return;
+
+            // Clear existing labels (not needed for scatter plot mode)
+            berCurveChart.data.labels = [];
+
+            // Convert global array into Chart.js datasets
+            berCurveChart.data.datasets = berChartDatasets.map((config, index) => ({
+                label: config.label,
+                data: config.data, // Already in {x, y} format
+                borderColor: config.color,
+                backgroundColor: config.color.replace('rgb', 'rgba').replace(')', ', 0.2)'),
+                borderWidth: 2,
+                pointRadius: 3,
+                pointBackgroundColor: config.color,
+                fill: false,
+                tension: 0.1,
+                showLine: true
+            }));
+
+            // Determine max SNR for X-axis scaling
+            let maxSNR = 25; // Default max
+            if (berChartDatasets.length > 0) {
+                maxSNR = Math.max(...berChartDatasets.flatMap(d => d.data.map(p => p.x)));
             }
+            
+            // Update Chart options
+            berCurveChart.options.scales.x.min = 0;
+            berCurveChart.options.scales.x.max = maxSNR > 0 ? Math.ceil(maxSNR) + 2 : 25;
+            berCurveChart.options.plugins.legend.display = berChartDatasets.length > 1; // Show legend if multiple plots
+            
+            berCurveChart.update();
         }
 
         function displayError(message) {
@@ -2377,6 +2455,14 @@
             initializeCharts();
             document.getElementById('runStepByStepBtn').addEventListener('click', runStepByStepSimulation);
             document.getElementById('runBerSimBtn').addEventListener('click', runBerSimulation);
+            
+            // New Handler for clearing BER plots
+            document.getElementById('clearBerPlotsBtn').addEventListener('click', () => {
+                berChartDatasets = [];
+                updateBerChart();
+                document.getElementById('berCurveChart').parentElement.style.display = 'none';
+                document.getElementById('errorMessageBER').style.display = 'none';
+            });
             
             document.getElementById('nextBlockBtn').addEventListener('click', () => {
                 if (currentBlockIndex < allOfdmBlockIds.length - 1) {
