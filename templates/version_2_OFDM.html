@@ -1837,6 +1837,7 @@
                         const nFFTSize = parseInt(document.getElementById('nFFTSize').value);
                         const numSubcarriers = parseInt(document.getElementById('numSubcarriers').value);
                         const modulationScheme = document.getElementById('modulationScheme').value;
+                        const bitsPerSymbol = (modulationScheme === 'BPSK') ? 1 : (modulationScheme === 'QPSK' ? 2 : 4);
 
                         // Extract only the data symbols from the correct subcarrier positions
                         const receivedDataSymbols = extractDataSubcarriers(globalReceivedSymbols, nFFTSize, numSubcarriers);
@@ -1850,25 +1851,41 @@
                         description = `Demapped symbols into a bitstream.\nFinal Bit Error Rate (BER): ${ber.toExponential(2)}`;
                         showSymbols = true;
                         
-                        // Display first 20 bit comparisons correctly
-                        const displayCount = Math.min(20, globalTransmittedBits.length, receivedBits.length);
+                        // Display symbol-wise demapping (groups of bits per symbol)
+                        const numSymbolsToDisplay = Math.min(10, globalModulatedSymbols.length); // Show first 10 symbols
                         symbolData = [];
                         
-                        for (let i = 0; i < displayCount; i++) {
-                            const txBit = globalTransmittedBits[i];
-                            const rxBit = receivedBits[i] !== undefined ? receivedBits[i] : '?';
-                            const isError = txBit !== rxBit;
+                        for (let i = 0; i < numSymbolsToDisplay; i++) {
+                            const startBitIdx = i * bitsPerSymbol;
+                            const endBitIdx = startBitIdx + bitsPerSymbol;
+                            
+                            // Get transmitted bits for this symbol
+                            const txBits = globalTransmittedBits.slice(startBitIdx, endBitIdx);
+                            // Get received bits for this symbol
+                            const rxBits = receivedBits.slice(startBitIdx, endBitIdx);
+                            
+                            // Check if all bits in the symbol match
+                            const isSymbolCorrect = txBits.every((bit, idx) => bit === rxBits[idx]);
+                            
+                            // Format bit strings
+                            const txBitString = txBits.join('');
+                            const rxBitString = rxBits.map(b => b !== undefined ? b : '?').join('');
                             
                             symbolData.push({
-                                value: `Tx: ${txBit}, Rx: ${rxBit}`,
-                                label: `${txBit}→${rxBit}`,
-                                type: isError ? 'cp' : 'data' // 'cp' class shows red for errors
+                                value: `Symbol ${i}: Tx[${txBitString}] → Rx[${rxBitString}]`,
+                                label: `${txBitString}→${rxBitString}`,
+                                type: isSymbolCorrect ? 'data' : 'cp' // 'data' for correct (green), 'cp' for error (red)
                             });
                         }
                         
-                        // Add ellipsis if there are more bits
-                        if (globalTransmittedBits.length > displayCount) {
+                        // Add ellipsis if there are more symbols
+                        if (globalModulatedSymbols.length > numSymbolsToDisplay) {
                             symbolData.push({ label: '...', type: 'ellipsis' });
+                            symbolData.push({
+                                value: `Total: ${globalModulatedSymbols.length} symbols`,
+                                label: `(${globalModulatedSymbols.length} total)`,
+                                type: 'ellipsis'
+                            });
                         }
                     }
                     break;
@@ -2292,7 +2309,39 @@
                     highlightBlock(currentBlockIndex);
                 }
             });
-            
+            // Replace your window.onload section with this version that includes debugging:
+window.onload = function() {
+    initializeCharts();
+    document.getElementById('runStepByStepBtn').addEventListener('click', runStepByStepSimulation);
+    document.getElementById('runBerSimBtn').addEventListener('click', runBerSimulation);
+    
+    // Debug: Log when Next button is clicked
+    document.getElementById('nextBlockBtn').addEventListener('click', () => {
+        console.log('Next button clicked! Current index:', currentBlockIndex, 'Max index:', allOfdmBlockIds.length - 1);
+        if (currentBlockIndex < allOfdmBlockIds.length - 1) {
+            currentBlockIndex++;
+            console.log('Moving to index:', currentBlockIndex);
+            highlightBlock(currentBlockIndex);
+        } else {
+            console.log('Already at last block');
+        }
+    });
+    
+    document.getElementById('prevBlockBtn').addEventListener('click', () => {
+        console.log('Previous button clicked! Current index:', currentBlockIndex);
+        if (currentBlockIndex > 0) {
+            currentBlockIndex--;
+            console.log('Moving to index:', currentBlockIndex);
+            highlightBlock(currentBlockIndex);
+        } else {
+            console.log('Already at first block');
+        }
+    });
+    
+    // Show the simulation tab by default
+    document.getElementById('simulationTab').style.display = 'block';
+    resetSimulation();
+};
             // Show the simulation tab by default
             document.getElementById('simulationTab').style.display = 'block';
             resetSimulation();

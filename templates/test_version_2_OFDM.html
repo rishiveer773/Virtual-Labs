@@ -247,6 +247,7 @@
             }
         }
 
+        /* Find the .nav-buttons style (around line 247) and replace with: */
         .nav-buttons {
             display: flex;
             justify-content: center;
@@ -257,7 +258,8 @@
 
         .nav-buttons button {
             min-width: 120px;
-            flex: 0 1 auto;
+            flex: 1 1 auto;
+            max-width: 200px; /* Prevents buttons from getting too wide */
         }
 
         .output-area {
@@ -678,15 +680,16 @@
                         <line id="awgn-to-removecp" class="arrow" x1="385" y1="152" x2="385" y2="180" />
                     </svg>
                     </div>
-                    <div class="nav-buttons">
-                        <button id="nextBlockBtn" class="button-primary" disabled>Next</button>
-                        <button id="prevBlockBtn" class="button-primary" disabled>Previous</button>
-                    </div>
-                    
+
                     <div class="simulation-info">
                         <h3 id="blockOutputTitle">Simulation Step Output</h3>
                         <div id="symbolDisplay" class="symbol-display" style="display: none;"></div>
                         <p id="blockOutputDisplay">Run a simulation to see the step-by-step output here.</p>
+                    </div>
+
+                    <div class="nav-buttons">
+                        <button id="prevBlockBtn" class="button-primary" disabled>Previous</button>
+                        <button id="nextBlockBtn" class="button-primary" disabled>Next</button>
                     </div>
                 </div>
 
@@ -889,6 +892,7 @@
             }
             return demodulatedBits.split('').map(Number);
         }
+
         function generateBits(numBits) { return Array.from({ length: numBits }, () => Math.random() > 0.5 ? 1 : 0); }
 
         function openTab(evt, tabName) {
@@ -1122,6 +1126,18 @@
         let globalReceivedSymbols = [];
         let globalChannelGainsFFT = [];
 
+        // --- BER Plotting Globals for Multi-Curve Support (New) ---
+        let berChartDatasets = [];
+        const MAX_BER_PLOTS = 6;
+        const BER_COLORS = [
+            'rgb(59, 130, 246)',    // Blue
+            'rgb(239, 68, 68)',     // Red
+            'rgb(34, 197, 94)',     // Green
+            'rgb(234, 179, 8)',     // Yellow
+            'rgb(168, 85, 247)',    // Purple
+            'rgb(14, 165, 233)'     // Cyan
+        ];
+
         const fsMHz = 20;
         const fftLengthForSpectrum = 4096;
         const frequencies = Array.from({ length: fftLengthForSpectrum }, (_, i) =>
@@ -1328,6 +1344,22 @@
             const Ncp = parseInt(document.getElementById('ber_cpLength').value);
             const modulationScheme = document.getElementById('ber_modulationScheme').value;
             const SNRincrement = parseFloat(document.getElementById('ber_snrIncrement').value);
+            
+            const configLabel = `${modulationScheme} (L=${L}, Ncp=${Ncp})`;
+
+            if (berChartDatasets.length >= MAX_BER_PLOTS) {
+                displayErrorBER(`Maximum of ${MAX_BER_PLOTS} plots reached. Please clear existing plots before running a new simulation.`);
+                document.getElementById('loadingSpinnerBER').style.display = 'none';
+                return;
+            }
+
+            // Check if this configuration already exists (optional, but good practice)
+            if (berChartDatasets.some(d => d.label === configLabel)) {
+                displayErrorBER(`Configuration '${configLabel}' already plotted. Clear or change parameters.`);
+                document.getElementById('loadingSpinnerBER').style.display = 'none';
+                return;
+            }
+
 
             if (Ncp >= L) {
                 displayErrorBER('Cyclic Prefix length must be less than OFDM data length');
@@ -1452,7 +1484,14 @@
                 const plotSnrRange = snrRange.slice(0, -SATURATION_COUNT + 1);
                 const plotBerResults = berResults.slice(0, -SATURATION_COUNT + 1);
 
-                updateBerChart(plotSnrRange, plotBerResults);
+                // --- NEW PLOTTING LOGIC FOR MULTIPLE CURVES ---
+                berChartDatasets.push({
+                    label: configLabel,
+                    data: plotBerResults.map((ber, index) => ({ x: plotSnrRange[index], y: ber })),
+                    color: BER_COLORS[(berChartDatasets.length) % BER_COLORS.length]
+                });
+                
+                updateBerChart(); // Call without arguments
                 document.getElementById('berCurveChart').parentElement.style.display = 'block';
 
             } catch (error) {
@@ -1654,30 +1693,42 @@
             return true;
         }
 
+        // Also update the highlightBlock function where it highlights arrows:
         function highlightBlock(index) {
             const nextBtn = document.getElementById('nextBlockBtn');
             const prevBtn = document.getElementById('prevBlockBtn');
-            nextBtn.disabled = (index === allOfdmBlockIds.length - 1);
-            prevBtn.disabled = (index === 0);
+            
+            // Enable/disable buttons based on index
+            nextBtn.disabled = (index >= allOfdmBlockIds.length - 1);
+            prevBtn.disabled = (index <= 0);
 
+            // Remove all highlights
             allOfdmBlockIds.forEach(id => {
                 const block = document.getElementById(id);
-                if (block) block.classList.remove('highlighted');
-                const text = block.querySelector('.ofdm-block-text');
-                if (text) text.classList.remove('highlighted');
+                if (block) {
+                    block.classList.remove('highlighted');
+                    const texts = block.querySelectorAll('.ofdm-block-text');
+                    texts.forEach(t => t.classList.remove('highlighted'));
+                }
             });
             
             document.querySelectorAll('.arrow').forEach(arrow => arrow.classList.remove('highlighted'));
 
+            // Add highlight to current block
             if (index >= 0 && index < allOfdmBlockIds.length) {
                 const currentBlockElement = document.getElementById(allOfdmBlockIds[index]);
                 if (currentBlockElement) {
                     currentBlockElement.classList.add('highlighted');
                     currentBlockElement.querySelectorAll('.ofdm-block-text').forEach(t => t.classList.add('highlighted'));
                 }
+                
+                // Highlight the arrow leading to this block
                 if (index > 0) {
-                    const prevArrowId = getArrowId(index - 1, index);
-                    document.getElementById(prevArrowId)?.classList.add('highlighted');
+                    const prevArrowIds = getArrowId(index - 1, index);
+                    prevArrowIds.forEach(arrowId => {
+                        const arrowElement = document.getElementById(arrowId);
+                        if (arrowElement) arrowElement.classList.add('highlighted');
+                    });
                 }
             }
 
@@ -1685,18 +1736,18 @@
             updateBlockOutputDisplayContent(index);
         }
         
-        // Replace your getArrowId function with this one
+        // Replace your getArrowId function with this improved version that handles multiple arrows:
         function getArrowId(fromIndex, toIndex) {
             const transitions = {
-                '0-1': 'mapping-to-idft',
-                '1-2': 'idft-to-addcp',
-                '2-3': 'addcp-to-channel',
-                '3-4': 'channel-to-removecp',
-                '4-5': 'removecp-to-fft',
-                '5-6': 'fft-to-equalizer',
-                '6-7': 'equalizer-to-demapping'
+                '0-1': ['mapping-to-idft'],
+                '1-2': ['idft-to-addcp'],
+                '2-3': ['addcp-to-channel'],
+                '3-4': ['channel-to-awgn', 'awgn-to-removecp'],
+                '4-5': ['removecp-to-fft'],
+                '5-6': ['fft-to-equalizer'],
+                '6-7': ['equalizer-to-demapping']
             };
-            return transitions[`${fromIndex}-${toIndex}`] || '';
+            return transitions[`${fromIndex}-${toIndex}`] || [];
         }
 
         function hideStepByStepCharts() {
@@ -1893,18 +1944,26 @@
                         description = `Demapped symbols into a bitstream.\nFinal Bit Error Rate (BER): ${ber.toExponential(2)}`;
                         showSymbols = true;
                         
+<<<<<<< HEAD
                         // Display bit-to-symbol mapping with EXPLICIT CURLEY BRACKETS AND SYMBOL LABEL
                         const maxSymbolsToShow = 8; // Show first 8 symbols
                         const displayBitCount = Math.min(maxSymbolsToShow * bitsPerSymbol, receivedBits.length);
+=======
+                        // Display symbol-wise demapping (groups of bits per symbol)
+                        const numSymbolsToDisplay = Math.min(10, globalModulatedSymbols.length); // Show first 10 symbols
+>>>>>>> 8b8df1809f269821c8436aadd2b3dfd289e76b35
                         symbolData = [];
                         
-                        for (let i = 0; i < displayBitCount; i += bitsPerSymbol) {
-                            const bitGroup = receivedBits.slice(i, i + bitsPerSymbol);
-                            const txBitGroup = globalTransmittedBits.slice(i, i + bitsPerSymbol);
+                        for (let i = 0; i < numSymbolsToDisplay; i++) {
+                            const startBitIdx = i * bitsPerSymbol;
+                            const endBitIdx = startBitIdx + bitsPerSymbol;
                             
-                            // Check if this bit group has errors
-                            const hasError = bitGroup.some((bit, idx) => bit !== txBitGroup[idx]);
+                            // Get transmitted bits for this symbol
+                            const txBits = globalTransmittedBits.slice(startBitIdx, endBitIdx);
+                            // Get received bits for this symbol
+                            const rxBits = receivedBits.slice(startBitIdx, endBitIdx);
                             
+<<<<<<< HEAD
                             // 1. Generate the Constellation Symbol Label
                             let symbolLabel;
                             if (modulationScheme === 'BPSK') {
@@ -1946,11 +2005,30 @@
                             if (i + bitsPerSymbol < displayBitCount) {
                                 symbolData.push({ label: '|', type: 'separator' });
                             }
+=======
+                            // Check if all bits in the symbol match
+                            const isSymbolCorrect = txBits.every((bit, idx) => bit === rxBits[idx]);
+                            
+                            // Format bit strings
+                            const txBitString = txBits.join('');
+                            const rxBitString = rxBits.map(b => b !== undefined ? b : '?').join('');
+                            
+                            symbolData.push({
+                                value: `Symbol ${i}: Tx[${txBitString}] → Rx[${rxBitString}]`,
+                                label: `${txBitString}→${rxBitString}`,
+                                type: isSymbolCorrect ? 'data' : 'cp' // 'data' for correct (green), 'cp' for error (red)
+                            });
+>>>>>>> 8b8df1809f269821c8436aadd2b3dfd289e76b35
                         }
                         
-                        // Add ellipsis if there are more bits
-                        if (receivedBits.length > displayBitCount) {
+                        // Add ellipsis if there are more symbols
+                        if (globalModulatedSymbols.length > numSymbolsToDisplay) {
                             symbolData.push({ label: '...', type: 'ellipsis' });
+                            symbolData.push({
+                                value: `Total: ${globalModulatedSymbols.length} symbols`,
+                                label: `(${globalModulatedSymbols.length} total)`,
+                                type: 'ellipsis'
+                            });
                         }
                     }
                     break;
@@ -2103,25 +2181,47 @@
                 }
             };
 
+            // Also, in initializeCharts(), replace the berConfig with this:
             const berConfig = {
-                type: 'line',
-                data: { labels: [], datasets: [{ label: 'BER', data: [], borderColor: 'rgb(34, 197, 94)', backgroundColor: 'rgba(34, 197, 94, 0.2)', borderWidth: 2, pointRadius: 3, pointBackgroundColor: 'rgb(34, 197, 94)', fill: false, tension: 0.1 }] },
+                type: 'scatter', // Changed from 'line' to 'scatter' to support {x,y} data format
+                data: { datasets: [] },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
+                    plugins: { 
+                        legend: { 
+                            display: true,
+                            position: 'top'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return `${context.dataset.label}: SNR=${context.parsed.x}dB, BER=${context.parsed.y.toExponential(2)}`;
+                                }
+                            }
+                        }
+                    },
                     scales: {
                         x: { 
-                            min: 0, max: 25, 
+                            type: 'linear', // Explicitly set to linear
+                            min: 0, 
+                            max: 25,
                             title: { display: true, text: 'SNR (dB)', font: { size: 12, weight: 'bold' }, color: '#4b5563' },
                             ticks: { font: { size: 10 } }
                         },
                         y: { 
-                            type: 'logarithmic', 
+                            type: 'logarithmic',
                             title: { display: true, text: 'BER', font: { size: 12, weight: 'bold' }, color: '#4b5563' }, 
-                            min: 1e-6, max: 1,
+                            min: 1e-6, 
+                            max: 1,
                             ticks: { 
-                                callback: v => (v === 1e-1 || v === 1e-2 || v === 1e-3 || v === 1e-4 || v === 1e-5 || v === 1e-6) ? v.toExponential() : null,
+                                callback: v => {
+                                    const exp = Math.log10(v);
+                                    if (Number.isInteger(exp) && exp >= -6 && exp <= 0) {
+                                        return v.toExponential(0);
+                                    }
+                                    return null;
+                                },
                                 font: { size: 10 }
                             }
                         }
@@ -2365,22 +2465,39 @@
             chart.update();
         }
 
-        function updateBerChart(snrLabels, berData) {
-            if (berCurveChart && berData.length > 0) {
-                const maxSNR = Math.max(...snrLabels);
-                
-                berCurveChart.data.labels = snrLabels;
-                berCurveChart.data.datasets[0].data = berData;
-                
-                // Update x-axis to show only the relevant range
-                berCurveChart.options.scales.x.min = 0;
-                berCurveChart.options.scales.x.max = maxSNR;
-                
-                berCurveChart.update();
-                console.log(`BER chart updated with ${berData.length} points (0 to ${maxSNR} dB)`);
-            } else {
-                console.log('BER chart update failed - chart or data invalid');
+        // Replace the updateBerChart function with this corrected version:
+        function updateBerChart() {
+            if (!berCurveChart) return;
+
+            // Clear existing labels (not needed for scatter plot mode)
+            berCurveChart.data.labels = [];
+
+            // Convert global array into Chart.js datasets
+            berCurveChart.data.datasets = berChartDatasets.map((config, index) => ({
+                label: config.label,
+                data: config.data, // Already in {x, y} format
+                borderColor: config.color,
+                backgroundColor: config.color.replace('rgb', 'rgba').replace(')', ', 0.2)'),
+                borderWidth: 2,
+                pointRadius: 3,
+                pointBackgroundColor: config.color,
+                fill: false,
+                tension: 0.1,
+                showLine: true
+            }));
+
+            // Determine max SNR for X-axis scaling
+            let maxSNR = 25; // Default max
+            if (berChartDatasets.length > 0) {
+                maxSNR = Math.max(...berChartDatasets.flatMap(d => d.data.map(p => p.x)));
             }
+            
+            // Update Chart options
+            berCurveChart.options.scales.x.min = 0;
+            berCurveChart.options.scales.x.max = maxSNR > 0 ? Math.ceil(maxSNR) + 2 : 25;
+            berCurveChart.options.plugins.legend.display = berChartDatasets.length > 1; // Show legend if multiple plots
+            
+            berCurveChart.update();
         }
 
         function displayError(message) {
@@ -2390,21 +2507,32 @@
             document.getElementById('loadingSpinner').style.display = 'none';
         }
 
+        // Replace your window.onload section with this version that includes debugging:
         window.onload = function() {
             initializeCharts();
             document.getElementById('runStepByStepBtn').addEventListener('click', runStepByStepSimulation);
             document.getElementById('runBerSimBtn').addEventListener('click', runBerSimulation);
             
+            // Debug: Log when Next button is clicked
             document.getElementById('nextBlockBtn').addEventListener('click', () => {
+                console.log('Next button clicked! Current index:', currentBlockIndex, 'Max index:', allOfdmBlockIds.length - 1);
                 if (currentBlockIndex < allOfdmBlockIds.length - 1) {
                     currentBlockIndex++;
+                    console.log('Moving to index:', currentBlockIndex);
                     highlightBlock(currentBlockIndex);
+                } else {
+                    console.log('Already at last block');
                 }
             });
+            
             document.getElementById('prevBlockBtn').addEventListener('click', () => {
+                console.log('Previous button clicked! Current index:', currentBlockIndex);
                 if (currentBlockIndex > 0) {
                     currentBlockIndex--;
+                    console.log('Moving to index:', currentBlockIndex);
                     highlightBlock(currentBlockIndex);
+                } else {
+                    console.log('Already at first block');
                 }
             });
             
