@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diversity vs Multiplexing Experiment</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 300px 1fr 280px;
+            gap: 20px;
+            max-width: 1800px;
+            margin: 0 auto;
+            height: calc(100vh - 40px);
+        }
+
+        .panel {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            overflow-y: auto;
+        }
+
+        .panel h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 20px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .input-group small {
+            display: block;
+            margin-top: 5px;
+            color: #666;
+            font-size: 12px;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+            margin-top: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        #simulationCanvas {
+            width: 100%;
+            height: 100%;
+            border-radius: 8px;
+        }
+
+        .output-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
+        }
+
+        .output-item h3 {
+            color: #667eea;
+            font-size: 14px;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .output-item p {
+            color: #333;
+            font-size: 16px;
+            font-weight: 600;
+        }
+
+        .output-item small {
+            display: block;
+            color: #666;
+            font-size: 12px;
+            margin-top: 5px;
+        }
+
+        .error {
+            background: #fee;
+            border-left-color: #f44;
+            color: #c33;
+        }
+
+        .success {
+            background: #efe;
+            border-left-color: #4a4;
+            color: #383;
+        }
+
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+        }
+
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 4px;
+        }
+
+        .antenna-info {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .info-card {
+            background: white;
+            padding: 10px;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .info-card .value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .info-card .label {
+            font-size: 11px;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .snr-list {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+
+        .snr-item {
+            padding: 8px;
+            margin-bottom: 5px;
+            background: white;
+            border-radius: 4px;
+            font-size: 12px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .snr-item.multiplexing {
+            border-left: 3px solid #4CAF50;
+        }
+
+        .snr-item.diversity {
+            border-left: 3px solid #FF9800;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Left Panel: Inputs -->
+        <div class="panel">
+            <h2>⚙️ Experiment Parameters</h2>
+            
+            <div class="input-group">
+                <label for="txPower">Transmit Power (P)</label>
+                <input type="number" id="txPower" value="10" step="0.1" min="0.1">
+                <small>Power in Watts</small>
+            </div>
+
+            <div class="input-group">
+                <label for="numTx">Transmit Antennas (Nt)</label>
+                <input type="number" id="numTx" value="4" step="1" min="1" max="8">
+                <small>Number of TX antennas</small>
+            </div>
+
+            <div class="input-group">
+                <label for="numRx">Receive Antennas (Nr)</label>
+                <input type="number" id="numRx" value="4" step="1" min="1" max="8">
+                <small>Number of RX antennas</small>
+            </div>
+
+            <div class="input-group">
+                <label for="numStreams">Multiplexing Streams (r)</label>
+                <input type="number" id="numStreams" value="2" step="1" min="1" max="4">
+                <small>Must be ≤ min(Nt, Nr)</small>
+            </div>
+
+            <div class="input-group">
+                <label for="noiseVar">Noise Variance (σ²)</label>
+                <input type="number" id="noiseVar" value="0.1" step="0.01" min="0.01">
+                <small>Noise power</small>
+            </div>
+
+            <div class="input-group">
+                <label for="snrThreshold">SNR Threshold (dB)</label>
+                <input type="number" id="snrThreshold" value="15" step="0.5" min="0">
+                <small>Target SNR for diversity</small>
+            </div>
+
+            <button class="btn" onclick="runExperiment()">🚀 Run Experiment</button>
+            <button class="btn" onclick="resetExperiment()" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">🔄 Reset</button>
+
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #4CAF50;"></div>
+                    <span>Multiplexing</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #FF9800;"></div>
+                    <span>Diversity</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: #2196F3;"></div>
+                    <span>Channel Link</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Middle Panel: Simulation -->
+        <div class="panel">
+            <h2>📡 Antenna System Visualization</h2>
+            <canvas id="simulationCanvas"></canvas>
+        </div>
+
+        <!-- Right Panel: Outputs -->
+        <div class="panel">
+            <h2>📊 Results</h2>
+            
+            <div class="antenna-info">
+                <div class="info-card">
+                    <div class="value" id="multiplexCount">0</div>
+                    <div class="label">Multiplexing</div>
+                </div>
+                <div class="info-card">
+                    <div class="value" id="diversityCount">0</div>
+                    <div class="label">Diversity</div>
+                </div>
+            </div>
+
+            <div class="output-item">
+                <h3>Channel Matrix</h3>
+                <p id="channelDim">-</p>
+                <small>Rayleigh fading channel</small>
+            </div>
+
+            <div class="output-item">
+                <h3>Selected Message</h3>
+                <p id="selectedMsg">-</p>
+                <small>Message with lowest SNR</small>
+            </div>
+
+            <div class="output-item">
+                <h3>Minimum SNR</h3>
+                <p id="minSNR">-</p>
+                <small>Before diversity allocation</small>
+            </div>
+
+            <div class="output-item">
+                <h3>Power Allocation</h3>
+                <p id="powerAlloc">-</p>
+                <small>Via waterfilling algorithm</small>
+            </div>
+
+            <div class="output-item">
+                <h3>SNR Values (dB)</h3>
+                <div class="snr-list" id="snrList"></div>
+            </div>
+
+            <div class="output-item" id="statusMsg">
+                <h3>Status</h3>
+                <p>Ready to run experiment</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simulationCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let channelMatrix = [];
+        let singularValues = [];
+        let antennaConfig = {
+            tx: [],
+            rx: [],
+            multiplexing: [],
+            diversity: [],
+            selectedMessage: -1
+        };
+
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            drawAntennaSystem();
+        }
+
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Generate complex Gaussian random variable (Rayleigh distributed magnitude)
+        function complexGaussian() {
+            const u1 = Math.random();
+            const u2 = Math.random();
+            const mag = Math.sqrt(-2 * Math.log(u1));
+            const phase = 2 * Math.PI * u2;
+            return {
+                real: mag * Math.cos(phase) / Math.sqrt(2),
+                imag: mag * Math.sin(phase) / Math.sqrt(2)
+            };
+        }
+
+        // Generate channel matrix
+        function generateChannelMatrix(nt, nr) {
+            const H = [];
+            for (let i = 0; i < nr; i++) {
+                H[i] = [];
+                for (let j = 0; j < nt; j++) {
+                    H[i][j] = complexGaussian();
+                }
+            }
+            return H;
+        }
+
+        // Compute H * H' (Hermitian transpose)
+        function computeHHH(H) {
+            const nr = H.length;
+            const nt = H[0].length;
+            const HHH = [];
+            
+            for (let i = 0; i < nr; i++) {
+                HHH[i] = [];
+                for (let j = 0; j < nr; j++) {
+                    let sumReal = 0, sumImag = 0;
+                    for (let k = 0; k < nt; k++) {
+                        // H[i][k] * conj(H[j][k])
+                        sumReal += H[i][k].real * H[j][k].real + H[i][k].imag * H[j][k].imag;
+                        sumImag += H[i][k].imag * H[j][k].real - H[i][k].real * H[j][k].imag;
+                    }
+                    HHH[i][j] = { real: sumReal, imag: sumImag };
+                }
+            }
+            return HHH;
+        }
+
+        // Simple power iteration for eigenvalues (approximation for demo)
+        function computeEigenvalues(HHH) {
+            const n = HHH.length;
+            const eigenvalues = [];
+            
+            // Simplified: use diagonal elements as approximation
+            // In production, use proper SVD library
+            for (let i = 0; i < n; i++) {
+                eigenvalues.push(Math.sqrt(Math.abs(HHH[i][i].real)));
+            }
+            
+            eigenvalues.sort((a, b) => b - a);
+            return eigenvalues;
+        }
+
+        // Waterfilling algorithm
+        function waterfilling(channels, P, noiseVar, threshold) {
+            const n = channels.length;
+            const allocation = new Array(n).fill(0);
+            
+            // Convert threshold from dB to linear
+            const thresholdLinear = Math.pow(10, threshold / 10);
+            
+            // Calculate required power for each channel to meet threshold
+            for (let i = 0; i < n; i++) {
+                const channelGain = channels[i] * channels[i];
+                const requiredPower = (thresholdLinear * noiseVar) / channelGain;
+                allocation[i] = Math.max(0, requiredPower);
+            }
+            
+            // Normalize if total power exceeds available power
+            const totalPower = allocation.reduce((a, b) => a + b, 0);
+            if (totalPower > P) {
+                for (let i = 0; i < n; i++) {
+                    allocation[i] = (allocation[i] / totalPower) * P;
+                }
+            }
+            
+            return allocation;
+        }
+
+        function runExperiment() {
+            const txPower = parseFloat(document.getElementById('txPower').value);
+            const numTx = parseInt(document.getElementById('numTx').value);
+            const numRx = parseInt(document.getElementById('numRx').value);
+            const numStreams = parseInt(document.getElementById('numStreams').value);
+            const noiseVar = parseFloat(document.getElementById('noiseVar').value);
+            const snrThreshold = parseFloat(document.getElementById('snrThreshold').value);
+
+            // Validation
+            if (numStreams > Math.min(numTx, numRx)) {
+                alert('Number of streams must be ≤ min(Nt, Nr)');
+                return;
+            }
+
+            // Generate channel matrix
+            channelMatrix = generateChannelMatrix(numTx, numRx);
+            
+            // Compute eigenvalues
+            const HHH = computeHHH(channelMatrix);
+            singularValues = computeEigenvalues(HHH);
+
+            // Calculate SNR for each stream
+            const snrValues = [];
+            for (let i = 0; i < numStreams; i++) {
+                const snr = (singularValues[i] * singularValues[i] * txPower) / noiseVar;
+                const snrDB = 10 * Math.log10(snr);
+                snrValues.push({ index: i, snr: snr, snrDB: snrDB, type: 'multiplexing' });
+            }
+
+            // Find minimum SNR stream
+            let minSNRIdx = 0;
+            let minSNR = snrValues[0].snr;
+            for (let i = 1; i < numStreams; i++) {
+                if (snrValues[i].snr < minSNR) {
+                    minSNR = snrValues[i].snr;
+                    minSNRIdx = i;
+                }
+            }
+
+            // Allocate remaining antennas to diversity
+            const numDiversity = Math.min(numTx, numRx) - numStreams;
+            const diversityChannels = singularValues.slice(numStreams, numStreams + numDiversity);
+            
+            // Waterfilling for diversity
+            const diversityPower = waterfilling(diversityChannels, txPower, noiseVar, snrThreshold);
+
+            // Calculate diversity SNRs
+            for (let i = 0; i < numDiversity; i++) {
+                const snr = (diversityChannels[i] * diversityChannels[i] * diversityPower[i]) / noiseVar;
+                const snrDB = 10 * Math.log10(snr);
+                snrValues.push({ 
+                    index: numStreams + i, 
+                    snr: snr, 
+                    snrDB: snrDB, 
+                    type: 'diversity',
+                    power: diversityPower[i]
+                });
+            }
+
+            // Update antenna configuration
+            antennaConfig.tx = Array(numTx).fill(0).map((_, i) => ({x: 0, y: 0, id: i}));
+            antennaConfig.rx = Array(numRx).fill(0).map((_, i) => ({x: 0, y: 0, id: i}));
+            antennaConfig.multiplexing = snrValues.filter(s => s.type === 'multiplexing');
+            antennaConfig.diversity = snrValues.filter(s => s.type === 'diversity');
+            antennaConfig.selectedMessage = minSNRIdx;
+
+            // Update UI
+            document.getElementById('channelDim').textContent = `${numRx} × ${numTx}`;
+            document.getElementById('selectedMsg').textContent = `x${minSNRIdx + 1}`;
+            document.getElementById('minSNR').textContent = `${snrValues[minSNRIdx].snrDB.toFixed(2)} dB`;
+            document.getElementById('multiplexCount').textContent = numStreams;
+            document.getElementById('diversityCount').textContent = numDiversity;
+            
+            const totalDivPower = diversityPower.reduce((a, b) => a + b, 0);
+            document.getElementById('powerAlloc').textContent = `${totalDivPower.toFixed(3)} W`;
+
+            // Update SNR list
+            const snrListDiv = document.getElementById('snrList');
+            snrListDiv.innerHTML = '';
+            snrValues.forEach(s => {
+                const div = document.createElement('div');
+                div.className = `snr-item ${s.type}`;
+                div.innerHTML = `
+                    <span>Stream ${s.index + 1}</span>
+                    <strong>${s.snrDB.toFixed(2)} dB</strong>
+                `;
+                snrListDiv.appendChild(div);
+            });
+
+            const statusDiv = document.getElementById('statusMsg');
+            statusDiv.className = 'output-item success';
+            statusDiv.querySelector('p').textContent = 'Experiment completed successfully!';
+
+            // Draw visualization
+            drawAntennaSystem();
+        }
+
+        function drawAntennaSystem() {
+            if (antennaConfig.tx.length === 0) return;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            const numTx = antennaConfig.tx.length;
+            const numRx = antennaConfig.rx.length;
+            const margin = 100;
+            const txX = margin;
+            const rxX = canvas.width - margin;
+            const spacing = Math.min(60, (canvas.height - 2 * margin) / Math.max(numTx, numRx));
+
+            // Position antennas
+            for (let i = 0; i < numTx; i++) {
+                antennaConfig.tx[i].x = txX;
+                antennaConfig.tx[i].y = margin + i * spacing + (canvas.height - 2 * margin - (numTx - 1) * spacing) / 2;
+            }
+
+            for (let i = 0; i < numRx; i++) {
+                antennaConfig.rx[i].x = rxX;
+                antennaConfig.rx[i].y = margin + i * spacing + (canvas.height - 2 * margin - (numRx - 1) * spacing) / 2;
+            }
+
+            // Draw channel links
+            ctx.strokeStyle = 'rgba(33, 150, 243, 0.2)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < numTx; i++) {
+                for (let j = 0; j < numRx; j++) {
+                    ctx.beginPath();
+                    ctx.moveTo(antennaConfig.tx[i].x, antennaConfig.tx[i].y);
+                    ctx.lineTo(antennaConfig.rx[j].x, antennaConfig.rx[j].y);
+                    ctx.stroke();
+                }
+            }
+
+            // Draw multiplexing links
+            ctx.strokeStyle = '#4CAF50';
+            ctx.lineWidth = 3;
+            antennaConfig.multiplexing.forEach(m => {
+                const i = m.index;
+                if (i < Math.min(numTx, numRx)) {
+                    ctx.beginPath();
+                    ctx.moveTo(antennaConfig.tx[i].x, antennaConfig.tx[i].y);
+                    ctx.lineTo(antennaConfig.rx[i].x, antennaConfig.rx[i].y);
+                    ctx.stroke();
+
+                    // Highlight selected message
+                    if (i === antennaConfig.selectedMessage) {
+                        ctx.strokeStyle = '#FFD700';
+                        ctx.lineWidth = 5;
+                        ctx.beginPath();
+                        ctx.moveTo(antennaConfig.tx[i].x, antennaConfig.tx[i].y);
+                        ctx.lineTo(antennaConfig.rx[i].x, antennaConfig.rx[i].y);
+                        ctx.stroke();
+                        ctx.strokeStyle = '#4CAF50';
+                        ctx.lineWidth = 3;
+                    }
+                }
+            });
+
+            // Draw diversity links
+            ctx.strokeStyle = '#FF9800';
+            ctx.lineWidth = 3;
+            const selectedTx = antennaConfig.selectedMessage;
+            const selectedRx = antennaConfig.selectedMessage;
+            antennaConfig.diversity.forEach(d => {
+                const i = d.index;
+                if (i < Math.min(numTx, numRx) && selectedTx < numTx && selectedRx < numRx) {
+                    ctx.beginPath();
+                    ctx.moveTo(antennaConfig.tx[i].x, antennaConfig.tx[i].y);
+                    ctx.lineTo(antennaConfig.rx[selectedRx].x, antennaConfig.rx[selectedRx].y);
+                    ctx.stroke();
+                }
+            });
+
+            // Draw TX antennas
+            antennaConfig.tx.forEach((tx, i) => {
+                const isMux = antennaConfig.multiplexing.some(m => m.index === i);
+                const isDiv = antennaConfig.diversity.some(d => d.index === i);
+                
+                ctx.fillStyle = isMux ? '#4CAF50' : (isDiv ? '#FF9800' : '#999');
+                ctx.beginPath();
+                ctx.arc(tx.x, tx.y, 15, 0, 2 * Math.PI);
+                ctx.fill();
+                
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 12px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(`T${i + 1}`, tx.x, tx.y);
+
+                // Label
+                ctx.fillStyle = '#333';
+                ctx.font = '11px Arial';
+                ctx.textAlign = 'right';
+                ctx.fillText(isMux ? `x${i + 1}` : (isDiv ? `x${selectedTx + 1}` : ''), tx.x - 25, tx.y);
+            });
+
+            // Draw RX antennas
+            antennaConfig.rx.forEach((rx, i) => {
+                const isMux = antennaConfig.multiplexing.some(m => m.index === i);
+                
+                ctx.fillStyle = isMux ? '#4CAF50' : '#999';
+                ctx.beginPath();
+                ctx.arc(rx.x, rx.y, 15, 0, 2 * Math.PI);
+                ctx.fill();
+                
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 12px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(`R${i + 1}`, rx.x, rx.y);
+            });
+
+            // Draw labels
+            ctx.fillStyle = '#667eea';
+            ctx.font = 'bold 16px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('Transmitters', txX, 40);
+            ctx.fillText('Receivers', rxX, 40);
+        }
+
+        function resetExperiment() {
+            channelMatrix = [];
+            singularValues = [];
+            antennaConfig = {
+                tx: [],
+                rx: [],
+                multiplexing: [],
+                diversity: [],
+                selectedMessage: -1
+            };
+
+            document.getElementById('multiplexCount').textContent = '0';
+            document.getElementById('diversityCount').textContent = '0';
+            document.getElementById('channelDim').textContent = '-';
+            document.getElementById('selectedMsg').textContent = '-';
+            document.getElementById('minSNR').textContent = '-';
+            document.getElementById('powerAlloc').textContent = '-';
+            document.getElementById('snrList').innerHTML = '';
+            
+            const statusDiv = document.getElementById('statusMsg');
+            statusDiv.className = 'output-item';
+            statusDiv.querySelector('p').textContent = 'Ready to run experiment';
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+
+        // Initial draw
+        setTimeout(resizeCanvas, 100);
+    </script>
+</body>
+</html>

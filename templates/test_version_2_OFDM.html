@@ -1893,7 +1893,7 @@
                         description = `Demapped symbols into a bitstream.\nFinal Bit Error Rate (BER): ${ber.toExponential(2)}`;
                         showSymbols = true;
                         
-                        // Display bit-to-symbol mapping with brackets
+                        // Display bit-to-symbol mapping with EXPLICIT CURLEY BRACKETS AND SYMBOL LABEL
                         const maxSymbolsToShow = 8; // Show first 8 symbols
                         const displayBitCount = Math.min(maxSymbolsToShow * bitsPerSymbol, receivedBits.length);
                         symbolData = [];
@@ -1905,7 +1905,7 @@
                             // Check if this bit group has errors
                             const hasError = bitGroup.some((bit, idx) => bit !== txBitGroup[idx]);
                             
-                            // Create the constellation symbol label
+                            // 1. Generate the Constellation Symbol Label
                             let symbolLabel;
                             if (modulationScheme === 'BPSK') {
                                 symbolLabel = bitGroup[0] === 1 ? '+1' : '-1';
@@ -1922,14 +1922,26 @@
                                 const decimalValue = parseInt(bitString, 2);
                                 symbolLabel = `S${decimalValue}`;
                             }
+
+                            // 2. Format the grouped bits with curly brackets for the 'label' property
+                            const groupedBitsLabel = `{${bitGroup.join('')}}`;
                             
-                            // Add bit group with bracket and symbol
+                            // 3. Create the data object using the standard symbol-item style
                             symbolData.push({
-                                label: bitGroup.join(' '), // Space-separated bits
-                                symbolLabel: symbolLabel,  // THIS is the key property
-                                type: hasError ? 'cp' : 'data'
+                                // Use the symbol label as the main display content
+                                label: symbolLabel, 
+                                // Store the grouped bits in the value field for hover tooltip
+                                value: `Bits: ${bitGroup.join('')}`, 
+                                type: hasError ? 'cp' : 'data' // cp = error (red), data = correct (blue)
                             });
-                            
+
+                            // 4. Add the curly bracket and bit representation
+                            symbolData.push({
+                                label: groupedBitsLabel, 
+                                type: 'ellipsis', // Use ellipsis style (grey dashed border) for the bracketed text
+                                value: `Demapped to ${symbolLabel}`
+                            });
+
                             // Add separator between symbol groups (except after last)
                             if (i + bitsPerSymbol < displayBitCount) {
                                 symbolData.push({ label: '|', type: 'separator' });
@@ -2153,32 +2165,37 @@
                         separator.textContent = symbol.label;
                         symbolDisplay.appendChild(separator);
                     } else if (symbol.symbolLabel) {
-                        // Special rendering for bit-to-symbol mapping with bracket
+                        // Special rendering for bit-to-symbol mapping with grouped bits and label
                         const container = document.createElement('div');
                         container.className = 'symbol-item with-bracket';
                         
-                        // Bits in colored box
+                        // 1. Bits in colored box (Top)
                         const bitsBox = document.createElement('div');
                         bitsBox.className = `symbol-bits-box ${symbol.type}`;
-                        bitsBox.textContent = symbol.label;
+                        bitsBox.textContent = symbol.label; // e.g., "0 1"
+                        bitsBox.style.padding = '0 5px'; // Adjust padding
+                        bitsBox.style.letterSpacing = '1px'; // Reduce letter spacing for clarity
                         
-                        // Bracket and label below
-                        const bracketContainer = document.createElement('div');
-                        bracketContainer.className = 'symbol-bracket-container';
-                        
-                        const bracketDiv = document.createElement('div');
-                        bracketDiv.className = 'symbol-bracket';
-                        bracketDiv.textContent = '⎵';
-                        
-                        const labelDiv = document.createElement('div');
-                        labelDiv.className = 'symbol-label';
-                        labelDiv.textContent = symbol.symbolLabel;
-                        
-                        bracketContainer.appendChild(bracketDiv);
-                        bracketContainer.appendChild(labelDiv);
+                        // 2. Bracket and label container (Bottom)
+                        const labelContainer = document.createElement('div');
+                        labelContainer.className = 'symbol-bracket-container';
+                        labelContainer.style.minHeight = '30px'; // Ensure space
+                        labelContainer.style.marginTop = '4px'; // Space below bits box
+
+                        // Instead of a special character ⎵, we use text styling
+                        const symbolDiv = document.createElement('div');
+                        symbolDiv.className = 'symbol-label';
+                        symbolDiv.style.fontWeight = 'bold';
+                        symbolDiv.style.borderTop = '1px solid #64748b'; // Horizontal line
+                        symbolDiv.style.lineHeight = '1.2';
+                        symbolDiv.style.marginTop = '2px';
+                        symbolDiv.style.color = '#475569';
+                        symbolDiv.textContent = ` <${symbol.symbolLabel}> `; // Use angular brackets
+
+                        labelContainer.appendChild(symbolDiv);
                         
                         container.appendChild(bitsBox);
-                        container.appendChild(bracketContainer);
+                        container.appendChild(labelContainer);
                         symbolDisplay.appendChild(container);
                     } else {
                         const item = document.createElement('div');
