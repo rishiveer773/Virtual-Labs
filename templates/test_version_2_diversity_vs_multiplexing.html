@@ -20,7 +20,7 @@
 
         .container {
             display: grid;
-            grid-template-columns: 300px 1fr 320px;
+            grid-template-columns: 300px 1fr 400px;  /* Changed from 320px to 400px for results */
             gap: 20px;
             max-width: 1800px;
             margin: 0 auto;
@@ -376,7 +376,7 @@
             <div class="output-item" id="tradeoffSection" style="display: none;">
                 <h3>Tradeoff Plot</h3>
                 <canvas id="tradeoffCanvas" style="width: 100%; height: 300px;"></canvas>
-                <small>d_opt(r) = (Mt - r)(Mr - r)</small>
+                <small>d<sub>opt</sub>(r) = (N<sub>t</sub> - r)(N<sub>r</sub> - r)</small>
             </div>
 
             <div class="output-item" id="powerAllocSection" style="display: none;">
@@ -587,6 +587,7 @@
             
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
+            // Draw axes
             ctx.strokeStyle = '#333';
             ctx.lineWidth = 2;
             ctx.beginPath();
@@ -615,10 +616,11 @@
                 ctx.stroke();
             }
             
-            // Draw tradeoff curve (Diversity vs Multiplexing)
-            ctx.strokeStyle = '#667eea';
-            ctx.lineWidth = 3;
+            // Draw tradeoff curve connecting actual data points
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2.5;
             ctx.beginPath();
+            
             tradeoffData.forEach((d, i) => {
                 const x = padding + (d.multiplexing / maxMux) * plotWidth;
                 const y = canvas.height - padding - (d.diversity / maxDiv) * plotHeight;
@@ -631,69 +633,76 @@
             });
             ctx.stroke();
             
-            // Draw points
-            tradeoffData.forEach((d, i) => {
+            // Draw points on the tradeoff curve
+            tradeoffData.forEach((d) => {
                 const x = padding + (d.multiplexing / maxMux) * plotWidth;
                 const y = canvas.height - padding - (d.diversity / maxDiv) * plotHeight;
                 
-                ctx.fillStyle = d.multiplexing === currentMux ? '#FFD700' : '#667eea';
+                const isCurrent = d.multiplexing === currentMux;
+                
+                // Draw point
+                ctx.fillStyle = isCurrent ? '#FFD700' : '#333';
                 ctx.beginPath();
-                ctx.arc(x, y, d.multiplexing === currentMux ? 8 : 5, 0, 2 * Math.PI);
+                ctx.arc(x, y, isCurrent ? 7 : 5, 0, 2 * Math.PI);
                 ctx.fill();
                 
-                if (d.multiplexing === currentMux) {
+                // Add label for each point
+                ctx.fillStyle = '#333';
+                ctx.font = isCurrent ? 'bold 11px Arial' : '10px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(`(${d.multiplexing}, ${d.diversity})`, x, y - 12);
+                
+                // Highlight current selection with ring
+                if (isCurrent) {
                     ctx.strokeStyle = '#FFD700';
-                    ctx.lineWidth = 3;
+                    ctx.lineWidth = 2;
                     ctx.beginPath();
-                    ctx.arc(x, y, 12, 0, 2 * Math.PI);
+                    ctx.arc(x, y, 11, 0, 2 * Math.PI);
                     ctx.stroke();
                 }
             });
             
-            // Draw labels
+            // Draw axis labels
             ctx.fillStyle = '#333';
-            ctx.font = 'bold 14px Arial';
+            ctx.font = 'bold 13px Arial';
             ctx.textAlign = 'center';
             
             // X-axis label
-            ctx.fillText('Multiplexing Gain (r)', canvas.width / 2, canvas.height - 20);
+            ctx.fillText('Multiplexing Gain r', canvas.width / 2, canvas.height - 15);
             
             // Y-axis label
             ctx.save();
-            ctx.translate(20, canvas.height / 2);
+            ctx.translate(15, canvas.height / 2);
             ctx.rotate(-Math.PI / 2);
             ctx.fillText('Diversity Gain d(r)', 0, 0);
             ctx.restore();
             
-            // Title
-            ctx.font = 'bold 16px Arial';
-            ctx.fillText('Diversity-Multiplexing Tradeoff', canvas.width / 2, 30);
-            
-            // Draw axis values
+            // Draw axis tick labels
             ctx.font = '11px Arial';
             ctx.fillStyle = '#666';
             
-            // X-axis values
+            // X-axis ticks
+            ctx.textAlign = 'center';
             for (let i = 0; i <= maxMux; i++) {
                 const x = padding + (i / maxMux) * plotWidth;
-                ctx.textAlign = 'center';
-                ctx.fillText(i.toString(), x, canvas.height - padding + 20);
+                ctx.fillText(i.toString(), x, canvas.height - padding + 18);
             }
             
-            // Y-axis values
+            // Y-axis ticks
             ctx.textAlign = 'right';
-            for (let i = 0; i <= 5; i++) {
-                const y = canvas.height - padding - (plotHeight / 5) * i;
-                const value = (maxDiv / 5) * i;
-                ctx.fillText(Math.round(value).toString(), padding - 10, y + 5);
+            const step = maxDiv <= 5 ? 1 : Math.ceil(maxDiv / 5);
+            for (let i = 0; i <= maxDiv; i += step) {
+                const y = canvas.height - padding - (i / maxDiv) * plotHeight;
+                ctx.fillText(i.toString(), padding - 10, y + 4);
             }
             
-            // Draw current point info
-            const legendY = padding + 20;
-            ctx.font = '12px Arial';
+            // Add corner point labels
+            ctx.font = '10px Arial';
+            ctx.fillStyle = '#667eea';
             ctx.textAlign = 'left';
-            ctx.fillStyle = '#666';
-            ctx.fillText(`Current: r = ${tradeoffData[currentMux].multiplexing}, d(r) = ${tradeoffData[currentMux].diversity}`, canvas.width - padding - 180, legendY);
+            ctx.fillText(`(0, ${maxDiv})`, padding + 5, padding + 15);
+            ctx.textAlign = 'right';
+            ctx.fillText(`(${maxMux}, 0)`, canvas.width - padding - 5, canvas.height - padding - 5);
         }
 
         function handleMainAction() {
@@ -1046,8 +1055,8 @@
                     ctx.fillStyle = '#333';
                     ctx.font = 'bold 16px Arial';
                     ctx.textAlign = 'center';
-                    ctx.fillText('Transmitters', txX, 40);
-                    ctx.fillText('Receivers', rxX, 40);
+                    ctx.fillText('Transmitters', txX, 30);  // Changed from 40 to 30
+                    ctx.fillText('Receivers', rxX, 30);     // Changed from 40 to 30
 
                 } else if (systemState === 'optimized') {
                 const groups = antennaConfig.groups || [];
@@ -1070,7 +1079,7 @@
                 // }
                 
                 // Draw faint full-links
-                ctx.strokeStyle = 'rgba(33,150,243,0.06)';
+                ctx.strokeStyle = 'rgba(33,150,243,0.15)';
                 ctx.lineWidth = 1;
                 for (let t = 0; t < numTx; t++) {
                     for (let rcv = 0; rcv < numRx; rcv++) {
