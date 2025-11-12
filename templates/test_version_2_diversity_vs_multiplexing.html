@@ -798,9 +798,41 @@
             if (!channelMatrix || channelMatrix.length === 0) { alert('Generate system first'); return; }
             if (r < 1 || r > Math.min(numTx, numRx)) { alert('r must be between 1 and min(Nt,Nr)'); return; }
 
-            // Partition TX and RX into r groups - ensure groups are consecutive
-            const txGroups = partitionIndices(numTx, r);
-            const rxGroups = partitionIndices(numRx, r);
+            // Compute true SVD-based leaders
+            const svd = computeTopRSVD(channelMatrix, r, 80); // increase iters if needed
+            // svd.V is array of r vectors (each length nt). svd.U is array of r vectors (each length nr)
+
+            function pickLeadersFromSVD(svd) {
+                const leadersTx = [];
+                const leadersRx = [];
+                const rLocal = svd.V.length;
+                for (let k = 0; k < rLocal; k++) {
+                    // pick transmit antenna index with largest |V_jk|
+                    let bestTx = 0, bestValTx = -1;
+                    const vvec = svd.V[k];
+                    for (let j = 0; j < vvec.length; j++) {
+                        const val = cAbs2(vvec[j]);
+                        if (val > bestValTx) { bestValTx = val; bestTx = j; }
+                    }
+                    leadersTx.push(bestTx);
+
+                    // pick receive antenna index with largest |U_ik|
+                    let bestRx = 0, bestValRx = -1;
+                    const uvec = svd.U[k];
+                    for (let i = 0; i < uvec.length; i++) {
+                        const val = cAbs2(uvec[i]);
+                        if (val > bestValRx) { bestValRx = val; bestRx = i; }
+                    }
+                    leadersRx.push(bestRx);
+                }
+                return { leadersTx, leadersRx };
+            }
+
+            const { leadersTx, leadersRx } = pickLeadersFromSVD(svd);
+
+            // build groups using leaders as first members
+            const txGroups = createGroupsWithLeaders(numTx, r, leadersTx);
+            const rxGroups = createGroupsWithLeaders(numRx, r, leadersRx);
 
             // Create a mapping to reorder antennas by group
             const txReordering = [];
@@ -1063,21 +1095,6 @@
                 const txReordering = antennaConfig.txReordering || [];
                 const rxReordering = antennaConfig.rxReordering || [];
                 
-                // Reposition antennas according to group membership
-                // if (txReordering.length > 0) {
-                //     for (let i = 0; i < txReordering.length; i++) {
-                //         const originalIdx = txReordering[i];
-                //         antennaConfig.tx[originalIdx].y = txStartY + i * spacing;
-                //     }
-                // }
-                
-                // if (rxReordering.length > 0) {
-                //     for (let i = 0; i < rxReordering.length; i++) {
-                //         const originalIdx = rxReordering[i];
-                //         antennaConfig.rx[originalIdx].y = rxStartY + i * spacing;
-                //     }
-                // }
-                
                 // Draw faint full-links
                 ctx.strokeStyle = 'rgba(33,150,243,0.15)';
                 ctx.lineWidth = 1;
@@ -1255,6 +1272,219 @@
                 ctx.fillText('Receivers', rxX, 40);
             }
         }
+
+        // returns array of top `k` tx indices by column energy (or rx by rowEnergy)
+        function topIndicesByEnergy(H, k, axis = 'tx') {
+            // H is nr x nt, same shape as your generateChannelMatrix output
+            const nr = H.length;
+            const nt = H[0].length;
+
+            const energies = []; // pairs [index, energy]
+
+            if (axis === 'tx') {
+                // column energy for each transmit antenna j
+                for (let j = 0; j < nt; j++) {
+                    let e = 0;
+                    for (let i = 0; i < nr; i++) {
+                        const c = H[i][j];
+                        e += (c.real * c.real + c.imag * c.imag);
+                    }
+                    energies.push([j, e]);
+                }
+            } else {
+                // row energy for each receive antenna i
+                for (let i = 0; i < nr; i++) {
+                    let e = 0;
+                    for (let j = 0; j < nt; j++) {
+                        const c = H[i][j];
+                        e += (c.real * c.real + c.imag * c.imag);
+                    }
+                    energies.push([i, e]);
+                }
+            }
+
+            // sort descending by energy and return top k indices
+            energies.sort((a, b) => b[1] - a[1]);
+            return energies.slice(0, k).map(p => p[0]);
+        }
+
+        // n = total antennas (numTx or numRx), r = number of streams,
+        // leaders = array of leader indices of length r (must be unique inside [0,n))
+        // returns array of r groups (arrays of indices) where each group starts with its leader
+        function createGroupsWithLeaders(n, r, leaders) {
+            // make sure leaders has length r; if not, fall back to round-robin
+            const groups = Array.from({length: r}, () => []);
+            const used = new Set();
+
+            // assign leaders as first element
+            for (let g = 0; g < r; g++) {
+                const leader = (leaders && leaders[g] !== undefined) ? leaders[g] : g;
+                groups[g].push(leader);
+                used.add(leader);
+            }
+
+            // build list of remaining indices (ascending order) excluding leaders
+            const remaining = [];
+            for (let i = 0; i < n; i++) {
+                if (!used.has(i)) remaining.push(i);
+            }
+
+            // distribute remaining in round-robin across groups
+            let idx = 0;
+            for (const antenna of remaining) {
+                groups[idx % r].push(antenna);
+                idx++;
+            }
+
+            return groups;
+        }
+
+        // Complex arithmetic helpers (works with {real, imag})
+        function cMul(a, b) {
+            return { real: a.real * b.real - a.imag * b.imag, imag: a.real * b.imag + a.imag * b.real };
+        }
+        function cAdd(a, b) { return { real: a.real + b.real, imag: a.imag + b.imag }; }
+        function cSub(a, b) { return { real: a.real - b.real, imag: a.imag - b.imag }; }
+        function cConj(a) { return { real: a.real, imag: -a.imag }; }
+        function cAbs2(a) { return a.real * a.real + a.imag * a.imag; }
+        function cScale(a, s) { return { real: a.real * s, imag: a.imag * s }; }
+
+        // H is nr x nt (H[row][col])
+        function buildHermitianA(H) {
+            const nr = H.length;
+            const nt = H[0].length;
+            const A = Array.from({length: nt}, () => Array.from({length: nt}, () => ({ real: 0, imag: 0 })));
+            for (let j = 0; j < nt; j++) {
+                for (let k = 0; k < nt; k++) {
+                    let sum = { real: 0, imag: 0 };
+                    for (let i = 0; i < nr; i++) {
+                        // conj(H[i][j]) * H[i][k]
+                        const prod = cMul(cConj(H[i][j]), H[i][k]);
+                        sum = cAdd(sum, prod);
+                    }
+                    A[j][k] = sum;
+                }
+            }
+            return A;
+        }
+
+        function matVecMul(A, v) { // A: n x n complex, v: n complex
+            const n = A.length;
+            const out = new Array(n).fill(null).map(()=>({real:0, imag:0}));
+            for (let i = 0; i < n; i++) {
+                let s = { real: 0, imag: 0 };
+                for (let j = 0; j < n; j++) {
+                    s = cAdd(s, cMul(A[i][j], v[j]));
+                }
+                out[i] = s;
+            }
+            return out;
+        }
+        function vecNorm(v) {
+            let s = 0;
+            for (let i = 0; i < v.length; i++) s += cAbs2(v[i]);
+            return Math.sqrt(s);
+        }
+        function normalizeVec(v) {
+            const nrm = vecNorm(v) || 1e-18;
+            return v.map(x => cScale(x, 1 / nrm));
+        }
+        function conjDot(a, b) { // a^H b (complex)
+            let s = { real: 0, imag: 0 };
+            for (let i = 0; i < a.length; i++) s = cAdd(s, cMul(cConj(a[i]), b[i]));
+            return s;
+        }
+
+        // returns { vals: [lambda1, ...], vecs: [[v1_j], ...] } where vecs is array of vectors (complex)
+        function topR_eigs_by_power(A, r, iters = 60) {
+            const n = A.length;
+            const vals = [];
+            const vecs = [];
+            // make a deep copy of A for deflation
+            let Acopy = A.map(row => row.map(el => ({ real: el.real, imag: el.imag })));
+
+            for (let k = 0; k < r; k++) {
+                // random complex initial vector
+                let v = new Array(n).fill(0).map(() => ({ real: Math.random(), imag: Math.random() }));
+                v = normalizeVec(v);
+
+                for (let it = 0; it < iters; it++) {
+                    let w = matVecMul(Acopy, v);
+                    const nrm = vecNorm(w) || 1e-18;
+                    v = w.map(x => cScale(x, 1 / nrm));
+                }
+                // Rayleigh quotient (approx eigenvalue)
+                const wFinal = matVecMul(Acopy, v);
+                const rd = conjDot(v, wFinal); // complex but should be real for Hermitian
+                const lambda = Math.max(0, rd.real); // numerical safety
+
+                // store
+                vals.push(lambda);
+                vecs.push(v);
+
+                // deflate: Acopy = Acopy - lambda * (v v^H)
+                for (let i = 0; i < n; i++) {
+                    for (let j = 0; j < n; j++) {
+                        // outer = lambda * v[i] * conj(v[j])
+                        const outer = cScale(cMul(v[i], cConj(v[j])), lambda);
+                        Acopy[i][j] = cSub(Acopy[i][j], outer);
+                    }
+                }
+            }
+
+            return { vals, vecs };
+        }
+
+        // H: nr x nt, r: number of modes
+        function computeTopRSVD(H, r, iters = 60) {
+            const nr = H.length;
+            const nt = H[0].length;
+
+            // 1) form Hermitian A = H^H H (nt x nt)
+            const A = buildHermitianA(H);
+
+            // 2) top-r eigenpairs of A => right singular vectors V (in columns), eigenvalues = sigma^2
+            const eig = topR_eigs_by_power(A, Math.min(r, nt), iters);
+            const lambdas = eig.vals; // sigma^2
+            const Vvecs = eig.vecs;   // each is length nt
+
+            // 3) form U vectors: u_k = (H * v_k) / sigma_k
+            const U = [];
+            const V = []; // nt x r
+            const S = [];
+
+            for (let k = 0; k < Vvecs.length; k++) {
+                const vk = Vvecs[k];
+                const lambda = lambdas[k];
+                const sigma = Math.sqrt(Math.max(lambda, 0));
+                S.push(sigma);
+
+                // compute H * v_k (nr complex)
+                const Hv = new Array(nr).fill(0).map(()=>({real:0, imag:0}));
+                for (let i = 0; i < nr; i++) {
+                    let s = { real: 0, imag: 0 };
+                    for (let j = 0; j < nt; j++) s = cAdd(s, cMul(H[i][j], vk[j]));
+                    Hv[i] = s;
+                }
+
+                // if sigma is tiny, produce a fallback normalized Hv
+                let uk;
+                if (sigma < 1e-12) {
+                    uk = normalizeVec(Hv);
+                } else {
+                    uk = Hv.map(x => cScale(x, 1 / sigma));
+                    uk = normalizeVec(uk);
+                }
+                U.push(uk);
+
+                // store V as column vector (nt entries). normalize vk
+                V.push(normalizeVec(vk));
+            }
+
+            // transpose V to nt x r structure (array of columns is V; keep as columns for picking largest component)
+            return { U, V, S }; // U: r arrays length nr, V: r arrays length nt, S: array length r
+        }
+
 
 
         function resetExperiment() {
