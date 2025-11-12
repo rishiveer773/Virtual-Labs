@@ -20,7 +20,7 @@
 
         .container {
             display: grid;
-            grid-template-columns: 300px 1fr 320px;
+            grid-template-columns: 300px 1fr 400px;  /* Changed from 320px to 400px for results */
             gap: 20px;
             max-width: 1800px;
             margin: 0 auto;
@@ -314,7 +314,7 @@
                 </div>
                 <div class="legend-item">
                     <div class="legend-color" style="background: #FF9800;"></div>
-                    <span>Diversity</span>
+                    <span>Beamforming (Diversity)</span>
                 </div>
                 <div class="legend-item">
                     <div class="legend-color" style="background: #2196F3;"></div>
@@ -322,7 +322,7 @@
                 </div>
                 <div class="legend-item">
                     <div class="legend-color" style="background: #FFD700;"></div>
-                    <span>Selected Msg</span>
+                    <span>Weakest Stream</span>
                 </div>
             </div>
         </div>
@@ -341,11 +341,11 @@
             <div class="antenna-info" id="antennaInfo" style="display: none;">
                 <div class="info-card">
                     <div class="value" id="multiplexCount">0</div>
-                    <div class="label">Multiplexing</div>
+                    <div class="label">Multiplexing (r)</div>
                 </div>
                 <div class="info-card">
                     <div class="value" id="diversityCount">0</div>
-                    <div class="label">Diversity</div>
+                    <div class="label">Diversity d(r)</div>
                 </div>
             </div>
 
@@ -362,9 +362,9 @@
             </div>
 
             <div class="output-item" id="selectedMsgSection" style="display: none;">
-                <h3>Selected Message</h3>
+                <h3>Weakest Stream</h3>
                 <p id="selectedMsg">-</p>
-                <small>Message with lowest SNR</small>
+                <small>Stream with lowest SNR</small>
             </div>
 
             <div class="output-item" id="minSNRSection" style="display: none;">
@@ -376,13 +376,13 @@
             <div class="output-item" id="tradeoffSection" style="display: none;">
                 <h3>Tradeoff Plot</h3>
                 <canvas id="tradeoffCanvas" style="width: 100%; height: 300px;"></canvas>
-                <small>Current configuration highlighted in gold</small>
+                <small>d<sub>opt</sub>(r) = (N<sub>t</sub> - r)(N<sub>r</sub> - r)</small>
             </div>
 
             <div class="output-item" id="powerAllocSection" style="display: none;">
-                <h3>Power Allocation</h3>
+                <h3>Beamforming Gain</h3>
                 <p id="powerAlloc">-</p>
-                <small>Via waterfilling algorithm</small>
+                <small>Effective channel gain |u^H H_sub v|</small>
             </div>
 
             <div class="output-item" id="snrSection" style="display: none;">
@@ -403,6 +403,7 @@
 
         let channelMatrix = [];
         let singularValues = [];
+        let beamformingVectors = { v: [], u: [] };
         let antennaConfig = {
             tx: [],
             rx: [],
@@ -410,7 +411,7 @@
             diversity: [],
             selectedMessage: -1
         };
-        let systemState = 'initial'; // 'initial', 'generated', 'optimized'
+        let systemState = 'initial';
 
         function resizeCanvas() {
             const rect = canvas.getBoundingClientRect();
@@ -422,7 +423,6 @@
         window.addEventListener('resize', resizeCanvas);
         resizeCanvas();
 
-        // Generate complex Gaussian random variable (Rayleigh distributed magnitude)
         function complexGaussian() {
             const u1 = Math.random();
             const u2 = Math.random();
@@ -434,7 +434,6 @@
             };
         }
 
-        // Generate channel matrix
         function generateChannelMatrix(nt, nr) {
             const H = [];
             for (let i = 0; i < nr; i++) {
@@ -446,7 +445,6 @@
             return H;
         }
 
-        // Compute H * H' (Hermitian transpose)
         function computeHHH(H) {
             const nr = H.length;
             const nt = H[0].length;
@@ -457,7 +455,6 @@
                 for (let j = 0; j < nr; j++) {
                     let sumReal = 0, sumImag = 0;
                     for (let k = 0; k < nt; k++) {
-                        // H[i][k] * conj(H[j][k])
                         sumReal += H[i][k].real * H[j][k].real + H[i][k].imag * H[j][k].imag;
                         sumImag += H[i][k].imag * H[j][k].real - H[i][k].real * H[j][k].imag;
                     }
@@ -467,13 +464,10 @@
             return HHH;
         }
 
-        // Simple power iteration for eigenvalues (approximation for demo)
         function computeEigenvalues(HHH) {
             const n = HHH.length;
             const eigenvalues = [];
             
-            // Simplified: use diagonal elements as approximation
-            // In production, use proper SVD library
             for (let i = 0; i < n; i++) {
                 eigenvalues.push(Math.sqrt(Math.abs(HHH[i][i].real)));
             }
@@ -482,62 +476,91 @@
             return eigenvalues;
         }
 
-        // Waterfilling algorithm
-        function waterfilling(channels, P, noiseVar, threshold) {
-            const n = channels.length;
-            const allocation = new Array(n).fill(0);
+        function computeBeamformingVectors(H_sub) {
+            const nr = H_sub.length;
+            const nt = H_sub[0].length;
             
-            // Convert threshold from dB to linear
-            const thresholdLinear = Math.pow(10, threshold / 10);
-            
-            // Calculate required power for each channel to meet threshold
-            for (let i = 0; i < n; i++) {
-                const channelGain = channels[i] * channels[i] * channels[i] * channels[i]; // eigenvalue squared
-                const requiredPower = (thresholdLinear * noiseVar) / channelGain;
-                allocation[i] = Math.max(0, requiredPower);
+            if (nt === 0 || nr === 0) {
+                return { v: [], u: [], gain: 0 };
             }
             
-            // Normalize if total power exceeds available power
-            const totalPower = allocation.reduce((a, b) => a + b, 0);
-            if (totalPower > P) {
-                for (let i = 0; i < n; i++) {
-                    allocation[i] = (allocation[i] / totalPower) * P;
+            const HHH = computeHHH(H_sub);
+            
+            let u = new Array(nr).fill(0).map(() => ({ real: Math.random(), imag: Math.random() }));
+            
+            let norm = Math.sqrt(u.reduce((sum, val) => sum + val.real * val.real + val.imag * val.imag, 0));
+            u = u.map(val => ({ real: val.real / norm, imag: val.imag / norm }));
+            
+            for (let iter = 0; iter < 20; iter++) {
+                let newU = new Array(nr).fill(0).map(() => ({ real: 0, imag: 0 }));
+                for (let i = 0; i < nr; i++) {
+                    for (let j = 0; j < nr; j++) {
+                        newU[i].real += HHH[i][j].real * u[j].real - HHH[i][j].imag * u[j].imag;
+                        newU[i].imag += HHH[i][j].real * u[j].imag + HHH[i][j].imag * u[j].real;
+                    }
+                }
+                norm = Math.sqrt(newU.reduce((sum, val) => sum + val.real * val.real + val.imag * val.imag, 0));
+                u = newU.map(val => ({ real: val.real / norm, imag: val.imag / norm }));
+            }
+            
+            let v = new Array(nt).fill(0).map(() => ({ real: 0, imag: 0 }));
+            for (let j = 0; j < nt; j++) {
+                for (let i = 0; i < nr; i++) {
+                    v[j].real += H_sub[i][j].real * u[i].real + H_sub[i][j].imag * u[i].imag;
+                    v[j].imag += H_sub[i][j].real * u[i].imag - H_sub[i][j].imag * u[i].real;
                 }
             }
             
-            return allocation;
+            norm = Math.sqrt(v.reduce((sum, val) => sum + val.real * val.real + val.imag * val.imag, 0));
+            v = v.map(val => ({ real: val.real / norm, imag: val.imag / norm }));
+            
+            let gain = { real: 0, imag: 0 };
+            for (let i = 0; i < nr; i++) {
+                for (let j = 0; j < nt; j++) {
+                    const hv_real = H_sub[i][j].real * v[j].real - H_sub[i][j].imag * v[j].imag;
+                    const hv_imag = H_sub[i][j].real * v[j].imag + H_sub[i][j].imag * v[j].real;
+                    gain.real += u[i].real * hv_real + u[i].imag * hv_imag;
+                    gain.imag += u[i].real * hv_imag - u[i].imag * hv_real;
+                }
+            }
+            
+            const gainMagnitude = Math.sqrt(gain.real * gain.real + gain.imag * gain.imag);
+            
+            return { v, u, gain: gainMagnitude };
         }
 
-        // Add this after the waterfilling function
         function generateTradeoffCurve(numTx, numRx, txPower, noiseVar, H) {
             const maxRank = Math.min(numTx, numRx);
             const tradeoffData = [];
             
-            // Compute eigenvalues for this channel
             const HHH = computeHHH(H);
             const eigenvalues = computeEigenvalues(HHH);
             
             for (let r = 0; r <= maxRank; r++) {
-                const multiplexingGain = r; // Number of streams
-                const diversityGain = maxRank - r; // Remaining for diversity
+                const multiplexingGain = r;
+                const diversityGain = (numTx - r) * (numRx - r);
                 
-                // Calculate capacity/rate for multiplexing streams
                 let totalRate = 0;
                 for (let i = 0; i < r; i++) {
                     const eigenvalueSquared = eigenvalues[i] * eigenvalues[i] * eigenvalues[i] * eigenvalues[i];
                     const snr = (eigenvalueSquared * txPower) / noiseVar;
-                    totalRate += Math.log2(1 + snr); // Shannon capacity
+                    totalRate += Math.log2(1 + snr);
                 }
                 
-                // Calculate average SNR improvement from diversity
                 let avgDiversitySNR = 0;
-                if (diversityGain > 0) {
-                    for (let i = r; i < maxRank; i++) {
-                        const eigenvalueSquared = eigenvalues[i] * eigenvalues[i] * eigenvalues[i] * eigenvalues[i];
-                        const snr = (eigenvalueSquared * txPower) / noiseVar;
-                        avgDiversitySNR += 10 * Math.log10(snr);
+                if (r < maxRank) {
+                    const H_sub = [];
+                    for (let i = r; i < numRx; i++) {
+                        H_sub[i - r] = [];
+                        for (let j = r; j < numTx; j++) {
+                            H_sub[i - r][j - r] = H[i][j];
+                        }
                     }
-                    avgDiversitySNR /= diversityGain;
+                    
+                    const beamforming = computeBeamformingVectors(H_sub);
+                    const beamformingGainSquared = beamforming.gain * beamforming.gain;
+                    const snr = (beamformingGainSquared * txPower) / noiseVar;
+                    avgDiversitySNR = 10 * Math.log10(snr);
                 }
                 
                 tradeoffData.push({
@@ -573,10 +596,8 @@
             ctx.lineTo(canvas.width - padding, canvas.height - padding);
             ctx.stroke();
             
-            // Find max values for scaling
             const maxMux = Math.max(...tradeoffData.map(d => d.multiplexing));
             const maxDiv = Math.max(...tradeoffData.map(d => d.diversity));
-            const maxRate = Math.max(...tradeoffData.map(d => d.rate));
             
             // Draw grid
             ctx.strokeStyle = '#e0e0e0';
@@ -595,13 +616,14 @@
                 ctx.stroke();
             }
             
-            // Draw tradeoff curve (Rate vs Multiplexing)
-            ctx.strokeStyle = '#667eea';
-            ctx.lineWidth = 3;
+            // Draw tradeoff curve connecting actual data points
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2.5;
             ctx.beginPath();
+            
             tradeoffData.forEach((d, i) => {
                 const x = padding + (d.multiplexing / maxMux) * plotWidth;
-                const y = canvas.height - padding - (d.rate / maxRate) * plotHeight;
+                const y = canvas.height - padding - (d.diversity / maxDiv) * plotHeight;
                 
                 if (i === 0) {
                     ctx.moveTo(x, y);
@@ -611,70 +633,76 @@
             });
             ctx.stroke();
             
-            // Draw points
-            tradeoffData.forEach((d, i) => {
+            // Draw points on the tradeoff curve
+            tradeoffData.forEach((d) => {
                 const x = padding + (d.multiplexing / maxMux) * plotWidth;
-                const y = canvas.height - padding - (d.rate / maxRate) * plotHeight;
+                const y = canvas.height - padding - (d.diversity / maxDiv) * plotHeight;
                 
-                ctx.fillStyle = d.multiplexing === currentMux ? '#FFD700' : '#667eea';
+                const isCurrent = d.multiplexing === currentMux;
+                
+                // Draw point
+                ctx.fillStyle = isCurrent ? '#FFD700' : '#333';
                 ctx.beginPath();
-                ctx.arc(x, y, d.multiplexing === currentMux ? 8 : 5, 0, 2 * Math.PI);
+                ctx.arc(x, y, isCurrent ? 7 : 5, 0, 2 * Math.PI);
                 ctx.fill();
                 
-                // Highlight current configuration
-                if (d.multiplexing === currentMux) {
+                // Add label for each point
+                ctx.fillStyle = '#333';
+                ctx.font = isCurrent ? 'bold 11px Arial' : '10px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(`(${d.multiplexing}, ${d.diversity})`, x, y - 12);
+                
+                // Highlight current selection with ring
+                if (isCurrent) {
                     ctx.strokeStyle = '#FFD700';
-                    ctx.lineWidth = 3;
+                    ctx.lineWidth = 2;
                     ctx.beginPath();
-                    ctx.arc(x, y, 12, 0, 2 * Math.PI);
+                    ctx.arc(x, y, 11, 0, 2 * Math.PI);
                     ctx.stroke();
                 }
             });
             
-            // Draw labels
+            // Draw axis labels
             ctx.fillStyle = '#333';
-            ctx.font = 'bold 14px Arial';
+            ctx.font = 'bold 13px Arial';
             ctx.textAlign = 'center';
             
             // X-axis label
-            ctx.fillText('Multiplexing Gain (r)', canvas.width / 2, canvas.height - 20);
+            ctx.fillText('Multiplexing Gain r', canvas.width / 2, canvas.height - 15);
             
             // Y-axis label
             ctx.save();
-            ctx.translate(20, canvas.height / 2);
+            ctx.translate(15, canvas.height / 2);
             ctx.rotate(-Math.PI / 2);
-            ctx.fillText('Spectral Efficiency (bits/s/Hz)', 0, 0);
+            ctx.fillText('Diversity Gain d(r)', 0, 0);
             ctx.restore();
             
-            // Title
-            ctx.font = 'bold 16px Arial';
-            ctx.fillText('Diversity-Multiplexing Tradeoff', canvas.width / 2, 30);
-            
-            // Draw axis values
+            // Draw axis tick labels
             ctx.font = '11px Arial';
             ctx.fillStyle = '#666';
             
-            // X-axis values
+            // X-axis ticks
+            ctx.textAlign = 'center';
             for (let i = 0; i <= maxMux; i++) {
                 const x = padding + (i / maxMux) * plotWidth;
-                ctx.textAlign = 'center';
-                ctx.fillText(i.toString(), x, canvas.height - padding + 20);
+                ctx.fillText(i.toString(), x, canvas.height - padding + 18);
             }
             
-            // Y-axis values
+            // Y-axis ticks
             ctx.textAlign = 'right';
-            for (let i = 0; i <= 5; i++) {
-                const y = canvas.height - padding - (plotHeight / 5) * i;
-                const value = (maxRate / 5) * i;
-                ctx.fillText(value.toFixed(1), padding - 10, y + 5);
+            const step = maxDiv <= 5 ? 1 : Math.ceil(maxDiv / 5);
+            for (let i = 0; i <= maxDiv; i += step) {
+                const y = canvas.height - padding - (i / maxDiv) * plotHeight;
+                ctx.fillText(i.toString(), padding - 10, y + 4);
             }
             
-            // Draw legend with diversity values
-            const legendY = padding + 20;
-            ctx.font = '12px Arial';
+            // Add corner point labels
+            ctx.font = '10px Arial';
+            ctx.fillStyle = '#667eea';
             ctx.textAlign = 'left';
-            ctx.fillStyle = '#666';
-            ctx.fillText('Diversity Gain = ' + tradeoffData[currentMux].diversity, canvas.width - padding - 120, legendY);
+            ctx.fillText(`(0, ${maxDiv})`, padding + 5, padding + 15);
+            ctx.textAlign = 'right';
+            ctx.fillText(`(${maxMux}, 0)`, canvas.width - padding - 5, canvas.height - padding - 5);
         }
 
         function handleMainAction() {
@@ -685,36 +713,47 @@
             }
         }
 
+        // ----------------------
+        // Helper: partition n indices into r groups (round-robin after giving 1 each)
+        // ----------------------
+        function partitionIndices(n, r) {
+            const groups = Array.from({length: r}, ()=>[]);
+            // first give 1 to each stream (ensure r <= n always validated earlier)
+            for (let i = 0; i < r; i++) groups[i].push(i);
+            // distribute remaining indices
+            let idx = r;
+            let g = 0;
+            while (idx < n) {
+                groups[g % r].push(idx);
+                idx++; g++;
+            }
+            return groups;
+        }
+
         function generateSystem() {
             const txPower = parseFloat(document.getElementById('txPower').value);
             const numTx = parseInt(document.getElementById('numTx').value);
             const numRx = parseInt(document.getElementById('numRx').value);
             const numStreams = parseInt(document.getElementById('numStreams').value);
 
-            // Validation
             if (numStreams > Math.min(numTx, numRx)) {
                 alert('Number of streams must be ≤ min(Nt, Nr)');
                 return;
             }
 
-            // Generate channel matrix
             channelMatrix = generateChannelMatrix(numTx, numRx);
             
-            // Compute eigenvalues
             const HHH = computeHHH(channelMatrix);
             singularValues = computeEigenvalues(HHH);
 
-            // Initialize antenna configuration
             antennaConfig.tx = Array(numTx).fill(0).map((_, i) => ({x: 0, y: 0, id: i}));
             antennaConfig.rx = Array(numRx).fill(0).map((_, i) => ({x: 0, y: 0, id: i}));
             antennaConfig.multiplexing = [];
             antennaConfig.diversity = [];
             antennaConfig.selectedMessage = -1;
 
-            // Update UI
             document.getElementById('channelDim').textContent = `${numRx} × ${numTx}`;
             
-            // Display channel matrix
             const matrixDisplay = document.getElementById('matrixDisplay');
             matrixDisplay.innerHTML = '';
             for (let i = 0; i < numRx; i++) {
@@ -738,304 +777,720 @@
             document.getElementById('stepIndicator').textContent = 'Step 2: System generated. Click "Optimize System" to allocate antennas';
             document.getElementById('mainBtn').textContent = 'Optimize System';
             
-            // Hide optimization results
             document.getElementById('antennaInfo').style.display = 'none';
             document.getElementById('selectedMsgSection').style.display = 'none';
             document.getElementById('minSNRSection').style.display = 'none';
             document.getElementById('powerAllocSection').style.display = 'none';
             document.getElementById('snrSection').style.display = 'none';
+            document.getElementById('tradeoffSection').style.display = 'none';
 
             systemState = 'generated';
             drawAntennaSystem();
         }
 
         function optimizeSystem() {
-            const txPower = parseFloat(document.getElementById('txPower').value);
+            const txPower = parseFloat(document.getElementById('txPower').value) || 1e-12;
             const numTx = parseInt(document.getElementById('numTx').value);
             const numRx = parseInt(document.getElementById('numRx').value);
-            const numStreams = parseInt(document.getElementById('numStreams').value);
-            const noiseVar = parseFloat(document.getElementById('noiseVar').value);
-            const snrThreshold = parseFloat(document.getElementById('snrThreshold').value);
+            const r = parseInt(document.getElementById('numStreams').value);
+            const noiseVar = parseFloat(document.getElementById('noiseVar').value) || 1e-12;
 
-            // Calculate SNR for each stream
-            // CORRECTED: eigenvalue = singularValue^2, so we use singularValue^4 for eigenvalue^2
-            const snrValues = [];
-            for (let i = 0; i < numStreams; i++) {
-                const eigenvalueSquared = singularValues[i] * singularValues[i] * singularValues[i] * singularValues[i];
-                const snr = (eigenvalueSquared * txPower) / noiseVar;
-                const snrDB = 10 * Math.log10(snr);
-                snrValues.push({ index: i, snr: snr, snrDB: snrDB, type: 'multiplexing' });
-            }
+            if (!channelMatrix || channelMatrix.length === 0) { alert('Generate system first'); return; }
+            if (r < 1 || r > Math.min(numTx, numRx)) { alert('r must be between 1 and min(Nt,Nr)'); return; }
 
-            // Find minimum SNR stream
-            let minSNRIdx = 0;
-            let minSNR = snrValues[0].snr;
-            for (let i = 1; i < numStreams; i++) {
-                if (snrValues[i].snr < minSNR) {
-                    minSNR = snrValues[i].snr;
-                    minSNRIdx = i;
+            // Compute true SVD-based leaders
+            const svd = computeTopRSVD(channelMatrix, r, 80); // increase iters if needed
+            // svd.V is array of r vectors (each length nt). svd.U is array of r vectors (each length nr)
+
+            function pickLeadersFromSVD(svd) {
+                const leadersTx = [];
+                const leadersRx = [];
+                const rLocal = svd.V.length;
+                for (let k = 0; k < rLocal; k++) {
+                    // pick transmit antenna index with largest |V_jk|
+                    let bestTx = 0, bestValTx = -1;
+                    const vvec = svd.V[k];
+                    for (let j = 0; j < vvec.length; j++) {
+                        const val = cAbs2(vvec[j]);
+                        if (val > bestValTx) { bestValTx = val; bestTx = j; }
+                    }
+                    leadersTx.push(bestTx);
+
+                    // pick receive antenna index with largest |U_ik|
+                    let bestRx = 0, bestValRx = -1;
+                    const uvec = svd.U[k];
+                    for (let i = 0; i < uvec.length; i++) {
+                        const val = cAbs2(uvec[i]);
+                        if (val > bestValRx) { bestValRx = val; bestRx = i; }
+                    }
+                    leadersRx.push(bestRx);
                 }
+                return { leadersTx, leadersRx };
             }
 
-            // Allocate remaining antennas to diversity
-            const numDiversity = Math.min(numTx, numRx) - numStreams;
-            const diversityChannels = singularValues.slice(numStreams, numStreams + numDiversity);
-            
-            // Waterfilling for diversity
-            const diversityPower = waterfilling(diversityChannels, txPower, noiseVar, snrThreshold);
+            const { leadersTx, leadersRx } = pickLeadersFromSVD(svd);
 
-            // Calculate diversity SNRs
-            for (let i = 0; i < numDiversity; i++) {
-                const eigenvalueSquared = diversityChannels[i] * diversityChannels[i] * diversityChannels[i] * diversityChannels[i];
-                const snr = (eigenvalueSquared * diversityPower[i]) / noiseVar;
-                const snrDB = 10 * Math.log10(snr);
-                snrValues.push({ 
-                    index: numStreams + i, 
-                    snr: snr, 
-                    snrDB: snrDB, 
-                    type: 'diversity',
-                    power: diversityPower[i]
+            // build groups using leaders as first members
+            const txGroups = createGroupsWithLeaders(numTx, r, leadersTx);
+            const rxGroups = createGroupsWithLeaders(numRx, r, leadersRx);
+
+            // Create a mapping to reorder antennas by group
+            const txReordering = [];
+            const rxReordering = [];
+            
+            for (let g = 0; g < r; g++) {
+                txReordering.push(...txGroups[g]);
+                rxReordering.push(...rxGroups[g]);
+            }
+
+            // Equal power per stream
+            const P_per_stream = txPower / r;
+
+            const groups = [];
+            for (let s = 0; s < r; s++) {
+                const txSet = txGroups[s];
+                const rxSet = rxGroups[s];
+
+                // compute effective energy gain
+                let totalGain = 0;
+                for (const txIdx of txSet) {
+                    for (const rxIdx of rxSet) {
+                        const c = channelMatrix[rxIdx][txIdx];
+                        if (!c) continue;
+                        totalGain += (c.real * c.real + c.imag * c.imag);
+                    }
+                }
+
+                const snrLinear = (P_per_stream * totalGain) / Math.max(noiseVar, 1e-18);
+                const snrDB = 10 * Math.log10(snrLinear + 1e-12);
+
+                groups.push({
+                    index: s,
+                    txSet,
+                    rxSet,
+                    totalGain,
+                    snr: snrLinear,
+                    snrDB,
+                    label: `x${s + 1} (${txSet.length}Tx × ${rxSet.length}Rx)`
                 });
             }
 
-            // Update antenna configuration
-            antennaConfig.multiplexing = snrValues.filter(s => s.type === 'multiplexing');
-            antennaConfig.diversity = snrValues.filter(s => s.type === 'diversity');
-            antennaConfig.selectedMessage = minSNRIdx;
+            // Find weakest stream
+            let minIdx = 0;
+            for (let i = 1; i < groups.length; i++) {
+                if (groups[i].snr < groups[minIdx].snr) minIdx = i;
+            }
 
-            // Update UI
-            document.getElementById('selectedMsg').textContent = `x${minSNRIdx + 1}`;
-            document.getElementById('minSNR').textContent = `${snrValues[minSNRIdx].snrDB.toFixed(2)} dB`;
-            document.getElementById('multiplexCount').textContent = numStreams;
-            document.getElementById('diversityCount').textContent = numDiversity;
+            // Store the reordering maps in antennaConfig
+            antennaConfig.groups = groups;
+            antennaConfig.txReordering = txReordering;
+            antennaConfig.rxReordering = rxReordering;
+            antennaConfig.selectedMessage = minIdx;
+            antennaConfig.multiplexing = groups.slice(0, r).map(g => ({ 
+                index: g.index, 
+                snr: g.snr, 
+                snrDB: g.snrDB 
+            }));
             
-            const totalDivPower = diversityPower.reduce((a, b) => a + b, 0);
-            document.getElementById('powerAlloc').textContent = `${totalDivPower.toFixed(3)} W`;
+            const diversityGain = (numTx - r) * (numRx - r);
+            
+            // Update UI
+            document.getElementById('selectedMsg').textContent = `x${minIdx + 1}`;
+            document.getElementById('minSNR').textContent = `${groups[minIdx].snrDB.toFixed(2)} dB`;
+            document.getElementById('multiplexCount').textContent = r;
+            document.getElementById('diversityCount').textContent = diversityGain;
+            document.getElementById('powerAlloc').textContent = `${P_per_stream.toFixed(3)} W / stream`;
 
             // Update SNR list
             const snrListDiv = document.getElementById('snrList');
             snrListDiv.innerHTML = '';
-            snrValues.forEach(s => {
+            groups.forEach(g => {
                 const div = document.createElement('div');
-                div.className = `snr-item ${s.type}`;
-                div.innerHTML = `
-                    <span>Stream ${s.index + 1}</span>
-                    <strong>${s.snrDB.toFixed(2)} dB</strong>
-                `;
+                div.className = `snr-item ${g.txSet.length > 1 || g.rxSet.length > 1 ? 'diversity' : 'multiplexing'}`;
+                div.innerHTML = `<span>${g.label}</span><strong>${g.snrDB.toFixed(2)} dB</strong>`;
                 snrListDiv.appendChild(div);
             });
 
-            const statusDiv = document.getElementById('statusMsg');
-            statusDiv.className = 'output-item success';
-            statusDiv.querySelector('p').textContent = 'System optimized successfully!';
+            // Tradeoff plot
+            document.getElementById('tradeoffSection').style.display = 'block';
+            const tradeoffData = generateTradeoffCurve(numTx, numRx, txPower, noiseVar, channelMatrix);
+            drawTradeoffPlot('tradeoffCanvas', tradeoffData, r);
 
-            document.getElementById('stepIndicator').textContent = 'Step 3: System optimized with multiplexing and diversity allocation';
-            document.getElementById('mainBtn').textContent = 'Optimized';
-            document.getElementById('mainBtn').disabled = true;
-
-            // Show optimization results
+            // Show sections
             document.getElementById('antennaInfo').style.display = 'grid';
             document.getElementById('selectedMsgSection').style.display = 'block';
             document.getElementById('minSNRSection').style.display = 'block';
             document.getElementById('powerAllocSection').style.display = 'block';
             document.getElementById('snrSection').style.display = 'block';
-
-            // Generate and draw tradeoff plot
-            
-            // 1. Make the section visible FIRST. This ensures canvas.offsetWidth has a real value.
-            document.getElementById('tradeoffSection').style.display = 'block'; 
-
-            // 2. Now, generate the data and draw the plot.
-            const tradeoffData = generateTradeoffCurve(numTx, numRx, txPower, noiseVar, channelMatrix);
-            drawTradeoffPlot('tradeoffCanvas', tradeoffData, numStreams);
+            document.getElementById('statusMsg').className = 'output-item success';
+            document.getElementById('statusMsg').querySelector('p').textContent = 'System optimized with grouped parallel streams.';
+            document.getElementById('stepIndicator').textContent = 'Step 3: System optimized with grouped parallel streams';
+            document.getElementById('mainBtn').textContent = 'Optimized';
+            document.getElementById('mainBtn').disabled = true;
 
             systemState = 'optimized';
             drawAntennaSystem();
         }
 
         function drawAntennaSystem() {
-            if (antennaConfig.tx.length === 0) return;
+            if (!antennaConfig.tx || antennaConfig.tx.length === 0) return;
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             const numTx = antennaConfig.tx.length;
             const numRx = antennaConfig.rx.length;
-            const margin = 100;
-            const txX = margin;
-            const rxX = canvas.width - margin;
-            const spacing = Math.min(60, (canvas.height - 2 * margin) / Math.max(numTx, numRx));
 
-            // Position antennas
-            for (let i = 0; i < numTx; i++) {
-                antennaConfig.tx[i].x = txX;
-                antennaConfig.tx[i].y = margin + i * spacing + (canvas.height - 2 * margin - (numTx - 1) * spacing) / 2;
-            }
+            // Define color palette for groups (softer colors)
+            const groupColors = [
+                { main: '#5E72E4', light: 'rgba(94, 114, 228, 0.35)' },  // Soft blue
+                { main: '#2DCE89', light: 'rgba(45, 206, 137, 0.35)' },  // Soft green
+                { main: '#F5365C', light: 'rgba(245, 54, 92, 0.35)' },   // Soft red
+                { main: '#FB6340', light: 'rgba(251, 99, 64, 0.35)' },   // Soft orange
+                { main: '#8965E0', light: 'rgba(137, 101, 224, 0.35)' }, // Soft purple
+                { main: '#11CDEF', light: 'rgba(17, 205, 239, 0.35)' },  // Soft cyan
+                { main: '#F7B924', light: 'rgba(247, 185, 36, 0.35)' },  // Soft amber
+                { main: '#2B3E50', light: 'rgba(43, 62, 80, 0.35)' }     // Soft dark
+            ];
 
-            for (let i = 0; i < numRx; i++) {
-                antennaConfig.rx[i].x = rxX;
-                antennaConfig.rx[i].y = margin + i * spacing + (canvas.height - 2 * margin - (numRx - 1) * spacing) / 2;
-            }
+            // Dynamic layout
+            const marginX = Math.min(canvas.width * 0.08, 140);
+            const marginY = Math.min(canvas.height * 0.08, 80);
+            const txX = marginX;
+            const rxX = canvas.width - marginX;
 
-            if (systemState === 'generated') {
-                // Draw all channel links
-                ctx.strokeStyle = 'rgba(33, 150, 243, 0.3)';
-                ctx.lineWidth = 2;
-                for (let i = 0; i < numTx; i++) {
-                    for (let j = 0; j < numRx; j++) {
-                        ctx.beginPath();
-                        ctx.moveTo(antennaConfig.tx[i].x, antennaConfig.tx[i].y);
-                        ctx.lineTo(antennaConfig.rx[j].x, antennaConfig.rx[j].y);
-                        ctx.stroke();
-                    }
-                }
+            // Calculate spacing with gaps between groups
+            let spacing, txStartY, rxStartY;
 
-                // Draw all antennas in default color
-                antennaConfig.tx.forEach((tx, i) => {
-                    ctx.fillStyle = '#2196F3';
-                    ctx.beginPath();
-                    ctx.arc(tx.x, tx.y, 15, 0, 2 * Math.PI);
-                    ctx.fill();
-                    
-                    ctx.strokeStyle = 'white';
-                    ctx.lineWidth = 3;
-                    ctx.stroke();
-
-                    ctx.fillStyle = 'white';
-                    ctx.font = 'bold 12px Arial';
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText(`T${i + 1}`, tx.x, tx.y);
+            if (systemState === 'optimized' && antennaConfig.groups && antennaConfig.groups.length > 0) {
+                const groups = antennaConfig.groups;
+                const gapBetweenGroups = 60; // Increased gap between different groups
+                const antennaSpacing = 50; // Spacing within a group
+                
+                // Calculate total height needed for TX
+                let totalTxHeight = 0;
+                groups.forEach(g => {
+                    totalTxHeight += (g.txSet.length - 1) * antennaSpacing;
                 });
-
-                antennaConfig.rx.forEach((rx, i) => {
-                    ctx.fillStyle = '#2196F3';
-                    ctx.beginPath();
-                    ctx.arc(rx.x, rx.y, 15, 0, 2 * Math.PI);
-                    ctx.fill();
-                    
-                    ctx.strokeStyle = 'white';
-                    ctx.lineWidth = 3;
-                    ctx.stroke();
-
-                    ctx.fillStyle = 'white';
-                    ctx.font = 'bold 12px Arial';
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText(`R${i + 1}`, rx.x, rx.y);
+                totalTxHeight += (groups.length - 1) * gapBetweenGroups;
+                
+                // Calculate total height needed for RX
+                let totalRxHeight = 0;
+                groups.forEach(g => {
+                    totalRxHeight += (g.rxSet.length - 1) * antennaSpacing;
                 });
-
-            } else if (systemState === 'optimized') {
-                // Draw faded channel links
-                ctx.strokeStyle = 'rgba(33, 150, 243, 0.1)';
-                ctx.lineWidth = 1;
-                for (let i = 0; i < numTx; i++) {
-                    for (let j = 0; j < numRx; j++) {
-                        ctx.beginPath();
-                        ctx.moveTo(antennaConfig.tx[i].x, antennaConfig.tx[i].y);
-                        ctx.lineTo(antennaConfig.rx[j].x, antennaConfig.rx[j].y);
-                        ctx.stroke();
-                    }
-                }
-
-                // Draw multiplexing links
-                ctx.strokeStyle = '#4CAF50';
-                ctx.lineWidth = 3;
-                antennaConfig.multiplexing.forEach(m => {
-                    const i = m.index;
-                    if (i < Math.min(numTx, numRx)) {
-                        ctx.beginPath();
-                        ctx.moveTo(antennaConfig.tx[i].x, antennaConfig.tx[i].y);
-                        ctx.lineTo(antennaConfig.rx[i].x, antennaConfig.rx[i].y);
-                        ctx.stroke();
-
-                        // Highlight selected message
-                        if (i === antennaConfig.selectedMessage) {
-                            ctx.strokeStyle = '#FFD700';
-                            ctx.lineWidth = 5;
-                            ctx.beginPath();
-                            ctx.moveTo(antennaConfig.tx[i].x, antennaConfig.tx[i].y);
-                            ctx.lineTo(antennaConfig.rx[i].x, antennaConfig.rx[i].y);
-                            ctx.stroke();
-                            ctx.strokeStyle = '#4CAF50';
-                            ctx.lineWidth = 3;
+                totalRxHeight += (groups.length - 1) * gapBetweenGroups;
+                
+                txStartY = (canvas.height - totalTxHeight) / 2;
+                rxStartY = (canvas.height - totalRxHeight) / 2;
+                
+                // Position TX antennas with gaps between groups
+                let currentTxY = txStartY;
+                for (let g = 0; g < groups.length; g++) {
+                    const group = groups[g];
+                    for (let idx = 0; idx < group.txSet.length; idx++) {
+                        const antennaIdx = group.txSet[idx];
+                        antennaConfig.tx[antennaIdx].x = txX;
+                        antennaConfig.tx[antennaIdx].y = currentTxY;
+                        if (idx < group.txSet.length - 1) {
+                            currentTxY += antennaSpacing;
                         }
                     }
-                });
+                    if (g < groups.length - 1) {
+                        currentTxY += antennaSpacing + gapBetweenGroups; // Add antenna spacing before gap
+                    }
+                }
+                
+                // Position RX antennas with gaps between groups
+                let currentRxY = rxStartY;
+                for (let g = 0; g < groups.length; g++) {
+                    const group = groups[g];
+                    for (let idx = 0; idx < group.rxSet.length; idx++) {
+                        const antennaIdx = group.rxSet[idx];
+                        antennaConfig.rx[antennaIdx].x = rxX;
+                        antennaConfig.rx[antennaIdx].y = currentRxY;
+                        if (idx < group.rxSet.length - 1) {
+                            currentRxY += antennaSpacing;
+                        }
+                    }
+                    if (g < groups.length - 1) {
+                        currentRxY += antennaSpacing + gapBetweenGroups; // Add antenna spacing before gap
+                    }
+                }
+            } else {
+                // Original positioning for 'generated' state
+                spacing = Math.min(50, (canvas.height - 2 * marginY) / Math.max(numTx, numRx));
+                const totalTxHeight = (numTx - 1) * spacing;
+                const totalRxHeight = (numRx - 1) * spacing;
+                txStartY = (canvas.height - totalTxHeight) / 2;
+                rxStartY = (canvas.height - totalRxHeight) / 2;
 
-                // Draw diversity links
-                ctx.strokeStyle = '#FF9800';
-                ctx.lineWidth = 3;
-                const selectedTx = antennaConfig.selectedMessage;
-                const selectedRx = antennaConfig.selectedMessage;
-                antennaConfig.diversity.forEach(d => {
-                    const i = d.index;
-                    if (i < Math.min(numTx, numRx) && selectedTx < numTx && selectedRx < numRx) {
+                for (let i = 0; i < numTx; i++) {
+                    antennaConfig.tx[i].x = txX;
+                    antennaConfig.tx[i].y = txStartY + i * spacing;
+                }
+                for (let i = 0; i < numRx; i++) {
+                    antennaConfig.rx[i].x = rxX;
+                    antennaConfig.rx[i].y = rxStartY + i * spacing;
+                }
+            }
+
+                if (systemState === 'generated') {
+                    // Draw all channel links (faded)
+                    ctx.strokeStyle = 'rgba(33, 150, 243, 0.3)';
+                    ctx.lineWidth = 2;
+                    for (let i = 0; i < numTx; i++) {
+                        for (let j = 0; j < numRx; j++) {
+                            ctx.beginPath();
+                            ctx.moveTo(antennaConfig.tx[i].x, antennaConfig.tx[i].y);
+                            ctx.lineTo(antennaConfig.rx[j].x, antennaConfig.rx[j].y);
+                            ctx.stroke();
+                        }
+                    }
+
+                    // Draw all TX antennas
+                    antennaConfig.tx.forEach((tx, i) => {
+                        ctx.fillStyle = '#2196F3';
                         ctx.beginPath();
-                        ctx.moveTo(antennaConfig.tx[i].x, antennaConfig.tx[i].y);
-                        ctx.lineTo(antennaConfig.rx[selectedRx].x, antennaConfig.rx[selectedRx].y);
+                        ctx.arc(tx.x, tx.y, 15, 0, 2 * Math.PI);
+                        ctx.fill();
+                        
+                        ctx.strokeStyle = 'white';
+                        ctx.lineWidth = 3;
+                        ctx.stroke();
+
+                        ctx.fillStyle = 'white';
+                        ctx.font = 'bold 12px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(`T${i + 1}`, tx.x, tx.y);
+                    });
+
+                    // Draw all RX antennas
+                    antennaConfig.rx.forEach((rx, i) => {
+                        ctx.fillStyle = '#2196F3';
+                        ctx.beginPath();
+                        ctx.arc(rx.x, rx.y, 15, 0, 2 * Math.PI);
+                        ctx.fill();
+                        
+                        ctx.strokeStyle = 'white';
+                        ctx.lineWidth = 3;
+                        ctx.stroke();
+
+                        ctx.fillStyle = 'white';
+                        ctx.font = 'bold 12px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(`R${i + 1}`, rx.x, rx.y);
+                    });
+
+                    // Draw labels
+                    ctx.fillStyle = '#333';
+                    ctx.font = 'bold 16px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText('Transmitters', txX, 30);  // Changed from 40 to 30
+                    ctx.fillText('Receivers', rxX, 30);     // Changed from 40 to 30
+
+                } else if (systemState === 'optimized') {
+                const groups = antennaConfig.groups || [];
+                const txReordering = antennaConfig.txReordering || [];
+                const rxReordering = antennaConfig.rxReordering || [];
+                
+                // Draw faint full-links
+                ctx.strokeStyle = 'rgba(33,150,243,0.15)';
+                ctx.lineWidth = 1;
+                for (let t = 0; t < numTx; t++) {
+                    for (let rcv = 0; rcv < numRx; rcv++) {
+                        ctx.beginPath();
+                        ctx.moveTo(antennaConfig.tx[t].x, antennaConfig.tx[t].y);
+                        ctx.lineTo(antennaConfig.rx[rcv].x, antennaConfig.rx[rcv].y);
                         ctx.stroke();
                     }
+                }
+
+                // Draw each group with boxes
+                const boxInset = 35;
+                const boxPadding = 25;
+
+                groups.forEach((g, idx) => {
+                    // Get antenna positions for this group
+                    const txYs = g.txSet.map(i => antennaConfig.tx[i].y);
+                    const rxYs = g.rxSet.map(i => antennaConfig.rx[i].y);
+
+                    const txTop = Math.min(...txYs) - boxPadding;
+                    const txBottom = Math.max(...txYs) + boxPadding;
+                    const rxTop = Math.min(...rxYs) - boxPadding;
+                    const rxBottom = Math.max(...rxYs) + boxPadding;
+
+                    const boxWidth = 80;
+                    const txBoxLeft = txX + boxInset;
+                    const txBoxRight = txBoxLeft + boxWidth;
+                    const rxBoxRight = rxX - boxInset;
+                    const rxBoxLeft = rxBoxRight - boxWidth;
+
+                    // Use color from palette
+                    const isWeakest = antennaConfig.selectedMessage === g.index;
+                    const colorScheme = groupColors[idx % groupColors.length];
+                    const boxColor = isWeakest ? '#FFD700' : colorScheme.main;
+                    const linkColor = isWeakest ? 'rgba(255, 215, 0, 0.4)' : colorScheme.light;
+                    const boxLineWidth = isWeakest ? 3 : 2;
+
+
+                    // Draw TX box
+                    ctx.setLineDash([5, 5]);
+                    ctx.strokeStyle = boxColor;
+                    ctx.lineWidth = boxLineWidth;
+                    ctx.strokeRect(txBoxLeft, txTop, boxWidth, txBottom - txTop);
+
+                    // Draw RX box
+                    ctx.strokeRect(rxBoxLeft, rxTop, boxWidth, rxBottom - rxTop);
+                    ctx.setLineDash([]);
+
+                    // Label boxes
+                    ctx.fillStyle = boxColor;
+                    ctx.font = 'bold 12px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(g.label, (txBoxLeft + txBoxRight) / 2, txTop - 10);
+
+                    // Draw internal connections (channel links between group antennas)
+                    ctx.strokeStyle = isWeakest ? 'rgba(255, 215, 0, 0.4)' : 'rgba(255, 152, 0, 0.35)';
+                    ctx.lineWidth = 2;
+                    for (const txIdx of g.txSet) {
+                        for (const rxIdx of g.rxSet) {
+                            ctx.beginPath();
+                            ctx.moveTo(txBoxRight, antennaConfig.tx[txIdx].y);
+                            ctx.lineTo(rxBoxLeft, antennaConfig.rx[rxIdx].y);
+                            ctx.stroke();
+                        }
+                    }
+
+                    // Draw input wire (single wire splitting to multiple TX antennas)
+                    const txCenterY = (txTop + txBottom) / 2;
+                    const rxCenterY = (rxTop + rxBottom) / 2;
+                    
+                    ctx.strokeStyle = boxColor;
+                    ctx.lineWidth = 3;
+                    
+                    // Main input wire
+                    ctx.beginPath();
+                    ctx.moveTo(txBoxLeft - 50, txCenterY);
+                    ctx.lineTo(txBoxLeft, txCenterY);
+                    ctx.stroke();
+                    
+                    // Split to each TX antenna in group
+                    ctx.lineWidth = 2;
+                    for (const txIdx of g.txSet) {
+                        ctx.beginPath();
+                        ctx.moveTo(txBoxLeft, txCenterY);
+                        ctx.lineTo(txBoxLeft, antennaConfig.tx[txIdx].y);
+                        ctx.stroke();
+                    }
+
+                    // Draw output wires (multiple RX antennas combining to single wire)
+                    ctx.lineWidth = 2;
+                    for (const rxIdx of g.rxSet) {
+                        ctx.beginPath();
+                        ctx.moveTo(rxBoxRight, antennaConfig.rx[rxIdx].y);
+                        ctx.lineTo(rxBoxRight, rxCenterY);
+                        ctx.stroke();
+                    }
+                    
+                    // Main output wire
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.moveTo(rxBoxRight, rxCenterY);
+                    ctx.lineTo(rxBoxRight + 50, rxCenterY);
+                    ctx.stroke();
+
+                    // Draw symbol labels on wires
+                    ctx.fillStyle = boxColor;
+                    ctx.font = 'bold 11px Arial';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(`x${g.index + 1}`, txBoxLeft - 25, txCenterY - 8);
+                    ctx.fillText(`y${g.index + 1}`, rxBoxRight + 25, rxCenterY - 8);
                 });
 
-                // Draw TX antennas
+                // Draw antennas on top of everything
                 antennaConfig.tx.forEach((tx, i) => {
-                    const isMux = antennaConfig.multiplexing.some(m => m.index === i);
-                    const isDiv = antennaConfig.diversity.some(d => d.index === i);
-                    
-                    ctx.fillStyle = isMux ? '#4CAF50' : (isDiv ? '#FF9800' : '#999');
+                    let groupIdx = -1;
+                    for (let g = 0; g < groups.length; g++) {
+                        if (groups[g].txSet.includes(i)) {
+                            groupIdx = g;
+                            break;
+                        }
+                    }
+
+                    const isWeakest = groupIdx >= 0 && antennaConfig.selectedMessage === groupIdx;
+                    const colorScheme = groupIdx >= 0 ? groupColors[groupIdx % groupColors.length] : { main: '#999' };
+                    ctx.fillStyle = isWeakest ? '#FFD700' : colorScheme.main;
                     ctx.beginPath();
-                    ctx.arc(tx.x, tx.y, 15, 0, 2 * Math.PI);
+                    ctx.arc(tx.x, tx.y, 13, 0, 2 * Math.PI);
                     ctx.fill();
-                    
+
                     ctx.strokeStyle = 'white';
-                    ctx.lineWidth = 3;
+                    ctx.lineWidth = 2;
                     ctx.stroke();
 
                     ctx.fillStyle = 'white';
-                    ctx.font = 'bold 12px Arial';
+                    ctx.font = 'bold 11px Arial';
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
                     ctx.fillText(`T${i + 1}`, tx.x, tx.y);
-
-                    // Label
-                    ctx.fillStyle = '#333';
-                    ctx.font = '11px Arial';
-                    ctx.textAlign = 'right';
-                    ctx.fillText(isMux ? `x${i + 1}` : (isDiv ? `x${selectedTx + 1}` : ''), tx.x - 25, tx.y);
                 });
 
-                // Draw RX antennas
                 antennaConfig.rx.forEach((rx, i) => {
-                    const isMux = antennaConfig.multiplexing.some(m => m.index === i);
-                    
-                    ctx.fillStyle = isMux ? '#4CAF50' : '#999';
+                    let groupIdx = -1;
+                    for (let g = 0; g < groups.length; g++) {
+                        if (groups[g].rxSet.includes(i)) {
+                            groupIdx = g;
+                            break;
+                        }
+                    }
+
+                    const isWeakest = groupIdx >= 0 && antennaConfig.selectedMessage === groupIdx;
+                    const colorScheme = groupIdx >= 0 ? groupColors[groupIdx % groupColors.length] : { main: '#999' };
+                    ctx.fillStyle = isWeakest ? '#FFD700' : colorScheme.main;
                     ctx.beginPath();
-                    ctx.arc(rx.x, rx.y, 15, 0, 2 * Math.PI);
+                    ctx.arc(rx.x, rx.y, 13, 0, 2 * Math.PI);
                     ctx.fill();
-                    
+
                     ctx.strokeStyle = 'white';
-                    ctx.lineWidth = 3;
+                    ctx.lineWidth = 2;
                     ctx.stroke();
 
                     ctx.fillStyle = 'white';
-                    ctx.font = 'bold 12px Arial';
+                    ctx.font = 'bold 11px Arial';
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
                     ctx.fillText(`R${i + 1}`, rx.x, rx.y);
                 });
+
+            // Draw column labels
+                ctx.fillStyle = '#333';
+                ctx.font = 'bold 16px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('Transmitters', txX, 40);
+                ctx.fillText('Receivers', rxX, 40);
+            }
+        }
+
+        // returns array of top `k` tx indices by column energy (or rx by rowEnergy)
+        function topIndicesByEnergy(H, k, axis = 'tx') {
+            // H is nr x nt, same shape as your generateChannelMatrix output
+            const nr = H.length;
+            const nt = H[0].length;
+
+            const energies = []; // pairs [index, energy]
+
+            if (axis === 'tx') {
+                // column energy for each transmit antenna j
+                for (let j = 0; j < nt; j++) {
+                    let e = 0;
+                    for (let i = 0; i < nr; i++) {
+                        const c = H[i][j];
+                        e += (c.real * c.real + c.imag * c.imag);
+                    }
+                    energies.push([j, e]);
+                }
+            } else {
+                // row energy for each receive antenna i
+                for (let i = 0; i < nr; i++) {
+                    let e = 0;
+                    for (let j = 0; j < nt; j++) {
+                        const c = H[i][j];
+                        e += (c.real * c.real + c.imag * c.imag);
+                    }
+                    energies.push([i, e]);
+                }
             }
 
-            // Draw labels
-            ctx.fillStyle = '#333';
-            ctx.font = 'bold 16px Arial';
-            ctx.textAlign = 'center';
-            ctx.fillText('Transmitters', txX, 40);
-            ctx.fillText('Receivers', rxX, 40);
+            // sort descending by energy and return top k indices
+            energies.sort((a, b) => b[1] - a[1]);
+            return energies.slice(0, k).map(p => p[0]);
         }
+
+        // n = total antennas (numTx or numRx), r = number of streams,
+        // leaders = array of leader indices of length r (must be unique inside [0,n))
+        // returns array of r groups (arrays of indices) where each group starts with its leader
+        function createGroupsWithLeaders(n, r, leaders) {
+            // make sure leaders has length r; if not, fall back to round-robin
+            const groups = Array.from({length: r}, () => []);
+            const used = new Set();
+
+            // assign leaders as first element
+            for (let g = 0; g < r; g++) {
+                const leader = (leaders && leaders[g] !== undefined) ? leaders[g] : g;
+                groups[g].push(leader);
+                used.add(leader);
+            }
+
+            // build list of remaining indices (ascending order) excluding leaders
+            const remaining = [];
+            for (let i = 0; i < n; i++) {
+                if (!used.has(i)) remaining.push(i);
+            }
+
+            // distribute remaining in round-robin across groups
+            let idx = 0;
+            for (const antenna of remaining) {
+                groups[idx % r].push(antenna);
+                idx++;
+            }
+
+            return groups;
+        }
+
+        // Complex arithmetic helpers (works with {real, imag})
+        function cMul(a, b) {
+            return { real: a.real * b.real - a.imag * b.imag, imag: a.real * b.imag + a.imag * b.real };
+        }
+        function cAdd(a, b) { return { real: a.real + b.real, imag: a.imag + b.imag }; }
+        function cSub(a, b) { return { real: a.real - b.real, imag: a.imag - b.imag }; }
+        function cConj(a) { return { real: a.real, imag: -a.imag }; }
+        function cAbs2(a) { return a.real * a.real + a.imag * a.imag; }
+        function cScale(a, s) { return { real: a.real * s, imag: a.imag * s }; }
+
+        // H is nr x nt (H[row][col])
+        function buildHermitianA(H) {
+            const nr = H.length;
+            const nt = H[0].length;
+            const A = Array.from({length: nt}, () => Array.from({length: nt}, () => ({ real: 0, imag: 0 })));
+            for (let j = 0; j < nt; j++) {
+                for (let k = 0; k < nt; k++) {
+                    let sum = { real: 0, imag: 0 };
+                    for (let i = 0; i < nr; i++) {
+                        // conj(H[i][j]) * H[i][k]
+                        const prod = cMul(cConj(H[i][j]), H[i][k]);
+                        sum = cAdd(sum, prod);
+                    }
+                    A[j][k] = sum;
+                }
+            }
+            return A;
+        }
+
+        function matVecMul(A, v) { // A: n x n complex, v: n complex
+            const n = A.length;
+            const out = new Array(n).fill(null).map(()=>({real:0, imag:0}));
+            for (let i = 0; i < n; i++) {
+                let s = { real: 0, imag: 0 };
+                for (let j = 0; j < n; j++) {
+                    s = cAdd(s, cMul(A[i][j], v[j]));
+                }
+                out[i] = s;
+            }
+            return out;
+        }
+        function vecNorm(v) {
+            let s = 0;
+            for (let i = 0; i < v.length; i++) s += cAbs2(v[i]);
+            return Math.sqrt(s);
+        }
+        function normalizeVec(v) {
+            const nrm = vecNorm(v) || 1e-18;
+            return v.map(x => cScale(x, 1 / nrm));
+        }
+        function conjDot(a, b) { // a^H b (complex)
+            let s = { real: 0, imag: 0 };
+            for (let i = 0; i < a.length; i++) s = cAdd(s, cMul(cConj(a[i]), b[i]));
+            return s;
+        }
+
+        // returns { vals: [lambda1, ...], vecs: [[v1_j], ...] } where vecs is array of vectors (complex)
+        function topR_eigs_by_power(A, r, iters = 60) {
+            const n = A.length;
+            const vals = [];
+            const vecs = [];
+            // make a deep copy of A for deflation
+            let Acopy = A.map(row => row.map(el => ({ real: el.real, imag: el.imag })));
+
+            for (let k = 0; k < r; k++) {
+                // random complex initial vector
+                let v = new Array(n).fill(0).map(() => ({ real: Math.random(), imag: Math.random() }));
+                v = normalizeVec(v);
+
+                for (let it = 0; it < iters; it++) {
+                    let w = matVecMul(Acopy, v);
+                    const nrm = vecNorm(w) || 1e-18;
+                    v = w.map(x => cScale(x, 1 / nrm));
+                }
+                // Rayleigh quotient (approx eigenvalue)
+                const wFinal = matVecMul(Acopy, v);
+                const rd = conjDot(v, wFinal); // complex but should be real for Hermitian
+                const lambda = Math.max(0, rd.real); // numerical safety
+
+                // store
+                vals.push(lambda);
+                vecs.push(v);
+
+                // deflate: Acopy = Acopy - lambda * (v v^H)
+                for (let i = 0; i < n; i++) {
+                    for (let j = 0; j < n; j++) {
+                        // outer = lambda * v[i] * conj(v[j])
+                        const outer = cScale(cMul(v[i], cConj(v[j])), lambda);
+                        Acopy[i][j] = cSub(Acopy[i][j], outer);
+                    }
+                }
+            }
+
+            return { vals, vecs };
+        }
+
+        // H: nr x nt, r: number of modes
+        function computeTopRSVD(H, r, iters = 60) {
+            const nr = H.length;
+            const nt = H[0].length;
+
+            // 1) form Hermitian A = H^H H (nt x nt)
+            const A = buildHermitianA(H);
+
+            // 2) top-r eigenpairs of A => right singular vectors V (in columns), eigenvalues = sigma^2
+            const eig = topR_eigs_by_power(A, Math.min(r, nt), iters);
+            const lambdas = eig.vals; // sigma^2
+            const Vvecs = eig.vecs;   // each is length nt
+
+            // 3) form U vectors: u_k = (H * v_k) / sigma_k
+            const U = [];
+            const V = []; // nt x r
+            const S = [];
+
+            for (let k = 0; k < Vvecs.length; k++) {
+                const vk = Vvecs[k];
+                const lambda = lambdas[k];
+                const sigma = Math.sqrt(Math.max(lambda, 0));
+                S.push(sigma);
+
+                // compute H * v_k (nr complex)
+                const Hv = new Array(nr).fill(0).map(()=>({real:0, imag:0}));
+                for (let i = 0; i < nr; i++) {
+                    let s = { real: 0, imag: 0 };
+                    for (let j = 0; j < nt; j++) s = cAdd(s, cMul(H[i][j], vk[j]));
+                    Hv[i] = s;
+                }
+
+                // if sigma is tiny, produce a fallback normalized Hv
+                let uk;
+                if (sigma < 1e-12) {
+                    uk = normalizeVec(Hv);
+                } else {
+                    uk = Hv.map(x => cScale(x, 1 / sigma));
+                    uk = normalizeVec(uk);
+                }
+                U.push(uk);
+
+                // store V as column vector (nt entries). normalize vk
+                V.push(normalizeVec(vk));
+            }
+
+            // transpose V to nt x r structure (array of columns is V; keep as columns for picking largest component)
+            return { U, V, S }; // U: r arrays length nr, V: r arrays length nt, S: array length r
+        }
+
+
 
         function resetExperiment() {
             channelMatrix = [];
             singularValues = [];
+            beamformingVectors = { v: [], u: [] };
             antennaConfig = {
                 tx: [],
                 rx: [],
@@ -1061,7 +1516,6 @@
             document.getElementById('mainBtn').textContent = 'Generate System';
             document.getElementById('mainBtn').disabled = false;
 
-            // Hide sections
             document.getElementById('antennaInfo').style.display = 'none';
             document.getElementById('matrixSection').style.display = 'none';
             document.getElementById('selectedMsgSection').style.display = 'none';
@@ -1072,8 +1526,6 @@
 
             ctx.clearRect(0, 0, canvas.width, canvas.height);
         }
-
-        // Initial draw
         setTimeout(resizeCanvas, 100);
     </script>
 </body>
