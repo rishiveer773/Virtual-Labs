@@ -311,25 +311,6 @@
 
             <button class="btn" id="mainBtn" onclick="handleMainAction()">Generate System</button>
             <button class="btn secondary" onclick="resetExperiment()">Reset</button>
-
-            <div class="legend">
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #4CAF50;"></div>
-                    <span>Multiplexing</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #FF9800;"></div>
-                    <span>Beamforming (Diversity)</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #2196F3;"></div>
-                    <span>Channel Link</span>
-                </div>
-                <div class="legend-item">
-                    <div class="legend-color" style="background: #FFD700;"></div>
-                    <span>Weakest Stream</span>
-                </div>
-            </div>
         </div>
 
         <!-- Middle Panel: Simulation -->
@@ -1272,18 +1253,33 @@
             const groups = Array.from({length: r}, () => []);
             const used = new Set();
 
+            // CRITICAL: Ensure leaders are unique - if there are duplicates, we have a problem
+            const uniqueLeaders = [...new Set(leaders)];
+            if (uniqueLeaders.length !== leaders.length) {
+                console.warn('WARNING: Duplicate leaders detected!', leaders);
+            }
+
             // Assign leaders as first element of each group
             for (let g = 0; g < r; g++) {
                 const leader = (leaders && leaders[g] !== undefined) ? leaders[g] : g;
+                if (used.has(leader)) {
+                    console.error(`Leader ${leader} already assigned to another group!`);
+                    // Skip or find an alternative
+                    continue;
+                }
                 groups[g].push(leader);
                 used.add(leader);
             }
 
-            // Build list of remaining indices
+            // Build list of remaining indices - MUST exclude all used leaders
             const remaining = [];
             for (let i = 0; i < n; i++) {
-                if (!used.has(i)) remaining.push(i);
+                if (!used.has(i)) {
+                    remaining.push(i);
+                }
             }
+
+            console.log('Leaders:', leaders, 'Used:', Array.from(used), 'Remaining:', remaining);
 
             if (remaining.length === 0) return groups;
 
@@ -1301,6 +1297,7 @@
                 orderIdx++;
             }
 
+            console.log('Final groups:', groups);
             return groups;
         }
 
