@@ -436,12 +436,125 @@
             font-size: 11px;
             margin-top: 8px;
         }
+
+        /* ---------- Compact card-style Instructions (smaller text) ---------- */
+        .instructions-card {
+            position: relative;
+            width: calc(100% - 48px);
+            max-width: 1200px;
+            margin: 14px auto;
+            background: #fff;
+            border-radius: 14px;
+            border: 2px solid rgba(0,0,0,0.55);
+            box-shadow: 0 6px 16px rgba(0,0,0,0.07);
+            padding: 18px 24px;
+            box-sizing: border-box;
+            font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            color: #1f2a44;
+            z-index: 1100;
+            }
+
+            .instructions-card .title {
+            text-align: center;
+            font-size: 22px;
+            font-weight: 700;
+            color: #4b6ef6;
+            margin: 4px 0 12px;
+            }
+
+            .instructions-card summary {
+            list-style: none;
+            cursor: pointer;
+            }
+
+            .instructions-card .chev-wrap {
+            position: absolute;
+            right: 14px;
+            top: 10px;
+            }
+
+            .instructions-card .chev {
+            width: 9px;
+            height: 9px;
+            border-right: 2px solid #4b6ef6;
+            border-bottom: 2px solid #4b6ef6;
+            transform: rotate(45deg);
+            transition: transform .18s ease;
+            }
+
+            .instructions-card[open] .chev {
+            transform: rotate(225deg);
+            }
+
+            /* Smaller content */
+            .instructions-body {
+            max-height: 520px;
+            overflow: auto;
+            padding-top: 4px;
+            }
+
+            .instructions-body ol {
+            margin: 0;
+            padding-left: 22px;
+            }
+
+            .instructions-body ol li {
+            margin: 8px 0;
+            font-size: 15px;
+            line-height: 1.45;
+            }
+
+            .instructions-body li strong {
+            font-weight: 700;
+            color: #1d2438;
+            }
+
+            .instructions-body li span {
+            color: #4a5063;
+            font-weight: 500;
+            }
+
+            /* Responsive tweaks */
+            @media (max-width: 700px) {
+            .instructions-card {
+                padding: 14px;
+                width: calc(100% - 24px);
+            }
+            .instructions-card .title {
+                font-size: 18px;
+            }
+            .instructions-body ol li {
+                font-size: 14px;
+            }
+        }
     </style>
 </head>
 <body>
     <div class="tab-container">
         <button class="tab-btn active" onclick="switchTab('simulation')">Simulation</button>
         <button class="tab-btn" onclick="switchTab('analysis')">Analysis</button>
+    </div>
+
+    <div class="instructions-card" role="region" aria-label="Instructions panel">
+  <details id="instructionsCard" open>
+    <summary aria-controls="instrBody" aria-expanded="true" tabindex="0">
+      <div class="chev-wrap" aria-hidden="true"><span class="chev"></span></div>
+      <div class="title">Instructions</div>
+    </summary>
+
+    <div id="instrBody" class="instructions-body" role="document">
+        <ol>
+            <li><strong>Getting Started:</strong> <span>This simulation demonstrates the complete OFDM (Orthogonal Frequency Division Multiplexing) signal processing chain from transmitter to receiver.</span></li>
+            <li><strong>Configure Parameters:</strong> <span>Set FFT size (N), number of data subcarriers, modulation (BPSK/QPSK/16-QAM), cyclic prefix length, SNR, and equalizer method.</span></li>
+            <li><strong>Run Simulation:</strong> <span>Click "Run Simulation" to process the OFDM signal through the entire transmit–receive chain.</span></li>
+            <li><strong>Navigate Through Blocks:</strong> <span>Use "Next" / "Previous" to step through each processing block (S/P → Mapping → IDFT → Add CP → Channel → AWGN → Remove CP → FFT → Equalizer → Demapping + P/S).</span></li>
+            <li><strong>Observe Block Diagram:</strong> <span>Watch each block highlight to show the current processing stage.</span></li>
+            <li><strong>Analyze Outputs:</strong> <span>View constellation diagrams for transmitted/received symbols and examine the frequency spectrum at different stages.</span></li>
+            <li><strong>Understand Impact:</strong> <span>See how channel effects and noise affect the signal and how equalization recovers data.</span></li>
+            <li><strong>Experiment:</strong> <span>Try different modulations, SNRs, and equalizers to study their effect on signal quality.</span></li>
+        </ol>
+        </div>
+    </details>
     </div>
 
     <div id="simulationSection" class="page-section active">
@@ -2071,6 +2184,36 @@
                 ctx.fillText(val.toFixed(1), padding - 10, y + 4);
             }
         }
+
+        // Lightweight behavior for the card-style instructions
+        (function() {
+            const details = document.getElementById('instructionsCard');
+            const summary = details.querySelector('summary');
+
+            // Toggle aria-expanded for accessibility when the card is opened/closed
+            details.addEventListener('toggle', () => {
+                summary.setAttribute('aria-expanded', details.open ? 'true' : 'false');
+            });
+
+            // Close when pressing Escape while focused inside the instructions
+            details.addEventListener('keydown', (ev) => {
+                if (ev.key === 'Escape') details.open = false;
+            });
+
+            // Keep chevron rotation in sync (in case CSS attribute selectors aren't supported)
+            const chev = details.querySelector('.chev');
+            const updateChev = () => {
+                if (!chev) return;
+                chev.style.transform = details.open ? 'rotate(225deg)' : 'rotate(45deg)';
+            };
+            details.addEventListener('toggle', updateChev);
+            updateChev();
+
+            // Optional: auto-scroll to top of card when opened on small screens
+            details.addEventListener('toggle', () => {
+                if (details.open && window.innerWidth < 700) details.scrollIntoView({behavior:'smooth', block:'start'});
+            });
+        })();
     </script>
 </body>
 </html>
