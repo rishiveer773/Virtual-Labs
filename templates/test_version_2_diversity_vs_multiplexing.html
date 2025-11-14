@@ -266,84 +266,316 @@
             color: #1976D2;
             font-weight: 600;
         }
+
+        .tab-container {
+            background: white;
+            padding: 0;
+            display: flex;
+            gap: 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 15px 30px;
+            background: white;
+            border: none;
+            font-size: 16px;
+            font-weight: 600;
+            color: #666;
+            cursor: pointer;
+            transition: all 0.3s;
+            border-bottom: 3px solid transparent;
+        }
+
+        .tab-btn:hover {
+            background: #f5f5f5;
+            color: #333;
+        }
+
+        .tab-btn.active {
+            color: #667eea;
+            border-bottom-color: #667eea;
+            background: white;
+        }
+
+        .page-section {
+            display: none;
+        }
+
+        .page-section.active {
+            display: block;
+        }
+
+        .analysis-container {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 20px;
+            max-width: 1800px;
+            margin: 0 auto;
+            padding: 20px;
+            height: calc(100vh - 100px);
+        }
+
+        .analysis-header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .analysis-header h1 {
+            color: #333;
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .analysis-header p {
+            color: #666;
+            font-size: 16px;
+        }
+
+        .analysis-controls {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border: 1px solid #e0e0e0;
+            overflow-y: auto;
+        }
+
+        .analysis-controls h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 20px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #333;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .control-group input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .control-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .control-group small {
+            display: block;
+            margin-top: 5px;
+            color: #666;
+            font-size: 12px;
+        }
+
+        .analysis-results {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            border: 1px solid #e0e0e0;
+            overflow-y: auto;
+        }
+
+        .analysis-results h2 {
+            color: #333;
+            font-size: 20px;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+            margin: 0 0 20px 0;
+        }
+
+        .charts-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .analysis-chart {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .analysis-chart h3 {
+            color: #667eea;
+            font-size: 14px;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .analysis-chart canvas {
+            width: 100%;
+            height: 250px;
+            display: block;
+            background: white;
+            border-radius: 6px;
+        }
+
+        .chart-description {
+            text-align: center;
+            color: #666;
+            font-size: 11px;
+            margin-top: 8px;
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <!-- Left Panel: Inputs -->
-        <div class="panel">
-            <h2>Experiment Parameters</h2>
-            
-            <div class="input-group">
-                <label for="txPower">Transmit Power (P)</label>
-                <input type="number" id="txPower" value="10" step="0.1" min="0.1">
-                <small>Power in Watts</small>
+    <div class="tab-container">
+        <button class="tab-btn active" onclick="switchTab('simulation')">Simulation</button>
+        <button class="tab-btn" onclick="switchTab('analysis')">Analysis</button>
+    </div>
+
+    <div id="simulationSection" class="page-section active">
+        <div class="container">
+            <!-- Left Panel: Inputs -->
+            <div class="panel">
+                <h2>Experiment Parameters</h2>
+                
+                <div class="input-group">
+                    <label for="txPower">Transmit Power (P)</label>
+                    <input type="number" id="txPower" value="10" step="0.1" min="0.1">
+                    <small>Power in Watts</small>
+                </div>
+
+                <div class="input-group">
+                    <label for="numTx">Transmit Antennas (N<sub>t</sub>)</label>
+                    <input type="number" id="numTx" value="4" step="1" min="1" max="8">
+                    <small>Number of TX antennas</small>
+                </div>
+
+                <div class="input-group">
+                    <label for="numRx">Receive Antennas (N<sub>r</sub>)</label>
+                    <input type="number" id="numRx" value="4" step="1" min="1" max="8">
+                </div>
+
+                <div class="input-group">
+                    <label for="numStreams">Multiplexing Streams (r)</label>
+                    <input type="number" id="numStreams" value="2" step="1" min="1" max="4">
+                    <small>Must be ≤ min(Nt, Nr)</small>
+                </div>
+
+                <div class="input-group">
+                    <label for="noiseVar">Noise Variance (σ²)</label>
+                    <input type="number" id="noiseVar" value="0.1" step="0.01" min="0.01">
+                    <small>Noise power</small>
+                </div>
+
+                <div class="input-group">
+                    <label for="snrThreshold">SNR Threshold (dB)</label>
+                    <input type="number" id="snrThreshold" value="15" step="0.5" min="0">
+                    <small>Target SNR for diversity</small>
+                </div>
+
+                <button class="btn" id="mainBtn" onclick="handleMainAction()">Generate System</button>
+                <button class="btn secondary" onclick="resetExperiment()">Reset</button>
             </div>
 
-            <div class="input-group">
-                <label for="numTx">Transmit Antennas (N<sub>t</sub>)</label>
-                <input type="number" id="numTx" value="4" step="1" min="1" max="8">
-                <small>Number of TX antennas</small>
+            <!-- Middle Panel: Simulation -->
+            <div class="panel">
+                <h2>Antenna System Visualization</h2>
+                <div class="step-indicator" id="stepIndicator">Step 1: Enter parameters and generate system</div>
+                <canvas id="simulationCanvas"></canvas>
             </div>
 
-            <div class="input-group">
-                <label for="numRx">Receive Antennas (N<sub>r</sub>)</label>
-                <input type="number" id="numRx" value="4" step="1" min="1" max="8">
-            </div>
+            <!-- Right Panel: Outputs -->
+            <div class="panel">
+                <h2>Results</h2>
+                
+                <div class="output-item">
+                    <h3>Channel Matrix H</h3>
+                    <p id="channelDim">-</p>
+                    <small>Rayleigh fading channel</small>
+                </div>
 
-            <div class="input-group">
-                <label for="numStreams">Multiplexing Streams (r)</label>
-                <input type="number" id="numStreams" value="2" step="1" min="1" max="4">
-                <small>Must be ≤ min(Nt, Nr)</small>
-            </div>
+                <div class="output-item" id="matrixSection" style="display: none;">
+                    <div class="matrix-display" id="matrixDisplay"></div>
+                    <small>Complex values: a + bi</small>
+                </div>
 
-            <div class="input-group">
-                <label for="noiseVar">Noise Variance (σ²)</label>
-                <input type="number" id="noiseVar" value="0.1" step="0.01" min="0.01">
-                <small>Noise power</small>
-            </div>
+                <div class="output-item" id="tradeoffSection" style="display: none;">
+                    <h3>Tradeoff Plot</h3>
+                    <canvas id="tradeoffCanvas" style="width: 100%; height: 300px;"></canvas>
+                    <small>d<sub>opt</sub>(r) = (N<sub>t</sub> - r)(N<sub>r</sub> - r)</small>
+                </div>
 
-            <div class="input-group">
-                <label for="snrThreshold">SNR Threshold (dB)</label>
-                <input type="number" id="snrThreshold" value="15" step="0.5" min="0">
-                <small>Target SNR for diversity</small>
+                <div class="output-item" id="snrSection" style="display: none;">
+                    <h3>SNR Values (dB)</h3>
+                    <div class="snr-list" id="snrList"></div>
+                </div>
             </div>
-
-            <button class="btn" id="mainBtn" onclick="handleMainAction()">Generate System</button>
-            <button class="btn secondary" onclick="resetExperiment()">Reset</button>
         </div>
+    </div>
 
-        <!-- Middle Panel: Simulation -->
-        <div class="panel">
-            <h2>Antenna System Visualization</h2>
-            <div class="step-indicator" id="stepIndicator">Step 1: Enter parameters and generate system</div>
-            <canvas id="simulationCanvas"></canvas>
-        </div>
-
-        <!-- Right Panel: Outputs -->
-        <div class="panel">
-            <h2>Results</h2>
-            
-            <div class="output-item">
-                <h3>Channel Matrix H</h3>
-                <p id="channelDim">-</p>
-                <small>Rayleigh fading channel</small>
+    <!-- Add new Analysis section -->
+    <div id="analysisSection" class="page-section">
+        <div class="analysis-container">
+            <!-- Left Panel: Analysis Controls -->
+            <div class="analysis-controls">
+                <h2>Analysis Parameters</h2>
+                
+                <div class="control-group">
+                    <label>Number of Trials</label>
+                    <input type="number" id="numTrials" value="500" min="100" step="100">
+                    <small>Monte Carlo iterations</small>
+                </div>
+                
+                <div class="control-group">
+                    <label>Min SNR (dB)</label>
+                    <input type="number" id="minSNR" value="-10" step="1">
+                    <small>Starting SNR value</small>
+                </div>
+                
+                <div class="control-group">
+                    <label>Max SNR (dB)</label>
+                    <input type="number" id="maxSNR" value="40" step="1">
+                    <small>Ending SNR value</small>
+                </div>
+                
+                <div class="control-group">
+                    <label>SNR Step (dB)</label>
+                    <input type="number" id="snrStep" value="2" min="0.5" step="0.5">
+                    <small>SNR increment</small>
+                </div>
+                
+                <button class="btn" id="runAnalysisBtn" onclick="runAnalysis()">Run Analysis</button>
             </div>
 
-            <div class="output-item" id="matrixSection" style="display: none;">
-                <div class="matrix-display" id="matrixDisplay"></div>
-                <small>Complex values: a + bi</small>
-            </div>
+            <!-- Right Panel: Results -->
+            <div class="analysis-results">
+                <h2>Analysis Results</h2>
+                
+                <div class="charts-container">
+                    <div class="analysis-chart">
+                        <h3>Outage Probability vs SNR</h3>
+                        <canvas id="outageCanvas"></canvas>
+                        <p class="chart-description">P<sub>outage</sub> = Pr(min stream SNR < threshold)</p>
+                    </div>
 
-            <div class="output-item" id="tradeoffSection" style="display: none;">
-                <h3>Tradeoff Plot</h3>
-                <canvas id="tradeoffCanvas" style="width: 100%; height: 300px;"></canvas>
-                <small>d<sub>opt</sub>(r) = (N<sub>t</sub> - r)(N<sub>r</sub> - r)</small>
-            </div>
-
-            <div class="output-item" id="snrSection" style="display: none;">
-                <h3>SNR Values (dB)</h3>
-                <div class="snr-list" id="snrList"></div>
+                    <div class="analysis-chart">
+                        <h3>Total Capacity vs SNR</h3>
+                        <canvas id="capacityCanvas"></canvas>
+                        <p class="chart-description">C = Σ log₂(1 + SNR<sub>i</sub>) bits/s/Hz</p>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -1474,6 +1706,371 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height);
         }
         setTimeout(resizeCanvas, 100);
+
+        function switchTab(tabName) {
+            // Update tab buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            event.target.classList.add('active');
+            
+            // Update sections
+            document.querySelectorAll('.page-section').forEach(section => {
+                section.classList.remove('active');
+            });
+            
+            if (tabName === 'simulation') {
+                document.getElementById('simulationSection').classList.add('active');
+            } else if (tabName === 'analysis') {
+                document.getElementById('analysisSection').classList.add('active');
+                // Check if system is ready for analysis
+                if (!channelMatrix || channelMatrix.length === 0 || systemState !== 'optimized') {
+                    alert('Please generate and optimize the system in the Simulation tab first!');
+                    switchTab('simulation');
+                }
+            }
+        }
+
+        function runAnalysis() {
+            const txPower = parseFloat(document.getElementById('txPower').value) || 1e-12;
+            const numTx = parseInt(document.getElementById('numTx').value);
+            const numRx = parseInt(document.getElementById('numRx').value);
+            const r = parseInt(document.getElementById('numStreams').value);
+            const noiseVar = parseFloat(document.getElementById('noiseVar').value) || 1e-12;
+            const snrThreshold = parseFloat(document.getElementById('snrThreshold').value);
+
+            if (!channelMatrix || channelMatrix.length === 0 || systemState !== 'optimized') {
+                alert('Please generate and optimize system in Simulation tab first!');
+                return;
+            }
+
+            // Get analysis parameters
+            const numTrials = parseInt(document.getElementById('numTrials').value);
+            const minSNR_dB = parseFloat(document.getElementById('minSNR').value);
+            const maxSNR_dB = parseFloat(document.getElementById('maxSNR').value);
+            const snrStep = parseFloat(document.getElementById('snrStep').value);
+
+            // Show loading indicator
+            document.getElementById('runAnalysisBtn').textContent = 'Running Analysis...';
+            document.getElementById('runAnalysisBtn').disabled = true;
+
+            // Use setTimeout to allow UI to update
+            setTimeout(() => {
+                // SNR range in dB for analysis
+                const snrRange_dB = [];
+                for (let snr = minSNR_dB; snr <= maxSNR_dB; snr += snrStep) {
+                    snrRange_dB.push(snr);
+                }
+
+                const outageProb = [];
+                const avgCapacity = [];
+
+                // Run Monte Carlo simulation
+                for (const targetSNR_dB of snrRange_dB) {
+                    // Target SNR is the average SNR per receive antenna
+                    const targetSNR_linear = Math.pow(10, targetSNR_dB / 10);
+                    
+                    // Total transmit power needed to achieve target SNR
+                    // SNR_avg = (P_total * E[|h|^2]) / noise_var
+                    // For Rayleigh: E[|h|^2] = 1, so we need P_total = SNR_avg * noise_var
+                    const P_total = targetSNR_linear * noiseVar;
+                    
+                    let outageCount = 0;
+                    let totalCapacity = 0;
+
+                    for (let trial = 0; trial < numTrials; trial++) {
+                        // Generate new random channel realization
+                        const H_trial = generateChannelMatrix(numTx, numRx);
+                        
+                        // Perform SVD to get top r modes
+                        const svd = computeTopRSVD(H_trial, r, 40);
+                        
+                        // Pick leader antennas based on SVD vectors
+                        function pickLeadersFromSVD_local(svd) {
+                            const leadersTx = [];
+                            const leadersRx = [];
+                            const rLocal = svd.V.length;
+                            for (let k = 0; k < rLocal; k++) {
+                                let bestTx = 0, bestValTx = -1;
+                                const vvec = svd.V[k];
+                                for (let j = 0; j < vvec.length; j++) {
+                                    const val = cAbs2(vvec[j]);
+                                    if (val > bestValTx) { bestValTx = val; bestTx = j; }
+                                }
+                                leadersTx.push(bestTx);
+
+                                let bestRx = 0, bestValRx = -1;
+                                const uvec = svd.U[k];
+                                for (let i = 0; i < uvec.length; i++) {
+                                    const val = cAbs2(uvec[i]);
+                                    if (val > bestValRx) { bestValRx = val; bestRx = i; }
+                                }
+                                leadersRx.push(bestRx);
+                            }
+                            return { leadersTx, leadersRx };
+                        }
+
+                        const { leadersTx, leadersRx } = pickLeadersFromSVD_local(svd);
+                        const streamStrengths = svd.S.slice(0, r);
+
+                        // Allocate diversity antennas (weakest stream gets first diversity antenna)
+                        const txGroups = createDiversityGroupsWeakestFirst(numTx, r, leadersTx, streamStrengths);
+                        const rxGroups = createDiversityGroupsWeakestFirst(numRx, r, leadersRx, streamStrengths);
+
+                        // Equal power per stream
+                        const P_per_stream = P_total / r;
+                        
+                        let minStreamSNR_dB = Infinity;
+                        let trialCapacity = 0;
+
+                        // Calculate SNR for each stream INCLUDING diversity gain
+                        for (let s = 0; s < r; s++) {
+                            const txSet = txGroups[s];
+                            const rxSet = rxGroups[s];
+
+                            // Compute effective channel gain with diversity
+                            // This is the sum of |h_ij|^2 over all TX-RX pairs in this stream
+                            let totalGain = 0;
+                            for (const txIdx of txSet) {
+                                for (const rxIdx of rxSet) {
+                                    const c = H_trial[rxIdx][txIdx];
+                                    if (!c) continue;
+                                    totalGain += (c.real * c.real + c.imag * c.imag);
+                                }
+                            }
+
+                            // SNR for this stream with diversity gain
+                            // SNR_s = (P_per_stream * total_gain) / noise_var
+                            const snr = (P_per_stream * totalGain) / noiseVar;
+                            const snr_dB = 10 * Math.log10(Math.max(snr, 1e-12));
+                            
+                            minStreamSNR_dB = Math.min(minStreamSNR_dB, snr_dB);
+                            trialCapacity += Math.log2(1 + snr);
+                        }
+
+                        // Check for outage
+                        if (minStreamSNR_dB < snrThreshold) {
+                            outageCount++;
+                        }
+                        totalCapacity += trialCapacity;
+                    }
+
+                    outageProb.push(outageCount / numTrials);
+                    avgCapacity.push(totalCapacity / numTrials);
+                }
+
+                // Plot results
+                plotOutageProbability('outageCanvas', snrRange_dB, outageProb, snrThreshold);
+                plotCapacity('capacityCanvas', snrRange_dB, avgCapacity);
+
+                // Reset button
+                document.getElementById('runAnalysisBtn').textContent = 'Run Analysis';
+                document.getElementById('runAnalysisBtn').disabled = false;
+            }, 100);
+        }
+
+        function plotOutageProbability(canvasId, snrRange, outageProb, threshold) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+
+            const padding = 60;
+            const plotWidth = canvas.width - 2 * padding;
+            const plotHeight = canvas.height - 2 * padding;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw axes
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(padding, padding);
+            ctx.lineTo(padding, canvas.height - padding);
+            ctx.lineTo(canvas.width - padding, canvas.height - padding);
+            ctx.stroke();
+
+            // Draw grid
+            ctx.strokeStyle = '#e0e0e0';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 5; i++) {
+                const y = padding + (plotHeight / 5) * i;
+                ctx.beginPath();
+                ctx.moveTo(padding, y);
+                ctx.lineTo(canvas.width - padding, y);
+                ctx.stroke();
+
+                const x = padding + (plotWidth / 5) * i;
+                ctx.beginPath();
+                ctx.moveTo(x, padding);
+                ctx.lineTo(x, canvas.height - padding);
+                ctx.stroke();
+            }
+
+            // Fix: use the passed arrays (no stray dots)
+            const minSNR = Math.min(...snrRange);
+            const maxSNR = Math.max(...snrRange);
+
+            // Determine y-axis range based on data (outageProb in [0,1]) — allow a little margin
+            const maxOutage = Math.max(1, Math.max(...outageProb)); // ensure 1 is available for full scale
+            const yMax = Math.min(1.0, maxOutage); // usually 1.0
+
+            // Plot curve (outageProb already 0..1)
+            ctx.strokeStyle = '#F5365C';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+
+            snrRange.forEach((snr, i) => {
+                const x = padding + ((snr - minSNR) / (maxSNR - minSNR)) * plotWidth;
+                // scale outage to [0..plotHeight] using yMax (usually 1.0)
+                const y = canvas.height - padding - (outageProb[i] / yMax) * plotHeight;
+
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            ctx.stroke();
+
+            // Draw threshold line (same as before)
+            if (threshold >= minSNR && threshold <= maxSNR) {
+                const thresholdX = padding + ((threshold - minSNR) / (maxSNR - minSNR)) * plotWidth;
+                ctx.strokeStyle = '#FF9800';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.moveTo(thresholdX, padding);
+                ctx.lineTo(thresholdX, canvas.height - padding);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                ctx.fillStyle = '#FF9800';
+                ctx.font = 'bold 11px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(`Threshold: ${threshold} dB`, thresholdX, padding - 10);
+            }
+
+            // Labels
+            ctx.fillStyle = '#333';
+            ctx.font = 'bold 13px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('SNR (dB)', canvas.width / 2, canvas.height - 15);
+
+            ctx.save();
+            ctx.translate(20, canvas.height / 2);
+            ctx.rotate(-Math.PI / 2);
+            ctx.fillText('Outage Probability', 0, 0);
+            ctx.restore();
+
+            // Axis ticks (SNR)
+            ctx.font = '11px Arial';
+            ctx.fillStyle = '#666';
+            ctx.textAlign = 'center';
+            const snrTicks = 5;
+            for (let i = 0; i <= snrTicks; i++) {
+                const val = minSNR + (maxSNR - minSNR) * i / snrTicks;
+                const x = padding + plotWidth * i / snrTicks;
+                ctx.fillText(val.toFixed(0), x, canvas.height - padding + 18);
+            }
+
+            // Y ticks: use 0..1 range (or you could choose 0..0.5 / 0..0.2 depending on desired zoom)
+            ctx.textAlign = 'right';
+            const yTicks = 5;
+            for (let i = 0; i <= yTicks; i++) {
+                const val = (i / yTicks) * yMax; // 0..yMax
+                const y = canvas.height - padding - (val / yMax) * plotHeight;
+                ctx.fillText(val.toFixed(2), padding - 10, y + 4);
+            }
+        }
+
+
+        function plotCapacity(canvasId, snrRange, capacity) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            
+            const padding = 60;
+            const plotWidth = canvas.width - 2 * padding;
+            const plotHeight = canvas.height - 2 * padding;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw axes
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(padding, padding);
+            ctx.lineTo(padding, canvas.height - padding);
+            ctx.lineTo(canvas.width - padding, canvas.height - padding);
+            ctx.stroke();
+            
+            // Draw grid
+            ctx.strokeStyle = '#e0e0e0';
+            ctx.lineWidth = 1;
+            for (let i = 0; i <= 5; i++) {
+                const y = padding + (plotHeight / 5) * i;
+                ctx.beginPath();
+                ctx.moveTo(padding, y);
+                ctx.lineTo(canvas.width - padding, y);
+                ctx.stroke();
+                
+                const x = padding + (plotWidth / 5) * i;
+                ctx.beginPath();
+                ctx.moveTo(x, padding);
+                ctx.lineTo(x, canvas.height - padding);
+                ctx.stroke();
+            }
+            
+            const minSNR = Math.min(...snrRange);
+            const maxSNR = Math.max(...snrRange);
+            const maxCap = Math.max(...capacity);
+            
+            // Plot curve
+            ctx.strokeStyle = '#2DCE89';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            
+            snrRange.forEach((snr, i) => {
+                const x = padding + ((snr - minSNR) / (maxSNR - minSNR)) * plotWidth;
+                const y = canvas.height - padding - (capacity[i] / maxCap) * plotHeight;
+                
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            ctx.stroke();
+            
+            // Labels
+            ctx.fillStyle = '#333';
+            ctx.font = 'bold 13px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('SNR (dB)', canvas.width / 2, canvas.height - 15);
+            
+            ctx.save();
+            ctx.translate(20, canvas.height / 2);
+            ctx.rotate(-Math.PI / 2);
+            ctx.fillText('Capacity (bits/s/Hz)', 0, 0);
+            ctx.restore();
+            
+            // Axis ticks
+            ctx.font = '11px Arial';
+            ctx.fillStyle = '#666';
+            ctx.textAlign = 'center';
+            const snrTicks = 5;
+            for (let i = 0; i <= snrTicks; i++) {
+                const val = minSNR + (maxSNR - minSNR) * i / snrTicks;
+                const x = padding + plotWidth * i / snrTicks;
+                ctx.fillText(val.toFixed(0), x, canvas.height - padding + 18);
+            }
+            
+            ctx.textAlign = 'right';
+            const capStep = maxCap / 5;
+            for (let i = 0; i <= 5; i++) {
+                const val = i * capStep;
+                const y = canvas.height - padding - (val / maxCap) * plotHeight;
+                ctx.fillText(val.toFixed(1), padding - 10, y + 4);
+            }
+        }
     </script>
 </body>
 </html>
