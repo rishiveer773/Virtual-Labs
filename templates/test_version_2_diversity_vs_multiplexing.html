@@ -650,6 +650,12 @@
                     <input type="number" id="numTrials" value="500" min="100" step="100">
                     <small>Monte Carlo iterations</small>
                 </div>
+
+                <div class="control-group">
+                    <label>SNR Thresholds (dB)</label>
+                    <input type="text" id="snrThresholds" value="10, 15, 20, 25" placeholder="e.g., 10, 15, 20, 25">
+                    <small>Comma-separated SNR threshold values</small>
+                </div>
                 
                 <div class="control-group">
                     <label>Min SNR (dB)</label>
@@ -1850,7 +1856,6 @@
             const numRx = parseInt(document.getElementById('numRx').value);
             const r = parseInt(document.getElementById('numStreams').value);
             const noiseVar = parseFloat(document.getElementById('noiseVar').value) || 1e-12;
-            const snrThreshold = parseFloat(document.getElementById('snrThreshold').value);
 
             if (!channelMatrix || channelMatrix.length === 0 || systemState !== 'optimized') {
                 alert('Please generate and optimize system in Simulation tab first!');
@@ -1862,43 +1867,116 @@
             const minSNR_dB = parseFloat(document.getElementById('minSNR').value);
             const maxSNR_dB = parseFloat(document.getElementById('maxSNR').value);
             const snrStep = parseFloat(document.getElementById('snrStep').value);
+            
+            // Parse user-specified SNR thresholds for marking
+            const snrThresholdsInput = document.getElementById('snrThresholds').value;
+            const userThresholds = snrThresholdsInput.split(',').map(s => parseFloat(s.trim())).filter(v => !isNaN(v));
+            
+            if (userThresholds.length === 0) {
+                alert('Please provide at least one valid SNR threshold!');
+                return;
+            }
 
             // Show loading indicator
             document.getElementById('runAnalysisBtn').textContent = 'Running Analysis...';
             document.getElementById('runAnalysisBtn').disabled = true;
 
-            // Use setTimeout to allow UI to update
             setTimeout(() => {
-                // SNR range in dB for analysis
+                // First, run Monte Carlo to get distribution of minimum stream SNRs
+                const minStreamSNRs_dB = [];
+                
+                // Use FIXED transmit power from simulation tab
+                const P_total = txPower;
+                const P_per_stream = P_total / r;
+
+                for (let trial = 0; trial < numTrials; trial++) {
+                    const H_trial = generateChannelMatrix(numTx, numRx);
+                    const svd = computeTopRSVD(H_trial, r, 40);
+                    
+                    function pickLeadersFromSVD_local(svd) {
+                        const leadersTx = [];
+                        const leadersRx = [];
+                        const rLocal = svd.V.length;
+                        for (let k = 0; k < rLocal; k++) {
+                            let bestTx = 0, bestValTx = -1;
+                            const vvec = svd.V[k];
+                            for (let j = 0; j < vvec.length; j++) {
+                                const val = cAbs2(vvec[j]);
+                                if (val > bestValTx) { bestValTx = val; bestTx = j; }
+                            }
+                            leadersTx.push(bestTx);
+
+                            let bestRx = 0, bestValRx = -1;
+                            const uvec = svd.U[k];
+                            for (let i = 0; i < uvec.length; i++) {
+                                const val = cAbs2(uvec[i]);
+                                if (val > bestValRx) { bestValRx = val; bestRx = i; }
+                            }
+                            leadersRx.push(bestRx);
+                        }
+                        return { leadersTx, leadersRx };
+                    }
+
+                    const { leadersTx, leadersRx } = pickLeadersFromSVD_local(svd);
+                    const streamStrengths = svd.S.slice(0, r);
+
+                    const txGroups = createDiversityGroupsWeakestFirst(numTx, r, leadersTx, streamStrengths);
+                    const rxGroups = createDiversityGroupsWeakestFirst(numRx, r, leadersRx, streamStrengths);
+                    
+                    let minStreamSNR_linear = Infinity;
+
+                    for (let s = 0; s < r; s++) {
+                        const txSet = txGroups[s];
+                        const rxSet = rxGroups[s];
+
+                        let totalGain = 0;
+                        for (const txIdx of txSet) {
+                            for (const rxIdx of rxSet) {
+                                const c = H_trial[rxIdx][txIdx];
+                                if (!c) continue;
+                                totalGain += (c.real * c.real + c.imag * c.imag);
+                            }
+                        }
+
+                        const snr = (P_per_stream * totalGain) / noiseVar;
+                        minStreamSNR_linear = Math.min(minStreamSNR_linear, snr);
+                    }
+
+                    const minStreamSNR_dB = 10 * Math.log10(Math.max(minStreamSNR_linear, 1e-12));
+                    minStreamSNRs_dB.push(minStreamSNR_dB);
+                }
+
+                // Now compute outage probability for range of thresholds
+                const thresholdRange_dB = [];
+                for (let threshold = minSNR_dB; threshold <= maxSNR_dB; threshold += snrStep) {
+                    thresholdRange_dB.push(threshold);
+                }
+
+                const outageProb = [];
+                for (const threshold of thresholdRange_dB) {
+                    // Count how many trials have min stream SNR below this threshold
+                    const outageCount = minStreamSNRs_dB.filter(snr => snr < threshold).length;
+                    outageProb.push(outageCount / numTrials);
+                }
+
+                // === CAPACITY VS SNR (varying transmit power) ===
                 const snrRange_dB = [];
                 for (let snr = minSNR_dB; snr <= maxSNR_dB; snr += snrStep) {
                     snrRange_dB.push(snr);
                 }
 
-                const outageProb = [];
                 const avgCapacity = [];
 
-                // Run Monte Carlo simulation
                 for (const targetSNR_dB of snrRange_dB) {
-                    // Target SNR is the average SNR per receive antenna
                     const targetSNR_linear = Math.pow(10, targetSNR_dB / 10);
+                    const P_total_var = targetSNR_linear * noiseVar;
                     
-                    // Total transmit power needed to achieve target SNR
-                    // SNR_avg = (P_total * E[|h|^2]) / noise_var
-                    // For Rayleigh: E[|h|^2] = 1, so we need P_total = SNR_avg * noise_var
-                    const P_total = targetSNR_linear * noiseVar;
-                    
-                    let outageCount = 0;
                     let totalCapacity = 0;
 
                     for (let trial = 0; trial < numTrials; trial++) {
-                        // Generate new random channel realization
                         const H_trial = generateChannelMatrix(numTx, numRx);
-                        
-                        // Perform SVD to get top r modes
                         const svd = computeTopRSVD(H_trial, r, 40);
                         
-                        // Pick leader antennas based on SVD vectors
                         function pickLeadersFromSVD_local(svd) {
                             const leadersTx = [];
                             const leadersRx = [];
@@ -1926,23 +2004,16 @@
                         const { leadersTx, leadersRx } = pickLeadersFromSVD_local(svd);
                         const streamStrengths = svd.S.slice(0, r);
 
-                        // Allocate diversity antennas (weakest stream gets first diversity antenna)
                         const txGroups = createDiversityGroupsWeakestFirst(numTx, r, leadersTx, streamStrengths);
                         const rxGroups = createDiversityGroupsWeakestFirst(numRx, r, leadersRx, streamStrengths);
 
-                        // Equal power per stream
-                        const P_per_stream = P_total / r;
-                        
-                        let minStreamSNR_dB = Infinity;
+                        const P_per_stream_var = P_total_var / r;
                         let trialCapacity = 0;
 
-                        // Calculate SNR for each stream INCLUDING diversity gain
                         for (let s = 0; s < r; s++) {
                             const txSet = txGroups[s];
                             const rxSet = rxGroups[s];
 
-                            // Compute effective channel gain with diversity
-                            // This is the sum of |h_ij|^2 over all TX-RX pairs in this stream
                             let totalGain = 0;
                             for (const txIdx of txSet) {
                                 for (const rxIdx of rxSet) {
@@ -1952,37 +2023,26 @@
                                 }
                             }
 
-                            // SNR for this stream with diversity gain
-                            // SNR_s = (P_per_stream * total_gain) / noise_var
-                            const snr = (P_per_stream * totalGain) / noiseVar;
-                            const snr_dB = 10 * Math.log10(Math.max(snr, 1e-12));
-                            
-                            minStreamSNR_dB = Math.min(minStreamSNR_dB, snr_dB);
+                            const snr = (P_per_stream_var * totalGain) / noiseVar;
                             trialCapacity += Math.log2(1 + snr);
                         }
 
-                        // Check for outage
-                        if (minStreamSNR_dB < snrThreshold) {
-                            outageCount++;
-                        }
                         totalCapacity += trialCapacity;
                     }
 
-                    outageProb.push(outageCount / numTrials);
                     avgCapacity.push(totalCapacity / numTrials);
                 }
 
                 // Plot results
-                plotOutageProbability('outageCanvas', snrRange_dB, outageProb, snrThreshold);
+                plotOutageProbability('outageCanvas', thresholdRange_dB, outageProb, userThresholds);
                 plotCapacity('capacityCanvas', snrRange_dB, avgCapacity);
 
-                // Reset button
                 document.getElementById('runAnalysisBtn').textContent = 'Run Analysis';
                 document.getElementById('runAnalysisBtn').disabled = false;
             }, 100);
         }
 
-        function plotOutageProbability(canvasId, snrRange, outageProb, threshold) {
+        function plotOutageProbability(canvasId, thresholdRange, outageProb, userThresholds) {
             const canvas = document.getElementById(canvasId);
             const ctx = canvas.getContext('2d');
 
@@ -2021,22 +2081,33 @@
                 ctx.stroke();
             }
 
-            // Fix: use the passed arrays (no stray dots)
-            const minSNR = Math.min(...snrRange);
-            const maxSNR = Math.max(...snrRange);
+            const minThreshold = Math.min(...thresholdRange);
+            const maxThreshold = Math.max(...thresholdRange);
+            const yMax = 1.0;
 
-            // Determine y-axis range based on data (outageProb in [0,1]) — allow a little margin
-            const maxOutage = Math.max(1, Math.max(...outageProb)); // ensure 1 is available for full scale
-            const yMax = Math.min(1.0, maxOutage); // usually 1.0
+            // Helper function to interpolate outage probability at a given SNR
+            function interpolateOutage(targetSNR) {
+                if (targetSNR < minThreshold || targetSNR > maxThreshold) return null;
+                
+                let i = 0;
+                while (i < thresholdRange.length && thresholdRange[i] < targetSNR) i++;
+                
+                if (i === 0) return outageProb[0];
+                if (i >= thresholdRange.length) return outageProb[outageProb.length - 1];
+                
+                const x0 = thresholdRange[i - 1], x1 = thresholdRange[i];
+                const y0 = outageProb[i - 1], y1 = outageProb[i];
+                const t = (targetSNR - x0) / (x1 - x0);
+                return y0 + t * (y1 - y0);
+            }
 
-            // Plot curve (outageProb already 0..1)
+            // Plot main outage curve (should be INCREASING with threshold)
             ctx.strokeStyle = '#F5365C';
             ctx.lineWidth = 3;
             ctx.beginPath();
 
-            snrRange.forEach((snr, i) => {
-                const x = padding + ((snr - minSNR) / (maxSNR - minSNR)) * plotWidth;
-                // scale outage to [0..plotHeight] using yMax (usually 1.0)
+            thresholdRange.forEach((threshold, i) => {
+                const x = padding + ((threshold - minThreshold) / (maxThreshold - minThreshold)) * plotWidth;
                 const y = canvas.height - padding - (outageProb[i] / yMax) * plotHeight;
 
                 if (i === 0) ctx.moveTo(x, y);
@@ -2044,29 +2115,59 @@
             });
             ctx.stroke();
 
-            // Draw threshold line (same as before)
-            if (threshold >= minSNR && threshold <= maxSNR) {
-                const thresholdX = padding + ((threshold - minSNR) / (maxSNR - minSNR)) * plotWidth;
-                ctx.strokeStyle = '#FF9800';
+            // Define colors for threshold markers
+            const thresholdColors = ['#2DCE89', '#11CDEF', '#F7B924', '#8965E0', '#FB6340', '#5E72E4'];
+
+            // Draw vertical lines at user-specified thresholds and mark intersections
+            userThresholds.forEach((threshold, idx) => {
+                if (threshold < minThreshold || threshold > maxThreshold) return;
+                
+                const color = thresholdColors[idx % thresholdColors.length];
+                const snrX = padding + ((threshold - minThreshold) / (maxThreshold - minThreshold)) * plotWidth;
+                
+                const outageAtThreshold = interpolateOutage(threshold);
+                if (outageAtThreshold === null) return;
+                
+                const outageY = canvas.height - padding - (outageAtThreshold / yMax) * plotHeight;
+                
+                // Draw vertical line
+                ctx.strokeStyle = color;
                 ctx.lineWidth = 2;
                 ctx.setLineDash([5, 5]);
                 ctx.beginPath();
-                ctx.moveTo(thresholdX, padding);
-                ctx.lineTo(thresholdX, canvas.height - padding);
+                ctx.moveTo(snrX, canvas.height - padding);
+                ctx.lineTo(snrX, outageY);
+                ctx.stroke();
+                
+                // Draw horizontal line
+                ctx.beginPath();
+                ctx.moveTo(padding, outageY);
+                ctx.lineTo(snrX, outageY);
                 ctx.stroke();
                 ctx.setLineDash([]);
-
-                ctx.fillStyle = '#FF9800';
-                ctx.font = 'bold 11px Arial';
+                
+                // Mark intersection point
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.arc(snrX, outageY, 5, 0, 2 * Math.PI);
+                ctx.fill();
+                
+                // Add label at bottom
+                ctx.fillStyle = color;
+                ctx.font = 'bold 10px Arial';
                 ctx.textAlign = 'center';
-                ctx.fillText(`Threshold: ${threshold} dB`, thresholdX, padding - 10);
-            }
+                ctx.fillText(`${threshold.toFixed(1)} dB`, snrX, canvas.height - padding + 35);
+                
+                // Add outage probability label on y-axis
+                ctx.textAlign = 'right';
+                ctx.fillText(`P=${outageAtThreshold.toFixed(3)}`, padding - 5, outageY - 5);
+            });
 
             // Labels
             ctx.fillStyle = '#333';
             ctx.font = 'bold 13px Arial';
             ctx.textAlign = 'center';
-            ctx.fillText('SNR (dB)', canvas.width / 2, canvas.height - 15);
+            ctx.fillText('SNR Threshold (dB)', canvas.width / 2, canvas.height - 15);
 
             ctx.save();
             ctx.translate(20, canvas.height / 2);
@@ -2074,28 +2175,27 @@
             ctx.fillText('Outage Probability', 0, 0);
             ctx.restore();
 
-            // Axis ticks (SNR)
+            // Axis ticks
             ctx.font = '11px Arial';
             ctx.fillStyle = '#666';
             ctx.textAlign = 'center';
-            const snrTicks = 5;
-            for (let i = 0; i <= snrTicks; i++) {
-                const val = minSNR + (maxSNR - minSNR) * i / snrTicks;
-                const x = padding + plotWidth * i / snrTicks;
+            const thresholdTicks = 5;
+            for (let i = 0; i <= thresholdTicks; i++) {
+                const val = minThreshold + (maxThreshold - minThreshold) * i / thresholdTicks;
+                const x = padding + plotWidth * i / thresholdTicks;
                 ctx.fillText(val.toFixed(0), x, canvas.height - padding + 18);
             }
 
-            // Y ticks: use 0..1 range (or you could choose 0..0.5 / 0..0.2 depending on desired zoom)
             ctx.textAlign = 'right';
             const yTicks = 5;
             for (let i = 0; i <= yTicks; i++) {
-                const val = (i / yTicks) * yMax; // 0..yMax
+                const val = (i / yTicks) * yMax;
                 const y = canvas.height - padding - (val / yMax) * plotHeight;
                 ctx.fillText(val.toFixed(2), padding - 10, y + 4);
             }
         }
 
-
+        // Keep the capacity plot function unchanged (it already plots vs SNR correctly)
         function plotCapacity(canvasId, snrRange, capacity) {
             const canvas = document.getElementById(canvasId);
             const ctx = canvas.getContext('2d');
