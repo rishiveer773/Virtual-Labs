@@ -440,93 +440,131 @@
         /* ---------- Compact card-style Instructions (smaller text) ---------- */
         .instructions-card {
             position: relative;
-            width: calc(100% - 48px);
-            max-width: 1200px;
-            margin: 14px auto;
+            width: calc(100% - 40px);
+            max-width: 1800px;
+            margin: 20px auto;
             background: #fff;
-            border-radius: 14px;
-            border: 2px solid rgba(0,0,0,0.55);
-            box-shadow: 0 6px 16px rgba(0,0,0,0.07);
-            padding: 18px 24px;
+            border-radius: 12px;
+            border: 1px solid rgba(100,110,230,0.12);
+            box-shadow: 0 6px 22px rgba(28,35,80,0.05);
+            padding: 14px 18px;
             box-sizing: border-box;
             font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             color: #1f2a44;
-            z-index: 1100;
-            }
+            z-index: 3;
+        }
 
-            .instructions-card .title {
-            text-align: center;
-            font-size: 22px;
+        /* title + summary wrapper */
+        .instructions-card .title {
+            display: inline-block;
+            font-size: 18px;
             font-weight: 700;
             color: #4b6ef6;
-            margin: 4px 0 12px;
-            }
+            margin: 0;
+            vertical-align: middle;
+        }
 
-            .instructions-card summary {
+        /* use native details/summary but style summary children */
+        .instructions-card summary {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
             list-style: none;
             cursor: pointer;
-            }
+            padding: 6px 0;
+        }
 
-            .instructions-card .chev-wrap {
-            position: absolute;
-            right: 14px;
-            top: 10px;
-            }
+        /* chevron container on the right */
+        .instructions-card .chev-wrap {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 30px;
+            height: 30px;
+            border-radius: 6px;
+            transition: transform .18s ease;
+            margin-left: 12px;
+        }
 
-            .instructions-card .chev {
-            width: 9px;
-            height: 9px;
+        /* visible chevron arrow */
+        .instructions-card .chev {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
             border-right: 2px solid #4b6ef6;
             border-bottom: 2px solid #4b6ef6;
             transform: rotate(45deg);
             transition: transform .18s ease;
-            }
-
-            .instructions-card[open] .chev {
-            transform: rotate(225deg);
-            }
-
-            /* Smaller content */
-            .instructions-body {
-            max-height: 520px;
-            overflow: auto;
-            padding-top: 4px;
-            }
-
-            .instructions-body ol {
-            margin: 0;
-            padding-left: 22px;
-            }
-
-            .instructions-body ol li {
-            margin: 8px 0;
-            font-size: 15px;
-            line-height: 1.45;
-            }
-
-            .instructions-body li strong {
-            font-weight: 700;
-            color: #1d2438;
-            }
-
-            .instructions-body li span {
-            color: #4a5063;
-            font-weight: 500;
-            }
-
-            /* Responsive tweaks */
-            @media (max-width: 700px) {
-            .instructions-card {
-                padding: 14px;
-                width: calc(100% - 24px);
-            }
-            .instructions-card .title {
-                font-size: 18px;
-            }
-            .instructions-body ol li {
-                font-size: 14px;
-            }
         }
+
+        /* rotate when open */
+        .instructions-card[open] .chev {
+            transform: rotate(-135deg);
+        }
+
+        /* instructions content */
+        .instructions-body {
+            max-height: 460px;
+            overflow: auto;
+            padding-top: 8px;
+            padding-left: 6px;
+        }
+
+        .instructions-body ol {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .instructions-body ol li {
+            margin: 8px 0;
+            font-size: 14px;
+            line-height: 1.45;
+        }
+        .instructions-body li strong { font-weight: 700; color: #1d2438; }
+        .instructions-body li span { color: #4a5063; font-weight: 500; }
+
+        /* responsive tweaks */
+        @media (max-width: 900px) {
+            .instructions-card { padding: 12px; }
+            .instructions-card .title { font-size: 16px; }
+            .instructions-body ol li { font-size: 13px; }
+        }
+
+        /* Outage legend container placed below the plot - outside the canvas */
+        .outage-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 12px;
+            padding: 12px;
+            background: #ffffff;
+            border-radius: 8px;
+            border: 1px solid #eef2ff;
+            box-shadow: 0 4px 12px rgba(20,30,80,0.03);
+        }
+
+        /* each legend item */
+        .outage-legend .legend-entry {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #2b3546;
+            padding: 6px 8px;
+            border-radius: 6px;
+            background: #fbfbff;
+            border: 1px solid #f1f5ff;
+        }
+
+        .outage-legend .legend-color {
+            width: 14px;
+            height: 14px;
+            border-radius: 3px;
+            box-shadow: 0 1px 0 rgba(0,0,0,0.06) inset;
+        }
+
+        /* compact label/value layout */
+        .outage-legend .legend-label { font-weight: 600; color: #344; }
+        .outage-legend .legend-value { margin-left: 6px; font-weight: 700; color: #0b2240; }
     </style>
 </head>
 <body>
@@ -535,29 +573,31 @@
         <button class="tab-btn" onclick="switchTab('analysis')">Analysis</button>
     </div>
 
-    <div class="instructions-card" role="region" aria-label="Instructions panel">
-  <details id="instructionsCard" open>
-    <summary aria-controls="instrBody" aria-expanded="true" tabindex="0">
-      <div class="chev-wrap" aria-hidden="true"><span class="chev"></span></div>
-      <div class="title">Instructions</div>
-    </summary>
-
-    <div id="instrBody" class="instructions-body" role="document">
-        <ol>
-            <li><strong>Getting Started:</strong> <span>This simulation demonstrates the complete OFDM (Orthogonal Frequency Division Multiplexing) signal processing chain from transmitter to receiver.</span></li>
-            <li><strong>Configure Parameters:</strong> <span>Set FFT size (N), number of data subcarriers, modulation (BPSK/QPSK/16-QAM), cyclic prefix length, SNR, and equalizer method.</span></li>
-            <li><strong>Run Simulation:</strong> <span>Click "Run Simulation" to process the OFDM signal through the entire transmit–receive chain.</span></li>
-            <li><strong>Navigate Through Blocks:</strong> <span>Use "Next" / "Previous" to step through each processing block (S/P → Mapping → IDFT → Add CP → Channel → AWGN → Remove CP → FFT → Equalizer → Demapping + P/S).</span></li>
-            <li><strong>Observe Block Diagram:</strong> <span>Watch each block highlight to show the current processing stage.</span></li>
-            <li><strong>Analyze Outputs:</strong> <span>View constellation diagrams for transmitted/received symbols and examine the frequency spectrum at different stages.</span></li>
-            <li><strong>Understand Impact:</strong> <span>See how channel effects and noise affect the signal and how equalization recovers data.</span></li>
-            <li><strong>Experiment:</strong> <span>Try different modulations, SNRs, and equalizers to study their effect on signal quality.</span></li>
-        </ol>
-        </div>
-    </details>
-    </div>
-
     <div id="simulationSection" class="page-section active">
+        <!-- ===== Instructions card (place inside #simulationSection BEFORE .container) ===== -->
+        <div class="instructions-card" role="region" aria-label="Instructions panel">
+        <details id="instructionsCard" open>
+            <summary aria-controls="instrBody" aria-expanded="true" tabindex="0">
+            <div style="display:flex; align-items:center; gap:12px; width:100%;">
+                <div style="flex:1; text-align:center;"><span class="title">Instructions</span></div>
+                <div class="chev-wrap" aria-hidden="true"><span class="chev"></span></div>
+            </div>
+            </summary>
+
+            <div id="instrBody" class="instructions-body" role="document">
+            <ol>
+                <li><strong>Overview:</strong> <span>This experiment has two tabs: <strong>Simulation</strong> (single system visualization) and <strong>Analysis</strong> (Monte Carlo performance analysis).</span></li>
+                <li><strong>Simulation Tab:</strong> <span>Configure a MIMO system with N<sub>t</sub> transmit antennas, N<sub>r</sub> receive antennas, and r spatial streams. Click "Generate System" to create a random Rayleigh channel, then "Optimize System" to allocate antennas using SVD-based multiplexing with diversity reinforcement. Weakest streams receive additional diversity antennas first.</span></li>
+                <li><strong>Parameter Guidelines:</strong> <span>Ensure r ≤ min(N<sub>t</sub>, N<sub>r</sub>). Set transmit power (P), noise variance (σ²), and SNR threshold for outage detection. The tradeoff curve shows multiplexing gain r vs diversity gain d(r) = (N<sub>t</sub> - r)(N<sub>r</sub> - r).</span></li>
+                <li><strong>Analysis Tab:</strong> <span>After optimizing the system in Simulation, switch to Analysis to run Monte Carlo trials. Specify multiple SNR thresholds (comma-separated) to compute outage probability curves. The analysis varies transmit power across SNR range to plot capacity vs SNR and outage probability vs threshold.</span></li>
+                <li><strong>Interpreting Results:</strong> <span>In Simulation, compare stream SNRs—outage streams are marked red. In Analysis, outage curves show P<sub>outage</sub> = Pr(min stream SNR < threshold). Each threshold marker appears in the legend below the plot with its outage probability. Capacity increases with SNR and multiplexing level r.</span></li>
+                <li><strong>Experimentation:</strong> <span>Try different (N<sub>t</sub>, N<sub>r</sub>, r) combinations to observe the diversity-multiplexing tradeoff. Low r (more diversity) reduces outage but limits throughput. High r (more multiplexing) increases capacity but raises outage risk at low SNR. Use "Reset" to start fresh.</span></li>
+            </ol>
+        </div>
+        </details>
+        </div>
+        <!-- ===== end instructions card ===== -->
+
         <div class="container">
             <!-- Left Panel: Inputs -->
             <div class="panel">
@@ -687,6 +727,7 @@
                         <h3>Outage Probability vs SNR</h3>
                         <canvas id="outageCanvas"></canvas>
                         <p class="chart-description">P<sub>outage</sub> = Pr(min stream SNR < threshold)</p>
+                        <div id="outageLegend" class="outage-legend"></div>
                     </div>
 
                     <div class="analysis-chart">
@@ -2085,6 +2126,9 @@
             const maxThreshold = Math.max(...thresholdRange);
             const yMax = 1.0;
 
+            // Define colors for threshold markers (ADD THIS)
+            const thresholdColors = ['#2DCE89', '#11CDEF', '#F7B924', '#8965E0', '#FB6340', '#5E72E4'];
+
             // Helper function to interpolate outage probability at a given SNR
             function interpolateOutage(targetSNR) {
                 if (targetSNR < minThreshold || targetSNR > maxThreshold) return null;
@@ -2115,10 +2159,10 @@
             });
             ctx.stroke();
 
-            // Define colors for threshold markers
-            const thresholdColors = ['#2DCE89', '#11CDEF', '#F7B924', '#8965E0', '#FB6340', '#5E72E4'];
+            // Remove the old label drawing code and replace with legend creation
+            const legendContainer = document.getElementById('outageLegend');
+            legendContainer.innerHTML = '';
 
-            // Draw vertical lines at user-specified thresholds and mark intersections
             userThresholds.forEach((threshold, idx) => {
                 if (threshold < minThreshold || threshold > maxThreshold) return;
                 
@@ -2152,15 +2196,15 @@
                 ctx.arc(snrX, outageY, 5, 0, 2 * Math.PI);
                 ctx.fill();
                 
-                // Add label at bottom
-                ctx.fillStyle = color;
-                ctx.font = 'bold 10px Arial';
-                ctx.textAlign = 'center';
-                ctx.fillText(`${threshold.toFixed(1)} dB`, snrX, canvas.height - padding + 35);
-                
-                // Add outage probability label on y-axis
-                ctx.textAlign = 'right';
-                ctx.fillText(`P=${outageAtThreshold.toFixed(3)}`, padding - 5, outageY - 5);
+                // Create legend entry
+                const legendEntry = document.createElement('div');
+                legendEntry.className = 'legend-entry';
+                legendEntry.innerHTML = `
+                    <div class="legend-color" style="background-color: ${color};"></div>
+                    <span class="legend-label">SNR = ${threshold.toFixed(1)} dB:</span>
+                    <span class="legend-value">P<sub>outage</sub> = ${outageAtThreshold.toFixed(3)}</span>
+                `;
+                legendContainer.appendChild(legendEntry);
             });
 
             // Labels
