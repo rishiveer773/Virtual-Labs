@@ -661,7 +661,6 @@
 
                 <div class="output-item" id="matrixSection" style="display: none;">
                     <div class="matrix-display" id="matrixDisplay"></div>
-                    <small>Complex values: a + bi</small>
                 </div>
 
                 <div class="output-item" id="tradeoffSection" style="display: none;">
@@ -724,16 +723,20 @@
                 
                 <div class="charts-container">
                     <div class="analysis-chart">
-                        <h3>Outage Probability vs SNR</h3>
+                        <h3>Outage Probability vs SNR</h3><br>
+                        <p class="chart-description" style="font-family: 'Times New Roman', serif; font-size: 20px; font-style: italic;">
+                            P<sub>out</sub> = Pr{γ<sub>min</sub> < γ<sub>th</sub>}
+                        </p><br>
                         <canvas id="outageCanvas"></canvas>
-                        <p class="chart-description">P<sub>outage</sub> = Pr(min stream SNR < threshold)</p>
                         <div id="outageLegend" class="outage-legend"></div>
                     </div>
 
                     <div class="analysis-chart">
-                        <h3>Total Capacity vs SNR</h3>
+                        <h3>Total Capacity vs SNR</h3><br>
+                        <p class="chart-description" style="font-family: 'Times New Roman', serif; font-size: 20px; font-style: italic;">
+                            C = Σ<sub>i=1</sub><sup>r</sup> log₂(1 + γ<sub>i</sub>) bits/s/Hz
+                        </p><br>
                         <canvas id="capacityCanvas"></canvas>
-                        <p class="chart-description">C = Σ log₂(1 + SNR<sub>i</sub>) bits/s/Hz</p>
                     </div>
                 </div>
             </div>
